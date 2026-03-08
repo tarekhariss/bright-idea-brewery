@@ -34,7 +34,7 @@ import ProspectEnrichPage from "./pages/search/ProspectEnrich";
 import DataEnrichmentPage from "./pages/search/DataEnrichment";
 
 // Engage pages
-import SequencesPage from "./pages/engage/Sequences";
+import SequencesListPage from "./pages/engage/SequencesPage";
 import EmailsPage from "./pages/engage/Emails";
 import CallsPage from "./pages/engage/Calls";
 import TasksPage from "./pages/engage/Tasks";
@@ -45,8 +45,13 @@ import ConversationsPage from "./pages/deals/Conversations";
 import DealsPage from "./pages/deals/DealsPage";
 
 // Tools pages
-import WorkflowsPage from "./pages/tools/Workflows";
+import WorkflowsListPage from "./pages/tools/WorkflowsPage";
 import AnalyticsPage from "./pages/tools/AnalyticsPage";
+
+// Deliverability pages
+import DeliverabilityOverview from "./pages/settings/deliverability/DeliverabilityOverview";
+import DomainsPage from "./pages/settings/deliverability/DomainsPage";
+import MailboxesPage from "./pages/settings/deliverability/MailboxesPage";
 
 // Settings pages
 import SettingsIndex from "./pages/settings/SettingsIndex";
