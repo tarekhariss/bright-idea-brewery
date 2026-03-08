@@ -254,6 +254,61 @@ export type Database = {
           },
         ]
       }
+      campaign_enrollments: {
+        Row: {
+          campaign_id: string
+          contact_id: string
+          created_at: string | null
+          current_step_id: string | null
+          id: string
+          last_step_executed_at: string | null
+          scheduled_start: string | null
+          status: Database["public"]["Enums"]["campaign_enrollment_status"]
+        }
+        Insert: {
+          campaign_id: string
+          contact_id: string
+          created_at?: string | null
+          current_step_id?: string | null
+          id?: string
+          last_step_executed_at?: string | null
+          scheduled_start?: string | null
+          status?: Database["public"]["Enums"]["campaign_enrollment_status"]
+        }
+        Update: {
+          campaign_id?: string
+          contact_id?: string
+          created_at?: string | null
+          current_step_id?: string | null
+          id?: string
+          last_step_executed_at?: string | null
+          scheduled_start?: string | null
+          status?: Database["public"]["Enums"]["campaign_enrollment_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_enrollments_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_enrollments_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_enrollments_current_step_id_fkey"
+            columns: ["current_step_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       campaign_mailboxes: {
         Row: {
           campaign_id: string
@@ -333,6 +388,105 @@ export type Database = {
             columns: ["campaign_id"]
             isOneToOne: true
             referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_step_executions: {
+        Row: {
+          created_at: string | null
+          enrollment_id: string
+          executed_at: string | null
+          id: string
+          notes: string | null
+          scheduled_at: string | null
+          status: Database["public"]["Enums"]["campaign_step_execution_status"]
+          step_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          enrollment_id: string
+          executed_at?: string | null
+          id?: string
+          notes?: string | null
+          scheduled_at?: string | null
+          status?: Database["public"]["Enums"]["campaign_step_execution_status"]
+          step_id: string
+        }
+        Update: {
+          created_at?: string | null
+          enrollment_id?: string
+          executed_at?: string | null
+          id?: string
+          notes?: string | null
+          scheduled_at?: string | null
+          status?: Database["public"]["Enums"]["campaign_step_execution_status"]
+          step_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_step_executions_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_enrollments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_step_executions_step_id_fkey"
+            columns: ["step_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_steps: {
+        Row: {
+          campaign_id: string
+          created_at: string | null
+          delay_days: number
+          delay_hours: number
+          email_template_id: string | null
+          id: string
+          step_order: number
+          step_type: Database["public"]["Enums"]["campaign_step_type"]
+          task_description: string | null
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string | null
+          delay_days?: number
+          delay_hours?: number
+          email_template_id?: string | null
+          id?: string
+          step_order?: number
+          step_type?: Database["public"]["Enums"]["campaign_step_type"]
+          task_description?: string | null
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string | null
+          delay_days?: number
+          delay_hours?: number
+          email_template_id?: string | null
+          id?: string
+          step_order?: number
+          step_type?: Database["public"]["Enums"]["campaign_step_type"]
+          task_description?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_steps_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_steps_email_template_id_fkey"
+            columns: ["email_template_id"]
+            isOneToOne: false
+            referencedRelation: "email_templates"
             referencedColumns: ["id"]
           },
         ]
@@ -691,6 +845,57 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "contact_activity_log_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contact_outreach_history: {
+        Row: {
+          campaign_id: string | null
+          contact_id: string
+          created_at: string | null
+          emails_sent: number
+          id: string
+          last_contacted_at: string | null
+          linkedin_actions: number
+          tasks_completed: number
+          updated_at: string | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          contact_id: string
+          created_at?: string | null
+          emails_sent?: number
+          id?: string
+          last_contacted_at?: string | null
+          linkedin_actions?: number
+          tasks_completed?: number
+          updated_at?: string | null
+        }
+        Update: {
+          campaign_id?: string | null
+          contact_id?: string
+          created_at?: string | null
+          emails_sent?: number
+          id?: string
+          last_contacted_at?: string | null
+          linkedin_actions?: number
+          tasks_completed?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_outreach_history_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_outreach_history_contact_id_fkey"
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "contacts"
@@ -2251,6 +2456,38 @@ export type Database = {
           },
         ]
       }
+      mailbox_rotation_state: {
+        Row: {
+          emails_sent_today: number
+          id: string
+          last_reset_date: string | null
+          last_sent_at: string | null
+          mailbox_id: string
+        }
+        Insert: {
+          emails_sent_today?: number
+          id?: string
+          last_reset_date?: string | null
+          last_sent_at?: string | null
+          mailbox_id: string
+        }
+        Update: {
+          emails_sent_today?: number
+          id?: string
+          last_reset_date?: string | null
+          last_sent_at?: string | null
+          mailbox_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mailbox_rotation_state_mailbox_id_fkey"
+            columns: ["mailbox_id"]
+            isOneToOne: true
+            referencedRelation: "mailboxes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mailbox_warmup_settings: {
         Row: {
           created_at: string | null
@@ -3056,6 +3293,44 @@ export type Database = {
           },
         ]
       }
+      sequence_safety_rules: {
+        Row: {
+          cooldown_days: number
+          created_at: string | null
+          id: string
+          max_emails_per_contact: number
+          max_emails_per_domain: number
+          updated_at: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          cooldown_days?: number
+          created_at?: string | null
+          id?: string
+          max_emails_per_contact?: number
+          max_emails_per_domain?: number
+          updated_at?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          cooldown_days?: number
+          created_at?: string | null
+          id?: string
+          max_emails_per_contact?: number
+          max_emails_per_domain?: number
+          updated_at?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sequence_safety_rules_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: true
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sequence_steps: {
         Row: {
           ab_variant: string | null
@@ -3263,6 +3538,7 @@ export type Database = {
       tasks: {
         Row: {
           assigned_to: string | null
+          campaign_id: string | null
           company_id: string | null
           completed_at: string | null
           contact_id: string | null
@@ -3283,6 +3559,7 @@ export type Database = {
         }
         Insert: {
           assigned_to?: string | null
+          campaign_id?: string | null
           company_id?: string | null
           completed_at?: string | null
           contact_id?: string | null
@@ -3303,6 +3580,7 @@ export type Database = {
         }
         Update: {
           assigned_to?: string | null
+          campaign_id?: string | null
           company_id?: string | null
           completed_at?: string | null
           contact_id?: string | null
@@ -3322,6 +3600,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "tasks_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tasks_company_id_fkey"
             columns: ["company_id"]
@@ -3544,7 +3829,19 @@ export type Database = {
         | "bounced"
         | "opted_out"
         | "meeting_booked"
+      campaign_enrollment_status: "pending" | "active" | "completed" | "stopped"
       campaign_status: "draft" | "active" | "paused" | "completed"
+      campaign_step_execution_status:
+        | "scheduled"
+        | "completed"
+        | "skipped"
+        | "failed"
+      campaign_step_type:
+        | "email"
+        | "linkedin_connect"
+        | "linkedin_message"
+        | "task"
+        | "delay"
       connection_status: "active" | "disconnected" | "warming" | "error"
       deal_status: "open" | "won" | "lost" | "abandoned"
       dns_record_status: "pending" | "pass" | "fail"
@@ -3798,7 +4095,21 @@ export const Constants = {
         "opted_out",
         "meeting_booked",
       ],
+      campaign_enrollment_status: ["pending", "active", "completed", "stopped"],
       campaign_status: ["draft", "active", "paused", "completed"],
+      campaign_step_execution_status: [
+        "scheduled",
+        "completed",
+        "skipped",
+        "failed",
+      ],
+      campaign_step_type: [
+        "email",
+        "linkedin_connect",
+        "linkedin_message",
+        "task",
+        "delay",
+      ],
       connection_status: ["active", "disconnected", "warming", "error"],
       deal_status: ["open", "won", "lost", "abandoned"],
       dns_record_status: ["pending", "pass", "fail"],

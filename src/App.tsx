@@ -39,6 +39,7 @@ import EmailsPage from "./pages/engage/Emails";
 import CallsPage from "./pages/engage/Calls";
 import TasksPage from "./pages/engage/Tasks";
 import CampaignsPage from "./pages/engage/CampaignsPage";
+import CampaignDetailPage from "./pages/engage/CampaignDetailPage";
 import EmailTemplatesPage from "./pages/engage/EmailTemplatesPage";
 import InboxPage from "./pages/engage/InboxPage";
 
@@ -123,6 +124,7 @@ const App = () => (
             <Route path="/engage/calls" element={<PL><CallsPage /></PL>} />
             <Route path="/engage/tasks" element={<PL><TasksPage /></PL>} />
             <Route path="/engage/campaigns" element={<PL><CampaignsPage /></PL>} />
+            <Route path="/engage/campaigns/:id" element={<PL><CampaignDetailPage /></PL>} />
             <Route path="/engage/templates" element={<PL><EmailTemplatesPage /></PL>} />
             <Route path="/engage/inbox" element={<PL><InboxPage /></PL>} />
 

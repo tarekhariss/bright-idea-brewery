@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Megaphone, Plus, MoreHorizontal, Play, Pause, Archive,
   Mail, Users, BarChart3, Loader2,
@@ -29,6 +30,7 @@ const statusBadge = (s: string) => {
 };
 
 export default function CampaignsPage() {
+  const navigate = useNavigate();
   const { data: campaigns, isLoading } = useCampaigns();
   const createCampaign = useCreateCampaign();
   const updateCampaign = useUpdateCampaign();
@@ -98,7 +100,7 @@ export default function CampaignsPage() {
               {campaigns.map((c) => {
                 const stats = c.campaign_stats?.[0];
                 return (
-                  <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50">
+                  <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/engage/campaigns/${c.id}`)}>
                     <TableCell>
                       <p className="text-sm font-medium">{c.name}</p>
                       {c.description && <p className="text-[10px] text-muted-foreground">{c.description}</p>}

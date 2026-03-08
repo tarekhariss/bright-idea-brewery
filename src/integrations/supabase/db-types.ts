@@ -29,6 +29,9 @@ export type CampaignStatus = "draft" | "active" | "paused" | "completed";
 export type CampaignContactStatus = "pending" | "sent" | "replied" | "bounced" | "opted_out" | "meeting_booked";
 export type InboxThreadStatus = "open" | "snoozed" | "closed" | "archived";
 export type MeetingStatus = "scheduled" | "completed" | "cancelled" | "no_show";
+export type CampaignStepType = "email" | "linkedin_connect" | "linkedin_message" | "task" | "delay";
+export type CampaignEnrollmentStatus = "pending" | "active" | "completed" | "stopped";
+export type CampaignStepExecutionStatus = "scheduled" | "completed" | "skipped" | "failed";
 export type ActivityType =
   | "email_sent" | "email_opened" | "email_clicked" | "email_replied" | "email_bounced"
   | "call_made" | "call_received"

@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   CheckSquare, Plus, Loader2, MoreHorizontal, Check, Clock, AlertCircle,
+  Filter, Linkedin, Mail, Phone, Users,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { useTasks, useCreateTask, useUpdateTask } from "@/hooks/use-engage";
@@ -39,6 +41,15 @@ const priorityBadge = (p: string) => {
   return <Badge className={`${m.cls} text-[10px] capitalize`}>{p}</Badge>;
 };
 
+const typeIcon = (t: string) => {
+  switch (t) {
+    case "linkedin_connect": case "linkedin_message": case "linkedin": return <Linkedin className="h-3 w-3" />;
+    case "email": return <Mail className="h-3 w-3" />;
+    case "call": return <Phone className="h-3 w-3" />;
+    default: return <CheckSquare className="h-3 w-3" />;
+  }
+};
+
 export default function TasksPage() {
   const { data: tasks, isLoading } = useTasks();
   const createTask = useCreateTask();
@@ -50,6 +61,26 @@ export default function TasksPage() {
   const [priority, setPriority] = useState("medium");
   const [taskType, setTaskType] = useState("general");
   const [dueDate, setDueDate] = useState("");
+  const [filterTab, setFilterTab] = useState("all");
+
+  const filtered = useMemo(() => {
+    if (!tasks) return [];
+    if (filterTab === "all") return tasks;
+    if (filterTab === "pending") return tasks.filter((t: any) => t.status === "pending" || t.status === "in_progress");
+    if (filterTab === "completed") return tasks.filter((t: any) => t.status === "completed");
+    if (filterTab === "linkedin") return tasks.filter((t: any) => ["linkedin", "linkedin_connect", "linkedin_message"].includes(t.task_type));
+    return tasks;
+  }, [tasks, filterTab]);
+
+  const counts = useMemo(() => {
+    if (!tasks) return { all: 0, pending: 0, completed: 0, linkedin: 0 };
+    return {
+      all: tasks.length,
+      pending: tasks.filter((t: any) => t.status === "pending" || t.status === "in_progress").length,
+      completed: tasks.filter((t: any) => t.status === "completed").length,
+      linkedin: tasks.filter((t: any) => ["linkedin", "linkedin_connect", "linkedin_message"].includes(t.task_type)).length,
+    };
+  }, [tasks]);
 
   const handleCreate = async () => {
     if (!title.trim()) return;
@@ -77,7 +108,7 @@ export default function TasksPage() {
           </div>
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Tasks</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Track and manage outreach tasks, follow-ups, and action items.</p>
+            <p className="text-sm text-muted-foreground mt-0.5">Manage outreach tasks, LinkedIn actions, and manual follow-ups.</p>
           </div>
         </div>
         <Button size="sm" className="gap-1.5 text-xs" onClick={() => setCreateOpen(true)}>
@@ -85,21 +116,44 @@ export default function TasksPage() {
         </Button>
       </div>
 
+      {/* Summary Cards */}
+      <div className="grid grid-cols-4 gap-3">
+        {[
+          { label: "Total", value: counts.all, color: "text-foreground" },
+          { label: "Pending", value: counts.pending, color: "text-amber-600" },
+          { label: "Completed", value: counts.completed, color: "text-emerald-600" },
+          { label: "LinkedIn", value: counts.linkedin, color: "text-sky-600" },
+        ].map((c) => (
+          <Card key={c.label}>
+            <CardContent className="py-3 px-4">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{c.label}</p>
+              <p className={`text-2xl font-semibold ${c.color}`}>{c.value}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <Tabs value={filterTab} onValueChange={setFilterTab}>
+        <TabsList>
+          <TabsTrigger value="all" className="text-xs">All ({counts.all})</TabsTrigger>
+          <TabsTrigger value="pending" className="text-xs">Pending ({counts.pending})</TabsTrigger>
+          <TabsTrigger value="linkedin" className="text-xs">LinkedIn ({counts.linkedin})</TabsTrigger>
+          <TabsTrigger value="completed" className="text-xs">Completed ({counts.completed})</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
       {isLoading ? (
         <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-12 w-full" />)}</div>
-      ) : !tasks?.length ? (
+      ) : !filtered?.length ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-20 text-center">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted mb-4">
               <CheckSquare className="h-7 w-7 text-muted-foreground/60" />
             </div>
-            <h3 className="text-lg font-medium">No tasks yet</h3>
+            <h3 className="text-lg font-medium">No tasks</h3>
             <p className="text-sm text-muted-foreground mt-1.5 max-w-md">
-              Tasks appear from sequences, manual assignments, and automated workflows.
+              Tasks appear from campaigns, sequences, and manual assignments.
             </p>
-            <Button size="sm" className="mt-5 gap-1.5 text-xs" onClick={() => setCreateOpen(true)}>
-              <Plus className="h-3.5 w-3.5" /> Create Task
-            </Button>
           </CardContent>
         </Card>
       ) : (
@@ -118,18 +172,23 @@ export default function TasksPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {tasks.map((task: any) => (
+              {filtered.map((task: any) => (
                 <TableRow key={task.id}>
                   <TableCell>
-                    {task.status !== "completed" && (
+                    {task.status !== "completed" ? (
                       <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleComplete(task.id)}>
                         <Check className="h-3.5 w-3.5 text-muted-foreground hover:text-emerald-600" />
                       </Button>
+                    ) : (
+                      <Check className="h-3.5 w-3.5 text-emerald-600" />
                     )}
-                    {task.status === "completed" && <Check className="h-3.5 w-3.5 text-emerald-600" />}
                   </TableCell>
                   <TableCell className={`text-sm font-medium ${task.status === "completed" ? "line-through text-muted-foreground" : ""}`}>{task.title}</TableCell>
-                  <TableCell><Badge variant="secondary" className="text-[10px] capitalize">{task.task_type}</Badge></TableCell>
+                  <TableCell>
+                    <Badge variant="secondary" className="text-[10px] capitalize gap-1">
+                      {typeIcon(task.task_type)} {task.task_type?.replace("_", " ")}
+                    </Badge>
+                  </TableCell>
                   <TableCell>{priorityBadge(task.priority)}</TableCell>
                   <TableCell>{statusBadge(task.status)}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">
@@ -188,7 +247,9 @@ export default function TasksPage() {
                     <SelectItem value="call">Call</SelectItem>
                     <SelectItem value="email">Email</SelectItem>
                     <SelectItem value="follow_up">Follow Up</SelectItem>
-                    <SelectItem value="linkedin">LinkedIn</SelectItem>
+                    <SelectItem value="linkedin_connect">LinkedIn Connect</SelectItem>
+                    <SelectItem value="linkedin_message">LinkedIn Message</SelectItem>
+                    <SelectItem value="manual_followup">Manual Follow-up</SelectItem>
                     <SelectItem value="custom">Custom</SelectItem>
                   </SelectContent>
                 </Select>
