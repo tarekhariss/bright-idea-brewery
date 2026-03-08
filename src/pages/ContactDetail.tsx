@@ -315,6 +315,10 @@ export default function ContactDetailPage() {
         <TabsContent value="intelligence">
           <IntelligenceTab contactId={id} />
         </TabsContent>
+
+        <TabsContent value="attribution">
+          <ContactAttributionWrapper contactId={id || null} />
+        </TabsContent>
       </Tabs>
     </div>
   );

@@ -350,6 +350,10 @@ export default function CompanyDetailPage() {
         <TabsContent value="intelligence">
           <IntelligenceTab companyId={id} />
         </TabsContent>
+
+        <TabsContent value="attribution">
+          <CompanyAttributionWrapper companyId={id || null} />
+        </TabsContent>
       </Tabs>
     </div>
   );
