@@ -74,13 +74,13 @@ export default function ImportJobDetailPage() {
   const { data: job, isLoading: jobLoading } = useQuery({
     queryKey: ["import-job", id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("import_jobs")
+      const { data, error } = await (supabase
+        .from("import_jobs") as any)
         .select("*")
         .eq("id", id!)
         .single();
       if (error) throw error;
-      return data;
+      return data as any;
     },
     enabled: !!id,
   });
