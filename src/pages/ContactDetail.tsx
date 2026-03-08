@@ -307,6 +307,12 @@ export default function ContactDetailPage() {
           )}
         </div>
       </div>
+        </TabsContent>
+
+        <TabsContent value="intelligence">
+          <IntelligenceTab contactId={id} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
