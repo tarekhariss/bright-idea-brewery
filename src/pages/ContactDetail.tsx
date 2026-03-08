@@ -29,11 +29,12 @@ export default function ContactDetailPage() {
     async function load() {
       setLoading(true);
       const { data: contactData } = await supabase.from("contacts").select("*").eq("id", id!).maybeSingle();
-      setContact(contactData);
+      const typedContact = contactData as Contact | null;
+      setContact(typedContact);
 
-      if (contactData?.company_id) {
-        const { data: co } = await supabase.from("companies").select("*").eq("id", contactData.company_id).maybeSingle();
-        setCompany(co);
+      if (typedContact?.company_id) {
+        const { data: co } = await supabase.from("companies").select("*").eq("id", typedContact.company_id).maybeSingle();
+        setCompany(co as Company | null);
       }
 
       const { data: acts } = await supabase
