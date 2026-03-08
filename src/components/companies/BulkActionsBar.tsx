@@ -24,19 +24,19 @@ export function CompanyBulkActionsBar({ selectedIds, onDone }: Props) {
   const count = selectedIds.length;
   if (count === 0) return null;
 
-  async function logActivity(companyIds: string[], type: string, details: Record<string, any>) {
+  async function logActivity(companyIds: string[], actionName: string, details: Record<string, any>) {
     const logs = companyIds.map((company_id) => ({
       company_id,
-      activity_type: type,
-      details,
+      action: actionName,
+      details: details as any,
       performed_by: user?.id ?? null,
     }));
-    await supabase.from("company_activity_log").insert(logs);
+    await supabase.from("company_activity_log").insert(logs as any);
   }
 
   async function applyUpdate(field: string, val: string, actType: string) {
     setBusy(true);
-    const { error } = await supabase.from("companies").update({ [field]: val }).in("id", selectedIds);
+    const { error } = await supabase.from("companies").update({ [field]: val } as any).in("id", selectedIds);
     if (error) toast.error("Update failed");
     else {
       await logActivity(selectedIds, actType, { field, value: val });

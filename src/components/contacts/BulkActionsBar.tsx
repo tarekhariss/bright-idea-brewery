@@ -41,19 +41,19 @@ export function BulkActionsBar({ selectedIds, onDone, onOpenAddToList }: BulkAct
   const count = selectedIds.length;
   if (count === 0) return null;
 
-  async function logActivity(contactIds: string[], type: string, details: Record<string, any>) {
+  async function logActivity(contactIds: string[], actionName: string, details: Record<string, any>) {
     const logs = contactIds.map((contact_id) => ({
       contact_id,
-      activity_type: type,
-      details,
+      action: actionName,
+      details: details as any,
       performed_by: user?.id ?? null,
     }));
-    await supabase.from("contact_activity_log").insert(logs);
+    await supabase.from("contact_activity_log").insert(logs as any);
   }
 
   async function applyBulkUpdate(field: string, val: any, actType: string) {
     setBusy(true);
-    const { error } = await supabase.from("contacts").update({ [field]: val }).in("id", selectedIds);
+    const { error } = await supabase.from("contacts").update({ [field]: val } as any).in("id", selectedIds);
     if (error) { toast.error("Update failed"); }
     else {
       await logActivity(selectedIds, actType, { field, value: val });
@@ -67,7 +67,7 @@ export function BulkActionsBar({ selectedIds, onDone, onOpenAddToList }: BulkAct
 
   async function handleDnc(on: boolean) {
     setBusy(true);
-    const { error } = await supabase.from("contacts").update({ do_not_contact: on }).in("id", selectedIds);
+    const { error } = await supabase.from("contacts").update({ do_not_contact: on } as any).in("id", selectedIds);
     if (error) toast.error("Update failed");
     else {
       await logActivity(selectedIds, on ? "marked_dnc" : "cleared_dnc", {});
