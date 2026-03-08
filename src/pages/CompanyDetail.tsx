@@ -7,11 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, ArrowLeft, Globe, Linkedin, Facebook, Twitter, MapPin, Building2, Phone, Users, DollarSign, Cpu, ExternalLink, Hash, UserPlus } from "lucide-react";
+import { Loader2, ArrowLeft, Globe, Linkedin, Facebook, Twitter, MapPin, Building2, Phone, Users, DollarSign, Cpu, ExternalLink, Hash, UserPlus, Brain } from "lucide-react";
 import { QualityScoreBadge, LifecycleBadge } from "@/components/data-table/StatusBadge";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { IntelligenceTab } from "@/components/intelligence/IntelligenceTab";
 import type { Database, LifecycleStatus } from "@/integrations/supabase/db-types";
 
 type Company = Database["public"]["Tables"]["companies"]["Row"];
