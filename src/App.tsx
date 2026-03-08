@@ -19,6 +19,8 @@ import CompanyDetailPage from "./pages/CompanyDetail";
 import ListsPage from "./pages/Lists";
 import ListDetailPage from "./pages/ListDetail";
 import ImportsPage from "./pages/Imports";
+import ImportWizardPage from "./pages/ImportWizard";
+import ImportJobDetailPage from "./pages/ImportJobDetail";
 import SavedViewsPage from "./pages/SavedViews";
 import DataHealthPage from "./pages/DataHealth";
 import SettingsPage from "./pages/Settings";
