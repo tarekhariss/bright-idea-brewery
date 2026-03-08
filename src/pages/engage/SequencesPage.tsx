@@ -17,7 +17,7 @@ import { format } from "date-fns";
 import {
   useSequences, useSequenceSteps, useSequenceEnrollments,
   useCreateSequence, useUpdateSequence, useDeleteSequence,
-  useAddStep, useDeleteStep,
+  useAddStep, useDeleteStep, useUpdateStep,
 } from "@/hooks/use-engage";
 
 const statusBadge = (s: string) => {
