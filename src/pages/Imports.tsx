@@ -46,14 +46,14 @@ export default function ImportsPage() {
   const { data: jobs, isLoading } = useQuery({
     queryKey: ["import-jobs", search, statusFilter, sortField, sortDir],
     queryFn: async () => {
-      let query = supabase
-        .from("import_jobs")
+      let query = (supabase
+        .from("import_jobs") as any)
         .select("*")
         .order(sortField, { ascending: sortDir === "asc" })
         .limit(50);
 
       if (search) query = query.ilike("file_name", `%${search}%`);
-      if (statusFilter !== "all") query = query.eq("status", statusFilter as ImportStatus);
+      if (statusFilter !== "all") query = query.eq("status", statusFilter);
 
       const { data, error } = await query;
       if (error) throw error;
