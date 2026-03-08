@@ -244,7 +244,7 @@ export default function ImportWizardPage() {
           };
         });
 
-        const { error: rowErr } = await supabase.from("import_job_rows").insert(rows);
+        const { error: rowErr } = await (supabase.from("import_job_rows") as any).insert(rows);
         if (rowErr) {
           errorCount += batch.length;
         } else {
