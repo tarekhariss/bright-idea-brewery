@@ -63,6 +63,10 @@ import SuppressionPage from "./pages/settings/deliverability/SuppressionPage";
 import SendingWindowsPage from "./pages/settings/deliverability/SendingWindowsPage";
 import ESPRoutingPage from "./pages/settings/deliverability/ESPRoutingPage";
 
+// Admin pages
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import WorkspaceDetailAdmin from "./pages/admin/WorkspaceDetailAdmin";
+
 // Settings pages
 import SettingsIndex from "./pages/settings/SettingsIndex";
 import ProfileSettings from "./pages/settings/ProfileSettings";
