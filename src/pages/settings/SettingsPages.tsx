@@ -1,5 +1,10 @@
 import { LucideIcon } from "lucide-react";
 import { PageShell } from "@/components/PageShell";
+import CustomFieldsManager from "@/components/settings/CustomFieldsManager";
+import PipelineStagesManager from "@/components/settings/PipelineStagesManager";
+import GlobalPicklistsManager from "@/components/settings/GlobalPicklistsManager";
+import GoalsManager from "@/components/settings/GoalsManager";
+import SystemActivityLogViewer from "@/components/settings/SystemActivityLogViewer";
 import {
   Mail, Phone, Bell, Chrome, MessageSquare,
   Users, Shield, CreditCard, Lock, Zap, Brain, Puzzle,
@@ -141,31 +146,64 @@ export function TeamSharingSettings() {
   return <GenericSettings icon={Share2} title="Team Sharing & Defaults" description="Set team sharing rules and default visibility." />;
 }
 
-// System Activity
+// System Activity — NOW FUNCTIONAL
 export function DataRequestsSettings() {
   return <GenericSettings icon={Download} title="Data Requests" description="View and manage data export and deletion requests." />;
 }
 export function SystemActivityLogSettings() {
-  return <GenericSettings icon={Activity} title="System Activity Log" description="Audit log of all system events, changes, and admin actions." />;
+  return (
+    <PageShell icon={Activity} title="System Activity Log" description="Audit log of all system events, changes, and admin actions.">
+      <SystemActivityLogViewer />
+    </PageShell>
+  );
 }
 
-// Data Management
+// Data Management — NOW FUNCTIONAL
 export function DMAnalyticsSettings() {
   return <GenericSettings icon={BarChart3} title="Analytics" description="Configure analytics dashboards and reporting." />;
 }
 export function GoalsSettings() {
-  return <GenericSettings icon={Flag} title="Goals" description="Set team and individual performance goals." />;
+  return (
+    <PageShell icon={Flag} title="Goals" description="Set team and individual performance goals.">
+      <GoalsManager />
+    </PageShell>
+  );
 }
 export function ContactFieldsSettings() {
-  return <GenericSettings icon={Users} title="Contact Fields & Stages" description="Customize contact fields, lifecycle stages, and required fields." />;
+  return (
+    <PageShell icon={Users} title="Contact Fields & Stages" description="Customize contact fields, lifecycle stages, and required fields.">
+      <div className="space-y-8">
+        <PipelineStagesManager entityType="contact" title="Contact Lifecycle Stages" description="Define the stages contacts move through in your pipeline." />
+        <CustomFieldsManager entityType="contact" title="Custom Contact Fields" description="Add custom fields to capture data specific to your workflow." />
+      </div>
+    </PageShell>
+  );
 }
 export function AccountFieldsSettings() {
-  return <GenericSettings icon={Layers} title="Account Fields & Stages" description="Customize company/account fields and pipeline stages." />;
+  return (
+    <PageShell icon={Layers} title="Account Fields & Stages" description="Customize company/account fields and pipeline stages.">
+      <div className="space-y-8">
+        <PipelineStagesManager entityType="company" title="Account Pipeline Stages" description="Define the stages accounts move through in your pipeline." />
+        <CustomFieldsManager entityType="company" title="Custom Account Fields" description="Add custom fields to capture account-specific data." />
+      </div>
+    </PageShell>
+  );
 }
 export function DealFieldsSettings() {
-  return <GenericSettings icon={CreditCard} title="Deal Fields & Stages" description="Configure deal pipeline stages, fields, and close reasons." />;
+  return (
+    <PageShell icon={CreditCard} title="Deal Fields & Stages" description="Configure deal pipeline stages, fields, and close reasons.">
+      <div className="space-y-8">
+        <PipelineStagesManager entityType="deal" title="Deal Pipeline Stages" description="Define deal stages from discovery to close." />
+        <CustomFieldsManager entityType="deal" title="Custom Deal Fields" description="Add custom fields for deal-specific data." />
+      </div>
+    </PageShell>
+  );
 }
 export function GlobalPicklistsSettings() {
-  return <GenericSettings icon={ListChecks} title="Global Picklists" description="Manage shared dropdown values used across objects." />;
+  return (
+    <PageShell icon={ListChecks} title="Global Picklists" description="Manage shared dropdown values used across objects.">
+      <GlobalPicklistsManager />
+    </PageShell>
+  );
 }
 export { default as ImportsExportsSettings } from "./ImportsExportsPage";
