@@ -53,7 +53,8 @@ export function BulkActionsBar({ selectedIds, onDone, onOpenAddToList }: BulkAct
 
   async function applyBulkUpdate(field: string, val: any, actType: string) {
     setBusy(true);
-    const { error } = await (supabase.from("contacts").update({ [field]: val } as any) as any).in("id", selectedIds);
+    // @ts-ignore – dynamic field update
+    const { error } = await supabase.from("contacts").update({ [field]: val }).in("id", selectedIds);
     if (error) { toast.error("Update failed"); }
     else {
       await logActivity(selectedIds, actType, { field, value: val });
