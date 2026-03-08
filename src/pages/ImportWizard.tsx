@@ -635,8 +635,8 @@ export default function ImportWizardPage() {
                   <Separator />
 
                   <div className="space-y-3">
-                    <Label className="text-sm font-semibold">Duplicate Strategy</Label>
-                    <p className="text-xs text-muted-foreground">Choose how to handle rows that match existing records.</p>
+                    <Label className="text-sm font-semibold">Primary Strategy</Label>
+                    <p className="text-xs text-muted-foreground">Choose the main approach for handling duplicates.</p>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       {([
                         { value: "skip", label: "Skip Duplicates", desc: "Ignore rows that match existing records" },
@@ -655,6 +655,37 @@ export default function ImportWizardPage() {
                           <p className="text-sm font-medium">{opt.label}</p>
                           <p className="text-xs text-muted-foreground mt-1">{opt.desc}</p>
                         </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-3">
+                    <Label className="text-sm font-semibold">Advanced Settings</Label>
+                    <div className="space-y-2">
+                      {([
+                        { key: "skip_exact_duplicates" as const, label: "Skip exact duplicates", desc: "Auto-skip rows with 100% confidence match" },
+                        { key: "update_missing_fields" as const, label: "Update missing fields on match", desc: "Fill empty fields from import when linking" },
+                        { key: "review_likely_duplicates" as const, label: "Review likely duplicates", desc: "Flag rows with partial/fuzzy matches for manual review" },
+                        { key: "review_company_conflicts" as const, label: "Review company conflicts", desc: "Flag rows where company data conflicts with existing" },
+                        { key: "create_if_no_strong_match" as const, label: "Create if no strong match", desc: "Automatically create new records when no match found" },
+                      ]).map((opt) => (
+                        <label
+                          key={opt.key}
+                          className="flex items-start gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer transition-colors"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={importSettings[opt.key]}
+                            onChange={(e) => setImportSettings((prev) => ({ ...prev, [opt.key]: e.target.checked }))}
+                            className="mt-0.5 rounded border-input"
+                          />
+                          <div>
+                            <p className="text-sm font-medium">{opt.label}</p>
+                            <p className="text-xs text-muted-foreground">{opt.desc}</p>
+                          </div>
+                        </label>
                       ))}
                     </div>
                   </div>
