@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  Inbox, Plus, CheckCircle2, Mail, Shield,
+  Inbox, Plus, CheckCircle2, Mail, Shield, Send,
   MoreHorizontal, ExternalLink, Power, Loader2, RefreshCw,
   Server, Eye, EyeOff, AlertTriangle,
 } from "lucide-react";
