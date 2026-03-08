@@ -350,3 +350,8 @@ function DetailField({ label, value }: { label: string; value: string | null }) 
     </div>
   );
 }
+
+function ContactAttributionWrapper({ contactId }: { contactId: string | null }) {
+  const { data } = useContactAttribution(contactId);
+  return <AttributionSection attributions={data || []} title="Contact Attribution" />;
+}

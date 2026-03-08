@@ -394,3 +394,8 @@ function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string
     </div>
   );
 }
+
+function CompanyAttributionWrapper({ companyId }: { companyId: string | null }) {
+  const { data } = useCompanyAttribution(companyId);
+  return <AttributionSection attributions={data || []} title="Company Attribution" />;
+}
