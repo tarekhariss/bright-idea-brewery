@@ -7,11 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, ArrowLeft, Globe, Linkedin, Facebook, Twitter, MapPin, Building2, Phone, Users, DollarSign, Cpu, ExternalLink, Hash, UserPlus } from "lucide-react";
+import { Loader2, ArrowLeft, Globe, Linkedin, Facebook, Twitter, MapPin, Building2, Phone, Users, DollarSign, Cpu, ExternalLink, Hash, UserPlus, Brain } from "lucide-react";
 import { QualityScoreBadge, LifecycleBadge } from "@/components/data-table/StatusBadge";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { IntelligenceTab } from "@/components/intelligence/IntelligenceTab";
 import type { Database, LifecycleStatus } from "@/integrations/supabase/db-types";
 
 type Company = Database["public"]["Tables"]["companies"]["Row"];
@@ -139,6 +141,13 @@ export default function CompanyDetailPage() {
         {canEdit && <Button variant="outline" size="sm" className="text-xs">Edit Company</Button>}
       </div>
 
+      <Tabs defaultValue="details" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="details" className="text-xs">Details</TabsTrigger>
+          <TabsTrigger value="intelligence" className="text-xs gap-1.5"><Brain className="h-3 w-3" /> Intelligence</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="details">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           {/* Company Info */}
@@ -333,6 +342,12 @@ export default function CompanyDetailPage() {
           )}
         </div>
       </div>
+        </TabsContent>
+
+        <TabsContent value="intelligence">
+          <IntelligenceTab companyId={id} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

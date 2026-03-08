@@ -94,6 +94,47 @@ export type Database = {
           },
         ]
       }
+      ai_prompt_templates: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean
+          name: string
+          prompt_type: Database["public"]["Enums"]["ai_prompt_type"]
+          system_prompt: string | null
+          user_prompt_template: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          prompt_type?: Database["public"]["Enums"]["ai_prompt_type"]
+          system_prompt?: string | null
+          user_prompt_template?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          prompt_type?: Database["public"]["Enums"]["ai_prompt_type"]
+          system_prompt?: string | null
+          user_prompt_template?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_prompt_templates_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       calls: {
         Row: {
           company_id: string | null
@@ -827,6 +868,41 @@ export type Database = {
           },
         ]
       }
+      company_insights: {
+        Row: {
+          company_id: string
+          fit_score: number | null
+          id: string
+          industry_score: number | null
+          last_scored_at: string | null
+          outreach_priority_score: number | null
+        }
+        Insert: {
+          company_id: string
+          fit_score?: number | null
+          id?: string
+          industry_score?: number | null
+          last_scored_at?: string | null
+          outreach_priority_score?: number | null
+        }
+        Update: {
+          company_id?: string
+          fit_score?: number | null
+          id?: string
+          industry_score?: number | null
+          last_scored_at?: string | null
+          outreach_priority_score?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_insights_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_tags: {
         Row: {
           company_id: string
@@ -890,6 +966,41 @@ export type Database = {
             foreignKeyName: "contact_activity_log_contact_id_fkey"
             columns: ["contact_id"]
             isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contact_insights: {
+        Row: {
+          contact_id: string
+          fit_score: number | null
+          id: string
+          last_scored_at: string | null
+          personalization_score: number | null
+          readiness_score: number | null
+        }
+        Insert: {
+          contact_id: string
+          fit_score?: number | null
+          id?: string
+          last_scored_at?: string | null
+          personalization_score?: number | null
+          readiness_score?: number | null
+        }
+        Update: {
+          contact_id?: string
+          fit_score?: number | null
+          id?: string
+          last_scored_at?: string | null
+          personalization_score?: number | null
+          readiness_score?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_insights_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: true
             referencedRelation: "contacts"
             referencedColumns: ["id"]
           },
@@ -1946,6 +2057,71 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "esp_routing_rules_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      generated_content: {
+        Row: {
+          campaign_id: string | null
+          company_id: string | null
+          contact_id: string | null
+          content_type: Database["public"]["Enums"]["generated_content_type"]
+          created_at: string | null
+          generated_text: string | null
+          generation_status: Database["public"]["Enums"]["generation_status"]
+          id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          company_id?: string | null
+          contact_id?: string | null
+          content_type: Database["public"]["Enums"]["generated_content_type"]
+          created_at?: string | null
+          generated_text?: string | null
+          generation_status?: Database["public"]["Enums"]["generation_status"]
+          id?: string
+          workspace_id?: string | null
+        }
+        Update: {
+          campaign_id?: string | null
+          company_id?: string | null
+          contact_id?: string | null
+          content_type?: Database["public"]["Enums"]["generated_content_type"]
+          created_at?: string | null
+          generated_text?: string | null
+          generation_status?: Database["public"]["Enums"]["generation_status"]
+          id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generated_content_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_content_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_content_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_content_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -3176,6 +3352,64 @@ export type Database = {
           },
         ]
       }
+      personalization_variables: {
+        Row: {
+          company_id: string | null
+          confidence_score: number | null
+          contact_id: string | null
+          created_at: string | null
+          id: string
+          source: string | null
+          variable_key: string
+          variable_value: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          confidence_score?: number | null
+          contact_id?: string | null
+          created_at?: string | null
+          id?: string
+          source?: string | null
+          variable_key: string
+          variable_value?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          confidence_score?: number | null
+          contact_id?: string | null
+          created_at?: string | null
+          id?: string
+          source?: string | null
+          variable_key?: string
+          variable_value?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "personalization_variables_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "personalization_variables_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "personalization_variables_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pipeline_stages: {
         Row: {
           color: string | null
@@ -3354,6 +3588,108 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      prospect_research_profiles: {
+        Row: {
+          company_id: string | null
+          contact_id: string | null
+          created_at: string | null
+          id: string
+          pain_points: string | null
+          recent_signals: string | null
+          research_status: Database["public"]["Enums"]["research_status"]
+          summary: string | null
+          updated_at: string | null
+          value_props: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          id?: string
+          pain_points?: string | null
+          recent_signals?: string | null
+          research_status?: Database["public"]["Enums"]["research_status"]
+          summary?: string | null
+          updated_at?: string | null
+          value_props?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          id?: string
+          pain_points?: string | null
+          recent_signals?: string | null
+          research_status?: Database["public"]["Enums"]["research_status"]
+          summary?: string | null
+          updated_at?: string | null
+          value_props?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospect_research_profiles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospect_research_profiles_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospect_research_profiles_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prospect_research_sources: {
+        Row: {
+          created_at: string | null
+          id: string
+          research_profile_id: string
+          source_content: string | null
+          source_title: string | null
+          source_type: Database["public"]["Enums"]["research_source_type"]
+          source_url: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          research_profile_id: string
+          source_content?: string | null
+          source_title?: string | null
+          source_type?: Database["public"]["Enums"]["research_source_type"]
+          source_url?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          research_profile_id?: string
+          source_content?: string | null
+          source_title?: string | null
+          source_type?: Database["public"]["Enums"]["research_source_type"]
+          source_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospect_research_sources_research_profile_id_fkey"
+            columns: ["research_profile_id"]
+            isOneToOne: false
+            referencedRelation: "prospect_research_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       saved_views: {
         Row: {
@@ -4127,6 +4463,11 @@ export type Database = {
         | "list_removed"
         | "field_changed"
         | "custom"
+      ai_prompt_type:
+        | "research"
+        | "email_personalization"
+        | "linkedin_message"
+        | "summary"
       app_role: "admin" | "manager" | "operator" | "viewer"
       call_outcome:
         | "no_answer"
@@ -4183,6 +4524,12 @@ export type Database = {
         | "replied"
         | "opted_out"
         | "failed"
+      generated_content_type:
+        | "email_subject"
+        | "email_body"
+        | "linkedin_message"
+        | "summary"
+      generation_status: "pending" | "generating" | "completed" | "failed"
       import_row_status:
         | "pending"
         | "success"
@@ -4227,6 +4574,8 @@ export type Database = {
         | "completed"
         | "failed"
         | "cancelled"
+      research_source_type: "website" | "linkedin" | "manual" | "crm" | "notes"
+      research_status: "pending" | "completed" | "failed"
       sending_health: "unknown" | "good" | "warning" | "poor"
       sequence_status: "draft" | "active" | "paused" | "archived"
       task_status:
@@ -4394,6 +4743,12 @@ export const Constants = {
         "field_changed",
         "custom",
       ],
+      ai_prompt_type: [
+        "research",
+        "email_personalization",
+        "linkedin_message",
+        "summary",
+      ],
       app_role: ["admin", "manager", "operator", "viewer"],
       call_outcome: [
         "no_answer",
@@ -4457,6 +4812,13 @@ export const Constants = {
         "opted_out",
         "failed",
       ],
+      generated_content_type: [
+        "email_subject",
+        "email_body",
+        "linkedin_message",
+        "summary",
+      ],
+      generation_status: ["pending", "generating", "completed", "failed"],
       import_row_status: [
         "pending",
         "success",
@@ -4506,6 +4868,8 @@ export const Constants = {
         "failed",
         "cancelled",
       ],
+      research_source_type: ["website", "linkedin", "manual", "crm", "notes"],
+      research_status: ["pending", "completed", "failed"],
       sending_health: ["unknown", "good", "warning", "poor"],
       sequence_status: ["draft", "active", "paused", "archived"],
       task_status: [

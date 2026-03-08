@@ -125,7 +125,7 @@ export default function EmailTemplatesPage() {
             <div>
               <Label className="text-xs">Subject Line</Label>
               <Input value={newSubject} onChange={(e) => setNewSubject(e.target.value)} placeholder="Quick question about {{company}}" className="mt-1 h-9 text-sm" />
-              <p className="text-[10px] text-muted-foreground mt-1">Use {"{{variable}}"} for personalization</p>
+              <p className="text-[10px] text-muted-foreground mt-1">Use {"{{variable}}"} — e.g. {"{{first_name}}"}, {"{{company_summary}}"}, {"{{pain_point}}"}, {"{{recent_signal}}"}</p>
             </div>
             <div>
               <Label className="text-xs">Email Body</Label>
