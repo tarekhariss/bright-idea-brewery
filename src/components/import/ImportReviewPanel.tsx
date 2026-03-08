@@ -222,11 +222,10 @@ export function ImportReviewPanel({ open, onOpenChange, row, importJobId, onReso
         });
       }
 
-      // Update the import row
       await (supabase.from("import_job_rows") as any)
         .update({
           status: newStatus,
-          action_taken: actionTaken,
+          action_taken: actionTakenStr,
           review_required: action === "review_later",
           contact_id: contactId,
         })
