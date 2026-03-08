@@ -334,7 +334,7 @@ export default function ContactsPage() {
                 </TableRow>
               ))
             )}
-          </TableBody>
+          )}
         </Table>
       </div>
 
