@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   Mail, Plus, Send, Loader2, MoreHorizontal, ArrowUpRight, Clock,
+  Inbox, Eye,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,12 +9,15 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
-import { useEmails, useCreateEmail, useQueueEmail, useMockSendEmail } from "@/hooks/use-engage";
+import { useEmails, useCreateEmail, useQueueEmail } from "@/hooks/use-engage";
+import { useMailboxes } from "@/hooks/use-deliverability";
+import { useSendEmail, usePreviewPayload } from "@/hooks/use-email-admin";
 
 const statusBadge = (s: string) => {
   const map: Record<string, { cls: string; label: string }> = {
@@ -31,26 +35,48 @@ const statusBadge = (s: string) => {
 
 export default function EmailsPage() {
   const { data: emails, isLoading } = useEmails();
+  const { data: mailboxes } = useMailboxes();
   const createEmail = useCreateEmail();
   const queueEmail = useQueueEmail();
-  const mockSend = useMockSendEmail();
+  const sendEmail = useSendEmail();
+  const previewPayload = usePreviewPayload();
 
   const [composeOpen, setComposeOpen] = useState(false);
   const [to, setTo] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
+  const [selectedMailboxId, setSelectedMailboxId] = useState("");
+  const [previewData, setPreviewData] = useState<any>(null);
+
+  const activeMailboxes = mailboxes?.filter((m) => m.connection_status === "active") || [];
 
   const handleCreate = async () => {
     if (!to.trim() || !subject.trim()) return;
-    await createEmail.mutateAsync({ to_address: to.trim(), subject: subject.trim(), body_html: body });
+    await createEmail.mutateAsync({
+      to_address: to.trim(),
+      subject: subject.trim(),
+      body_html: body,
+    });
     setComposeOpen(false);
     setTo(""); setSubject(""); setBody("");
   };
 
   const handleQueueAndSend = async (emailId: string) => {
+    if (!selectedMailboxId && !activeMailboxes.length) {
+      return;
+    }
+    const mbId = selectedMailboxId || activeMailboxes[0]?.id;
+    if (!mbId) return;
+
     await queueEmail.mutateAsync(emailId);
-    // Auto mock-send after queuing
-    setTimeout(() => mockSend.mutate(emailId), 500);
+    sendEmail.mutate({ emailId, mailboxId: mbId });
+  };
+
+  const handlePreview = async (emailId: string) => {
+    const mbId = selectedMailboxId || activeMailboxes[0]?.id;
+    if (!mbId) return;
+    const data = await previewPayload.mutateAsync({ emailId, mailboxId: mbId });
+    setPreviewData(data);
   };
 
   return (
@@ -65,10 +91,31 @@ export default function EmailsPage() {
             <p className="text-sm text-muted-foreground mt-0.5">Track sent emails, opens, clicks, and replies across all your outreach.</p>
           </div>
         </div>
-        <Button size="sm" className="gap-1.5 text-xs" onClick={() => setComposeOpen(true)}>
-          <Plus className="h-3.5 w-3.5" /> Compose
-        </Button>
+        <div className="flex items-center gap-2">
+          {activeMailboxes.length > 0 && (
+            <Select value={selectedMailboxId} onValueChange={setSelectedMailboxId}>
+              <SelectTrigger className="h-8 text-xs w-48">
+                <Inbox className="h-3 w-3 mr-1.5" />
+                <SelectValue placeholder="Select mailbox" />
+              </SelectTrigger>
+              <SelectContent>
+                {activeMailboxes.map((mb) => (
+                  <SelectItem key={mb.id} value={mb.id} className="text-xs">{mb.email}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <Button size="sm" className="gap-1.5 text-xs" onClick={() => setComposeOpen(true)}>
+            <Plus className="h-3.5 w-3.5" /> Compose
+          </Button>
+        </div>
       </div>
+
+      {!activeMailboxes.length && (
+        <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3 text-xs text-amber-800">
+          <strong>No active mailbox.</strong> Connect a mailbox in Deliverability → Mailboxes to enable real sending.
+        </div>
+      )}
 
       {isLoading ? (
         <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-12 w-full" />)}</div>
@@ -116,14 +163,27 @@ export default function EmailsPage() {
                         <Button variant="ghost" size="icon" className="h-7 w-7"><MoreHorizontal className="h-3.5 w-3.5" /></Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        {email.status === "draft" && (
+                        {email.status === "draft" && activeMailboxes.length > 0 && (
                           <DropdownMenuItem onClick={() => handleQueueAndSend(email.id)}>
-                            <Send className="h-3.5 w-3.5 mr-2" /> Queue & Send (Mock)
+                            <Send className="h-3.5 w-3.5 mr-2" /> Queue & Send
                           </DropdownMenuItem>
                         )}
-                        {email.status === "queued" && (
-                          <DropdownMenuItem onClick={() => mockSend.mutate(email.id)}>
-                            <ArrowUpRight className="h-3.5 w-3.5 mr-2" /> Mock Send Now
+                        {(email.status === "draft" || email.status === "queued") && activeMailboxes.length > 0 && (
+                          <DropdownMenuItem onClick={() => handlePreview(email.id)}>
+                            <Eye className="h-3.5 w-3.5 mr-2" /> Preview Payload
+                          </DropdownMenuItem>
+                        )}
+                        {email.status === "queued" && activeMailboxes.length > 0 && (
+                          <DropdownMenuItem onClick={() => sendEmail.mutate({
+                            emailId: email.id,
+                            mailboxId: selectedMailboxId || activeMailboxes[0]?.id,
+                          })}>
+                            <ArrowUpRight className="h-3.5 w-3.5 mr-2" /> Send Now
+                          </DropdownMenuItem>
+                        )}
+                        {email.error_message && (
+                          <DropdownMenuItem className="text-destructive text-xs" disabled>
+                            Error: {email.error_message.slice(0, 50)}
                           </DropdownMenuItem>
                         )}
                       </DropdownMenuContent>
@@ -163,6 +223,24 @@ export default function EmailsPage() {
               {createEmail.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
               Save Draft
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Preview Payload Dialog */}
+      <Dialog open={!!previewData} onOpenChange={() => setPreviewData(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-base">Send Payload Preview</DialogTitle>
+            <DialogDescription className="text-sm">This is what would be sent via SMTP (dry run).</DialogDescription>
+          </DialogHeader>
+          {previewData && (
+            <pre className="text-xs bg-muted rounded-lg p-4 overflow-auto max-h-80 whitespace-pre-wrap">
+              {JSON.stringify(previewData, null, 2)}
+            </pre>
+          )}
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setPreviewData(null)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
