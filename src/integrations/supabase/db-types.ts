@@ -48,6 +48,7 @@ export type ActivityType =
 export type StepType = "email" | "call" | "task" | "linkedin" | "delay" | "sms";
 export type LinkedinAction = "connect" | "message" | "view_profile" | "endorse" | "interact";
 export type ForecastCategory = "pipeline" | "best_case" | "commit" | "closed" | "omitted";
+export type AttributionType = "first_touch" | "last_touch" | "multi_touch";
 
 export type Database = {
   public: {
@@ -1973,6 +1974,7 @@ export type Database = {
       campaign_status: CampaignStatus;
       campaign_contact_status: CampaignContactStatus;
       inbox_thread_status: InboxThreadStatus;
+      attribution_type: AttributionType;
     };
   };
 };

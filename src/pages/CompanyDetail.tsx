@@ -9,11 +9,13 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, ArrowLeft, Globe, Linkedin, Facebook, Twitter, MapPin, Building2, Phone, Users, DollarSign, Cpu, ExternalLink, Hash, UserPlus, Brain } from "lucide-react";
+import { Loader2, ArrowLeft, Globe, Linkedin, Facebook, Twitter, MapPin, Building2, Phone, Users, DollarSign, Cpu, ExternalLink, Hash, UserPlus, Brain, TrendingUp } from "lucide-react";
 import { QualityScoreBadge, LifecycleBadge } from "@/components/data-table/StatusBadge";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { IntelligenceTab } from "@/components/intelligence/IntelligenceTab";
+import { AttributionSection } from "@/components/analytics/AttributionSection";
+import { useCompanyAttribution } from "@/hooks/use-analytics";
 import type { Database, LifecycleStatus } from "@/integrations/supabase/db-types";
 
 type Company = Database["public"]["Tables"]["companies"]["Row"];
@@ -145,6 +147,7 @@ export default function CompanyDetailPage() {
         <TabsList>
           <TabsTrigger value="details" className="text-xs">Details</TabsTrigger>
           <TabsTrigger value="intelligence" className="text-xs gap-1.5"><Brain className="h-3 w-3" /> Intelligence</TabsTrigger>
+          <TabsTrigger value="attribution" className="text-xs gap-1.5"><TrendingUp className="h-3 w-3" /> Attribution</TabsTrigger>
         </TabsList>
 
         <TabsContent value="details">
@@ -347,6 +350,10 @@ export default function CompanyDetailPage() {
         <TabsContent value="intelligence">
           <IntelligenceTab companyId={id} />
         </TabsContent>
+
+        <TabsContent value="attribution">
+          <CompanyAttributionWrapper companyId={id || null} />
+        </TabsContent>
       </Tabs>
     </div>
   );
@@ -386,4 +393,9 @@ function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string
       <p className="text-sm font-semibold">{value}</p>
     </div>
   );
+}
+
+function CompanyAttributionWrapper({ companyId }: { companyId: string | null }) {
+  const { data } = useCompanyAttribution(companyId);
+  return <AttributionSection attributions={data || []} title="Company Attribution" />;
 }

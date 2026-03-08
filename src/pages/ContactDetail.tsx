@@ -9,11 +9,13 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, ArrowLeft, Mail, Phone, Linkedin, MapPin, Building2, Calendar, Shield, ExternalLink, User, UserPlus, Brain } from "lucide-react";
+import { Loader2, ArrowLeft, Mail, Phone, Linkedin, MapPin, Building2, Calendar, Shield, ExternalLink, User, UserPlus, Brain, TrendingUp } from "lucide-react";
 import { LifecycleBadge, OutreachBadge, EmailValidityBadge, QualityScoreBadge, DncBadge } from "@/components/data-table/StatusBadge";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { IntelligenceTab } from "@/components/intelligence/IntelligenceTab";
+import { AttributionSection } from "@/components/analytics/AttributionSection";
+import { useContactAttribution } from "@/hooks/use-analytics";
 import type { Database } from "@/integrations/supabase/db-types";
 
 type Contact = Database["public"]["Tables"]["contacts"]["Row"];
@@ -145,6 +147,7 @@ export default function ContactDetailPage() {
         <TabsList>
           <TabsTrigger value="details" className="text-xs">Details</TabsTrigger>
           <TabsTrigger value="intelligence" className="text-xs gap-1.5"><Brain className="h-3 w-3" /> Intelligence</TabsTrigger>
+          <TabsTrigger value="attribution" className="text-xs gap-1.5"><TrendingUp className="h-3 w-3" /> Attribution</TabsTrigger>
         </TabsList>
 
         <TabsContent value="details">
@@ -312,6 +315,10 @@ export default function ContactDetailPage() {
         <TabsContent value="intelligence">
           <IntelligenceTab contactId={id} />
         </TabsContent>
+
+        <TabsContent value="attribution">
+          <ContactAttributionWrapper contactId={id || null} />
+        </TabsContent>
       </Tabs>
     </div>
   );
@@ -342,4 +349,9 @@ function DetailField({ label, value }: { label: string; value: string | null }) 
       <p className="text-sm">{value ?? "—"}</p>
     </div>
   );
+}
+
+function ContactAttributionWrapper({ contactId }: { contactId: string | null }) {
+  const { data } = useContactAttribution(contactId);
+  return <AttributionSection attributions={data || []} title="Contact Attribution" />;
 }

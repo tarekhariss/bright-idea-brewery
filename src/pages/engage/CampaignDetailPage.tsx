@@ -27,6 +27,7 @@ import {
   useLinkLinkedinAccount, useUnlinkLinkedinAccount, useLinkedinAccounts,
 } from "@/hooks/use-linkedin";
 import { toast } from "sonner";
+import { CampaignAnalyticsTab } from "@/components/analytics/CampaignAnalyticsTab";
 
 const stepTypeConfig: Record<string, { icon: any; label: string; color: string }> = {
   email: { icon: Mail, label: "Email", color: "bg-blue-500/10 text-blue-600 border-blue-500/20" },
@@ -135,6 +136,7 @@ export default function CampaignDetailPage() {
           <TabsTrigger value="steps" className="text-xs">Workflow Steps</TabsTrigger>
           <TabsTrigger value="enrollments" className="text-xs">Contacts ({enrollments?.length || 0})</TabsTrigger>
           <TabsTrigger value="linkedin" className="text-xs">LinkedIn Accounts</TabsTrigger>
+          <TabsTrigger value="analytics" className="text-xs">Analytics</TabsTrigger>
           <TabsTrigger value="settings" className="text-xs">Settings</TabsTrigger>
         </TabsList>
 
@@ -333,6 +335,11 @@ export default function CampaignDetailPage() {
               </Select>
             </div>
           ) : null}
+        </TabsContent>
+
+        {/* ── Analytics Tab ── */}
+        <TabsContent value="analytics">
+          <CampaignAnalyticsTab campaignId={id!} />
         </TabsContent>
 
         {/* ── Settings Tab ── */}

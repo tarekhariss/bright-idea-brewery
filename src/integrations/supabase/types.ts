@@ -234,6 +234,88 @@ export type Database = {
           },
         ]
       }
+      campaign_attribution: {
+        Row: {
+          attributed_revenue: number | null
+          attribution_type: Database["public"]["Enums"]["attribution_type"]
+          campaign_id: string
+          company_id: string | null
+          contact_id: string
+          created_at: string | null
+          deal_id: string | null
+          id: string
+          meeting_id: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          attributed_revenue?: number | null
+          attribution_type?: Database["public"]["Enums"]["attribution_type"]
+          campaign_id: string
+          company_id?: string | null
+          contact_id: string
+          created_at?: string | null
+          deal_id?: string | null
+          id?: string
+          meeting_id?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          attributed_revenue?: number | null
+          attribution_type?: Database["public"]["Enums"]["attribution_type"]
+          campaign_id?: string
+          company_id?: string | null
+          contact_id?: string
+          created_at?: string | null
+          deal_id?: string | null
+          id?: string
+          meeting_id?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_attribution_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_attribution_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_attribution_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_attribution_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_attribution_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "meetings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_attribution_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       campaign_contacts: {
         Row: {
           campaign_id: string
@@ -412,6 +494,78 @@ export type Database = {
             columns: ["mailbox_id"]
             isOneToOne: false
             referencedRelation: "mailboxes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_performance_metrics: {
+        Row: {
+          campaign_id: string
+          created_at: string | null
+          deal_rate: number | null
+          deals_created: number | null
+          emails_delivered: number | null
+          emails_sent: number | null
+          id: string
+          meeting_rate: number | null
+          meetings_booked: number | null
+          open_rate: number | null
+          positive_replies: number | null
+          replies_received: number | null
+          reply_rate: number | null
+          revenue_generated: number | null
+          updated_at: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string | null
+          deal_rate?: number | null
+          deals_created?: number | null
+          emails_delivered?: number | null
+          emails_sent?: number | null
+          id?: string
+          meeting_rate?: number | null
+          meetings_booked?: number | null
+          open_rate?: number | null
+          positive_replies?: number | null
+          replies_received?: number | null
+          reply_rate?: number | null
+          revenue_generated?: number | null
+          updated_at?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string | null
+          deal_rate?: number | null
+          deals_created?: number | null
+          emails_delivered?: number | null
+          emails_sent?: number | null
+          id?: string
+          meeting_rate?: number | null
+          meetings_booked?: number | null
+          open_rate?: number | null
+          positive_replies?: number | null
+          replies_received?: number | null
+          reply_rate?: number | null
+          revenue_generated?: number | null
+          updated_at?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_performance_metrics_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_performance_metrics_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
         ]
@@ -967,6 +1121,70 @@ export type Database = {
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contact_funnel_metrics: {
+        Row: {
+          campaign_id: string | null
+          contact_id: string
+          deals_created: number | null
+          emails_sent: number | null
+          id: string
+          last_activity_at: string | null
+          linkedin_actions_completed: number | null
+          meetings_booked: number | null
+          replies_received: number | null
+          revenue_generated: number | null
+          workspace_id: string | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          contact_id: string
+          deals_created?: number | null
+          emails_sent?: number | null
+          id?: string
+          last_activity_at?: string | null
+          linkedin_actions_completed?: number | null
+          meetings_booked?: number | null
+          replies_received?: number | null
+          revenue_generated?: number | null
+          workspace_id?: string | null
+        }
+        Update: {
+          campaign_id?: string | null
+          contact_id?: string
+          deals_created?: number | null
+          emails_sent?: number | null
+          id?: string
+          last_activity_at?: string | null
+          linkedin_actions_completed?: number | null
+          meetings_booked?: number | null
+          replies_received?: number | null
+          revenue_generated?: number | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_funnel_metrics_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_funnel_metrics_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_funnel_metrics_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
         ]
@@ -2781,6 +2999,60 @@ export type Database = {
           },
         ]
       }
+      linkedin_performance_metrics: {
+        Row: {
+          connect_requests_sent: number | null
+          deals_created: number | null
+          id: string
+          linkedin_account_id: string
+          meetings_booked: number | null
+          messages_sent: number | null
+          period_end: string
+          period_start: string
+          replies_received: number | null
+          workspace_id: string | null
+        }
+        Insert: {
+          connect_requests_sent?: number | null
+          deals_created?: number | null
+          id?: string
+          linkedin_account_id: string
+          meetings_booked?: number | null
+          messages_sent?: number | null
+          period_end: string
+          period_start: string
+          replies_received?: number | null
+          workspace_id?: string | null
+        }
+        Update: {
+          connect_requests_sent?: number | null
+          deals_created?: number | null
+          id?: string
+          linkedin_account_id?: string
+          meetings_booked?: number | null
+          messages_sent?: number | null
+          period_end?: string
+          period_start?: string
+          replies_received?: number | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linkedin_performance_metrics_linkedin_account_id_fkey"
+            columns: ["linkedin_account_id"]
+            isOneToOne: false
+            referencedRelation: "linkedin_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkedin_performance_metrics_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       linkedin_safety_rules: {
         Row: {
           created_at: string | null
@@ -2942,6 +3214,63 @@ export type Database = {
             columns: ["mailbox_id"]
             isOneToOne: true
             referencedRelation: "mailboxes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mailbox_performance_metrics: {
+        Row: {
+          bounce_count: number | null
+          deals_created: number | null
+          emails_sent: number | null
+          health_score: number | null
+          id: string
+          mailbox_id: string
+          meetings_booked: number | null
+          period_end: string
+          period_start: string
+          replies_received: number | null
+          workspace_id: string | null
+        }
+        Insert: {
+          bounce_count?: number | null
+          deals_created?: number | null
+          emails_sent?: number | null
+          health_score?: number | null
+          id?: string
+          mailbox_id: string
+          meetings_booked?: number | null
+          period_end: string
+          period_start: string
+          replies_received?: number | null
+          workspace_id?: string | null
+        }
+        Update: {
+          bounce_count?: number | null
+          deals_created?: number | null
+          emails_sent?: number | null
+          health_score?: number | null
+          id?: string
+          mailbox_id?: string
+          meetings_booked?: number | null
+          period_end?: string
+          period_start?: string
+          replies_received?: number | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mailbox_performance_metrics_mailbox_id_fkey"
+            columns: ["mailbox_id"]
+            isOneToOne: false
+            referencedRelation: "mailboxes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mailbox_performance_metrics_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
         ]
@@ -4315,6 +4644,59 @@ export type Database = {
         }
         Relationships: []
       }
+      workspace_kpis: {
+        Row: {
+          campaigns_active: number | null
+          contacts_enrolled: number | null
+          created_at: string | null
+          deals_created: number | null
+          emails_sent: number | null
+          id: string
+          meetings_booked: number | null
+          period_end: string
+          period_start: string
+          replies_received: number | null
+          revenue_generated: number | null
+          workspace_id: string
+        }
+        Insert: {
+          campaigns_active?: number | null
+          contacts_enrolled?: number | null
+          created_at?: string | null
+          deals_created?: number | null
+          emails_sent?: number | null
+          id?: string
+          meetings_booked?: number | null
+          period_end: string
+          period_start: string
+          replies_received?: number | null
+          revenue_generated?: number | null
+          workspace_id: string
+        }
+        Update: {
+          campaigns_active?: number | null
+          contacts_enrolled?: number | null
+          created_at?: string | null
+          deals_created?: number | null
+          emails_sent?: number | null
+          id?: string
+          meetings_booked?: number | null
+          period_end?: string
+          period_start?: string
+          replies_received?: number | null
+          revenue_generated?: number | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_kpis_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspace_members: {
         Row: {
           id: string
@@ -4469,6 +4851,7 @@ export type Database = {
         | "linkedin_message"
         | "summary"
       app_role: "admin" | "manager" | "operator" | "viewer"
+      attribution_type: "first_touch" | "last_touch" | "multi_touch"
       call_outcome:
         | "no_answer"
         | "voicemail"
@@ -4750,6 +5133,7 @@ export const Constants = {
         "summary",
       ],
       app_role: ["admin", "manager", "operator", "viewer"],
+      attribution_type: ["first_touch", "last_touch", "multi_touch"],
       call_outcome: [
         "no_answer",
         "voicemail",
