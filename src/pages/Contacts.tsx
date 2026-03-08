@@ -155,6 +155,8 @@ export default function ContactsPage() {
     sortBy, sortDirection: sortDir, pageSize,
   });
 
+  const debouncedSearch = useDebounce(search, 300);
+
   const fetchContacts = useCallback(async () => {
     setLoading(true);
     let query = supabase
@@ -163,15 +165,15 @@ export default function ContactsPage() {
       .order(sortBy, { ascending: sortDir === "asc" })
       .range(page * pageSize, (page + 1) * pageSize - 1);
 
-    if (search.trim()) {
-      query = query.or(`email.ilike.%${search}%,first_name.ilike.%${search}%,last_name.ilike.%${search}%,company_name_raw.ilike.%${search}%,job_title.ilike.%${search}%,department.ilike.%${search}%,linkedin_url.ilike.%${search}%,source.ilike.%${search}%`);
+    if (debouncedSearch.trim()) {
+      query = query.or(`email.ilike.%${debouncedSearch}%,first_name.ilike.%${debouncedSearch}%,last_name.ilike.%${debouncedSearch}%,company_name_raw.ilike.%${debouncedSearch}%,job_title.ilike.%${debouncedSearch}%`);
     }
 
     query = applyFilters(query, filterValues, FILTER_CONFIGS);
     const { data, count: total, error } = await query;
     if (!error) { setContacts(data ?? []); setCount(total ?? 0); }
     setLoading(false);
-  }, [page, pageSize, search, sortBy, sortDir, filterValues]);
+  }, [page, pageSize, debouncedSearch, sortBy, sortDir, filterValues]);
 
   useEffect(() => { fetchContacts(); }, [fetchContacts]);
 
