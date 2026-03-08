@@ -137,17 +137,16 @@ export function ImportReviewPanel({ open, onOpenChange, row, importJobId, onReso
 
     try {
       let newStatus = "pending";
-      let actionTaken = action;
+      let actionTakenStr = action as string;
       let contactId = row.contact_id;
 
       if (action === "skip") {
         newStatus = "skipped";
-        actionTaken = "skipped_by_reviewer";
+        actionTakenStr = "skipped_by_reviewer";
       } else if (action === "review_later") {
         newStatus = "review";
-        actionTaken = "deferred_review";
+        actionTakenStr = "deferred_review";
       } else if (action === "create_new") {
-        // Create a new contact
         const insertData: Record<string, unknown> = {};
         COMPARE_FIELDS.forEach((f) => {
           const val = importedData[f.key];
@@ -162,11 +161,10 @@ export function ImportReviewPanel({ open, onOpenChange, row, importJobId, onReso
           .single();
 
         if (error) throw error;
-        contactId = newContact?.id ?? null;
+        contactId = (newContact as any)?.id ?? null;
         newStatus = "success";
-        actionTaken = "created_new_contact";
+        actionTakenStr = "created_new_contact";
 
-        // Activity log
         if (contactId) {
           await (supabase.from("contact_activity_log") as any).insert({
             contact_id: contactId,
@@ -177,7 +175,7 @@ export function ImportReviewPanel({ open, onOpenChange, row, importJobId, onReso
       } else if (action === "link_existing" && matchedContact) {
         contactId = matchedContact.id;
         newStatus = "success";
-        actionTaken = "linked_to_existing";
+        actionTakenStr = "linked_to_existing";
 
         await (supabase.from("contact_activity_log") as any).insert({
           contact_id: matchedContact.id,
@@ -185,7 +183,6 @@ export function ImportReviewPanel({ open, onOpenChange, row, importJobId, onReso
           details: buildActivityLog("linked_from_import", importJobId, row.row_number).details as unknown as Json,
         });
       } else if (action === "update_existing" && matchedContact) {
-        // Merge fields based on preferences
         const updateData: Record<string, unknown> = {};
         let updated = false;
 
@@ -200,21 +197,20 @@ export function ImportReviewPanel({ open, onOpenChange, row, importJobId, onReso
           }
         });
 
-        // Recalculate quality score
         const merged = { ...matchedContact, ...updateData };
         updateData.data_quality_score = calculateDataQualityScore(merged as Record<string, unknown>);
 
         if (updated) {
-          const { error } = await supabase
-            .from("contacts")
-            .update(updateData as any)
+          const { error } = await (supabase
+            .from("contacts") as any)
+            .update(updateData)
             .eq("id", matchedContact.id);
           if (error) throw error;
         }
 
         contactId = matchedContact.id;
         newStatus = "success";
-        actionTaken = "updated_existing_contact";
+        actionTakenStr = "updated_existing_contact";
 
         await (supabase.from("contact_activity_log") as any).insert({
           contact_id: matchedContact.id,
