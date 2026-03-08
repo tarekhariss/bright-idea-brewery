@@ -34,7 +34,7 @@ import ProspectEnrichPage from "./pages/search/ProspectEnrich";
 import DataEnrichmentPage from "./pages/search/DataEnrichment";
 
 // Engage pages
-import SequencesPage from "./pages/engage/Sequences";
+import SequencesListPage from "./pages/engage/SequencesPage";
 import EmailsPage from "./pages/engage/Emails";
 import CallsPage from "./pages/engage/Calls";
 import TasksPage from "./pages/engage/Tasks";
@@ -45,13 +45,18 @@ import ConversationsPage from "./pages/deals/Conversations";
 import DealsPage from "./pages/deals/DealsPage";
 
 // Tools pages
-import WorkflowsPage from "./pages/tools/Workflows";
+import WorkflowsListPage from "./pages/tools/WorkflowsPage";
 import AnalyticsPage from "./pages/tools/AnalyticsPage";
+
+// Deliverability pages
+import DeliverabilityOverview from "./pages/settings/deliverability/DeliverabilityOverview";
+import DomainsPage from "./pages/settings/deliverability/DomainsPage";
+import MailboxesPage from "./pages/settings/deliverability/MailboxesPage";
 
 // Settings pages
 import SettingsIndex from "./pages/settings/SettingsIndex";
 import ProfileSettings from "./pages/settings/ProfileSettings";
-import DeliverabilitySettings from "./pages/settings/DeliverabilitySettings";
+// DeliverabilitySettings removed - now using dedicated pages
 import {
   MailboxDomainSettings, PhoneNumberSettings, NotificationSettings,
   ChromeExtensionSettings, ConversationSettings,
@@ -105,8 +110,8 @@ const App = () => (
             <Route path="/search/data-enrichment" element={<PL><DataEnrichmentPage /></PL>} />
 
             {/* Engage */}
-            <Route path="/engage" element={<PL><SequencesPage /></PL>} />
-            <Route path="/engage/sequences" element={<PL><SequencesPage /></PL>} />
+            <Route path="/engage" element={<PL><SequencesListPage /></PL>} />
+            <Route path="/engage/sequences" element={<PL><SequencesListPage /></PL>} />
             <Route path="/engage/emails" element={<PL><EmailsPage /></PL>} />
             <Route path="/engage/calls" element={<PL><CallsPage /></PL>} />
             <Route path="/engage/tasks" element={<PL><TasksPage /></PL>} />
@@ -118,8 +123,8 @@ const App = () => (
             <Route path="/deals/deals" element={<PL><DealsPage /></PL>} />
 
             {/* Tools */}
-            <Route path="/tools" element={<PL><WorkflowsPage /></PL>} />
-            <Route path="/tools/workflows" element={<PL><WorkflowsPage /></PL>} />
+            <Route path="/tools" element={<PL><WorkflowsListPage /></PL>} />
+            <Route path="/tools/workflows" element={<PL><WorkflowsListPage /></PL>} />
             <Route path="/tools/analytics" element={<PL><AnalyticsPage /></PL>} />
 
             {/* Records (reuse existing) */}
@@ -149,10 +154,10 @@ const App = () => (
             <Route path="/settings/search/chrome-extension" element={<SL><ChromeExtensionSettings /></SL>} />
             <Route path="/settings/search/conversations" element={<SL><ConversationSettings /></SL>} />
 
-            <Route path="/settings/workspace/deliverability" element={<SL><DeliverabilitySettings /></SL>} />
-            <Route path="/settings/workspace/deliverability/overview" element={<SL><DeliverabilitySettings /></SL>} />
-            <Route path="/settings/workspace/deliverability/domains" element={<SL><DeliverabilitySettings /></SL>} />
-            <Route path="/settings/workspace/deliverability/mailboxes" element={<SL><DeliverabilitySettings /></SL>} />
+            <Route path="/settings/workspace/deliverability" element={<SL><DeliverabilityOverview /></SL>} />
+            <Route path="/settings/workspace/deliverability/overview" element={<SL><DeliverabilityOverview /></SL>} />
+            <Route path="/settings/workspace/deliverability/domains" element={<SL><DomainsPage /></SL>} />
+            <Route path="/settings/workspace/deliverability/mailboxes" element={<SL><MailboxesPage /></SL>} />
             <Route path="/settings/workspace/users" element={<SL><UserTeamSettings /></SL>} />
             <Route path="/settings/workspace/security" element={<SL><SecuritySettings /></SL>} />
 
