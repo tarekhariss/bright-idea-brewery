@@ -46,11 +46,18 @@ import {
   autoMapColumns,
   MAPPABLE_FIELDS,
   normalizeRow,
-  checkDuplicatesLocal,
+  checkDuplicatesAdvanced,
+  buildContactIndex,
+  buildCompanyIndex,
+  classifyRowAction,
+  DEFAULT_IMPORT_SETTINGS,
   type ParsedCSV,
   type DuplicateStrategy,
   type DuplicateCheckResult,
   type NormalizationResult,
+  type ImportSettings,
+  type ExistingContact,
+  type ExistingCompany,
 } from "@/lib/csv-utils";
 import type { Json } from "@/integrations/supabase/db-types";
 
