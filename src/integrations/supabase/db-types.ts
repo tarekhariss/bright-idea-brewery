@@ -25,6 +25,9 @@ export type ConnectionStatus = "active" | "disconnected" | "warming" | "error";
 export type WarmupStatus = "off" | "active" | "paused" | "complete";
 export type SendingHealth = "unknown" | "good" | "warning" | "poor";
 export type DealStatus = "open" | "won" | "lost" | "abandoned";
+export type CampaignStatus = "draft" | "active" | "paused" | "completed";
+export type CampaignContactStatus = "pending" | "sent" | "replied" | "bounced" | "opted_out" | "meeting_booked";
+export type InboxThreadStatus = "open" | "snoozed" | "closed" | "archived";
 export type MeetingStatus = "scheduled" | "completed" | "cancelled" | "no_show";
 export type ActivityType =
   | "email_sent" | "email_opened" | "email_clicked" | "email_replied" | "email_bounced"
@@ -1810,6 +1813,94 @@ export type Database = {
           count?: number;
         };
       };
+      // ============================================================
+      // OUTBOUND ARCHITECTURE TABLES
+      // ============================================================
+      email_providers: {
+        Row: { id: string; provider_name: string; auth_type: string; api_endpoint: string | null; is_active: boolean; created_at: string; };
+        Insert: { id?: string; provider_name: string; auth_type?: string; api_endpoint?: string | null; is_active?: boolean; };
+        Update: { provider_name?: string; auth_type?: string; api_endpoint?: string | null; is_active?: boolean; };
+      };
+      email_templates: {
+        Row: { id: string; workspace_id: string | null; name: string; subject: string | null; body: string | null; variables: Json; is_active: boolean; created_by: string | null; created_at: string; updated_at: string; };
+        Insert: { id?: string; workspace_id?: string | null; name: string; subject?: string | null; body?: string | null; variables?: Json; is_active?: boolean; created_by?: string | null; };
+        Update: { name?: string; subject?: string | null; body?: string | null; variables?: Json; is_active?: boolean; updated_at?: string; };
+      };
+      email_variants: {
+        Row: { id: string; template_id: string; variant_name: string; subject: string | null; body: string | null; sent_count: number; reply_count: number; open_count: number; click_count: number; created_at: string; };
+        Insert: { id?: string; template_id: string; variant_name?: string; subject?: string | null; body?: string | null; };
+        Update: { variant_name?: string; subject?: string | null; body?: string | null; sent_count?: number; reply_count?: number; open_count?: number; click_count?: number; };
+      };
+      campaigns: {
+        Row: { id: string; workspace_id: string | null; name: string; status: CampaignStatus; owner_id: string | null; daily_limit: number; min_wait_minutes: number; random_wait_minutes: number; max_new_leads_per_day: number; stop_on_reply: boolean; stop_on_auto_reply: boolean; template_id: string | null; description: string | null; created_by: string | null; created_at: string; updated_at: string; };
+        Insert: { id?: string; workspace_id?: string | null; name: string; status?: CampaignStatus; owner_id?: string | null; daily_limit?: number; min_wait_minutes?: number; random_wait_minutes?: number; max_new_leads_per_day?: number; stop_on_reply?: boolean; stop_on_auto_reply?: boolean; template_id?: string | null; description?: string | null; created_by?: string | null; };
+        Update: { name?: string; status?: CampaignStatus; owner_id?: string | null; daily_limit?: number; min_wait_minutes?: number; random_wait_minutes?: number; max_new_leads_per_day?: number; stop_on_reply?: boolean; stop_on_auto_reply?: boolean; template_id?: string | null; description?: string | null; updated_at?: string; };
+      };
+      campaign_contacts: {
+        Row: { id: string; campaign_id: string; contact_id: string; status: CampaignContactStatus; sent_count: number; last_sent_at: string | null; reply_status: string | null; meeting_booked: boolean; deal_id: string | null; created_at: string; };
+        Insert: { id?: string; campaign_id: string; contact_id: string; status?: CampaignContactStatus; sent_count?: number; last_sent_at?: string | null; reply_status?: string | null; meeting_booked?: boolean; deal_id?: string | null; };
+        Update: { status?: CampaignContactStatus; sent_count?: number; last_sent_at?: string | null; reply_status?: string | null; meeting_booked?: boolean; deal_id?: string | null; };
+      };
+      campaign_mailboxes: {
+        Row: { campaign_id: string; mailbox_id: string; created_at: string; };
+        Insert: { campaign_id: string; mailbox_id: string; };
+        Update: {};
+      };
+      mailbox_health: {
+        Row: { id: string; mailbox_id: string; bounce_rate: number; reply_rate: number; open_rate: number; sent_last_7_days: number; sent_last_30_days: number; health_score: number; last_health_update: string; };
+        Insert: { id?: string; mailbox_id: string; bounce_rate?: number; reply_rate?: number; open_rate?: number; sent_last_7_days?: number; sent_last_30_days?: number; health_score?: number; };
+        Update: { bounce_rate?: number; reply_rate?: number; open_rate?: number; sent_last_7_days?: number; sent_last_30_days?: number; health_score?: number; last_health_update?: string; };
+      };
+      mailbox_warmup_settings: {
+        Row: { id: string; mailbox_id: string; warmup_enabled: boolean; daily_warmup_limit: number; increase_per_day: number; reply_rate_target: number; open_rate_target: number; spam_protection_rate: number; read_emulation: boolean; weekdays_only: boolean; created_at: string; updated_at: string; };
+        Insert: { id?: string; mailbox_id: string; warmup_enabled?: boolean; daily_warmup_limit?: number; increase_per_day?: number; reply_rate_target?: number; open_rate_target?: number; spam_protection_rate?: number; read_emulation?: boolean; weekdays_only?: boolean; };
+        Update: { warmup_enabled?: boolean; daily_warmup_limit?: number; increase_per_day?: number; reply_rate_target?: number; open_rate_target?: number; spam_protection_rate?: number; read_emulation?: boolean; weekdays_only?: boolean; updated_at?: string; };
+      };
+      sending_windows: {
+        Row: { id: string; workspace_id: string | null; name: string; start_hour: number; end_hour: number; timezone: string; weekdays_only: boolean; is_active: boolean; created_at: string; };
+        Insert: { id?: string; workspace_id?: string | null; name?: string; start_hour?: number; end_hour?: number; timezone?: string; weekdays_only?: boolean; is_active?: boolean; };
+        Update: { name?: string; start_hour?: number; end_hour?: number; timezone?: string; weekdays_only?: boolean; is_active?: boolean; };
+      };
+      esp_routing_rules: {
+        Row: { id: string; workspace_id: string | null; recipient_provider: string; preferred_mailbox_provider: string; priority: number; is_active: boolean; created_at: string; };
+        Insert: { id?: string; workspace_id?: string | null; recipient_provider: string; preferred_mailbox_provider: string; priority?: number; is_active?: boolean; };
+        Update: { recipient_provider?: string; preferred_mailbox_provider?: string; priority?: number; is_active?: boolean; };
+      };
+      email_bounces: {
+        Row: { id: string; email_id: string | null; mailbox_id: string | null; bounce_type: string; bounce_reason: string | null; smtp_code: string | null; recipient_address: string | null; created_at: string; };
+        Insert: { id?: string; email_id?: string | null; mailbox_id?: string | null; bounce_type?: string; bounce_reason?: string | null; smtp_code?: string | null; recipient_address?: string | null; };
+        Update: { bounce_type?: string; bounce_reason?: string | null; smtp_code?: string | null; };
+      };
+      domain_send_limits: {
+        Row: { id: string; workspace_id: string | null; domain: string; max_per_day: number; sent_today: number; sent_last_30_days: number; last_reset_at: string; created_at: string; };
+        Insert: { id?: string; workspace_id?: string | null; domain: string; max_per_day?: number; sent_today?: number; sent_last_30_days?: number; };
+        Update: { domain?: string; max_per_day?: number; sent_today?: number; sent_last_30_days?: number; last_reset_at?: string; };
+      };
+      contact_suppression: {
+        Row: { id: string; workspace_id: string | null; contact_id: string | null; reason: string; suppressed_by: string | null; created_at: string; };
+        Insert: { id?: string; workspace_id?: string | null; contact_id?: string | null; reason?: string; suppressed_by?: string | null; };
+        Update: { reason?: string; };
+      };
+      domain_suppression: {
+        Row: { id: string; workspace_id: string | null; domain: string; reason: string; suppressed_by: string | null; created_at: string; };
+        Insert: { id?: string; workspace_id?: string | null; domain: string; reason?: string; suppressed_by?: string | null; };
+        Update: { reason?: string; };
+      };
+      campaign_stats: {
+        Row: { id: string; campaign_id: string; emails_sent: number; emails_opened: number; emails_clicked: number; replies: number; bounces: number; meetings: number; deals: number; revenue: number; last_updated_at: string; };
+        Insert: { id?: string; campaign_id: string; emails_sent?: number; emails_opened?: number; emails_clicked?: number; replies?: number; bounces?: number; meetings?: number; deals?: number; revenue?: number; };
+        Update: { emails_sent?: number; emails_opened?: number; emails_clicked?: number; replies?: number; bounces?: number; meetings?: number; deals?: number; revenue?: number; last_updated_at?: string; };
+      };
+      inbox_threads: {
+        Row: { id: string; thread_id: string | null; contact_id: string | null; mailbox_id: string | null; campaign_id: string | null; workspace_id: string | null; subject: string | null; status: InboxThreadStatus; last_message_at: string; message_count: number; assigned_to: string | null; created_at: string; updated_at: string; };
+        Insert: { id?: string; thread_id?: string | null; contact_id?: string | null; mailbox_id?: string | null; campaign_id?: string | null; workspace_id?: string | null; subject?: string | null; status?: InboxThreadStatus; message_count?: number; assigned_to?: string | null; };
+        Update: { subject?: string | null; status?: InboxThreadStatus; last_message_at?: string; message_count?: number; assigned_to?: string | null; updated_at?: string; };
+      };
+      inbox_messages: {
+        Row: { id: string; thread_id: string; direction: string; from_address: string | null; to_address: string | null; subject: string | null; body_text: string | null; body_html: string | null; timestamp: string; email_id: string | null; created_at: string; };
+        Insert: { id?: string; thread_id: string; direction?: string; from_address?: string | null; to_address?: string | null; subject?: string | null; body_text?: string | null; body_html?: string | null; email_id?: string | null; };
+        Update: { direction?: string; subject?: string | null; body_text?: string | null; body_html?: string | null; };
+      };
     };
     Views: {};
     Functions: {
@@ -1876,6 +1967,9 @@ export type Database = {
       deal_status: DealStatus;
       meeting_status: MeetingStatus;
       activity_type: ActivityType;
+      campaign_status: CampaignStatus;
+      campaign_contact_status: CampaignContactStatus;
+      inbox_thread_status: InboxThreadStatus;
     };
   };
 };

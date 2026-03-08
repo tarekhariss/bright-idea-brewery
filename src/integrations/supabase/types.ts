@@ -193,6 +193,222 @@ export type Database = {
           },
         ]
       }
+      campaign_contacts: {
+        Row: {
+          campaign_id: string
+          contact_id: string
+          created_at: string | null
+          deal_id: string | null
+          id: string
+          last_sent_at: string | null
+          meeting_booked: boolean | null
+          reply_status: string | null
+          sent_count: number | null
+          status: Database["public"]["Enums"]["campaign_contact_status"]
+        }
+        Insert: {
+          campaign_id: string
+          contact_id: string
+          created_at?: string | null
+          deal_id?: string | null
+          id?: string
+          last_sent_at?: string | null
+          meeting_booked?: boolean | null
+          reply_status?: string | null
+          sent_count?: number | null
+          status?: Database["public"]["Enums"]["campaign_contact_status"]
+        }
+        Update: {
+          campaign_id?: string
+          contact_id?: string
+          created_at?: string | null
+          deal_id?: string | null
+          id?: string
+          last_sent_at?: string | null
+          meeting_booked?: boolean | null
+          reply_status?: string | null
+          sent_count?: number | null
+          status?: Database["public"]["Enums"]["campaign_contact_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_contacts_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_contacts_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_contacts_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_mailboxes: {
+        Row: {
+          campaign_id: string
+          created_at: string | null
+          mailbox_id: string
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string | null
+          mailbox_id: string
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string | null
+          mailbox_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_mailboxes_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_mailboxes_mailbox_id_fkey"
+            columns: ["mailbox_id"]
+            isOneToOne: false
+            referencedRelation: "mailboxes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_stats: {
+        Row: {
+          bounces: number | null
+          campaign_id: string
+          deals: number | null
+          emails_clicked: number | null
+          emails_opened: number | null
+          emails_sent: number | null
+          id: string
+          last_updated_at: string | null
+          meetings: number | null
+          replies: number | null
+          revenue: number | null
+        }
+        Insert: {
+          bounces?: number | null
+          campaign_id: string
+          deals?: number | null
+          emails_clicked?: number | null
+          emails_opened?: number | null
+          emails_sent?: number | null
+          id?: string
+          last_updated_at?: string | null
+          meetings?: number | null
+          replies?: number | null
+          revenue?: number | null
+        }
+        Update: {
+          bounces?: number | null
+          campaign_id?: string
+          deals?: number | null
+          emails_clicked?: number | null
+          emails_opened?: number | null
+          emails_sent?: number | null
+          id?: string
+          last_updated_at?: string | null
+          meetings?: number | null
+          replies?: number | null
+          revenue?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_stats_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: true
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaigns: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          daily_limit: number | null
+          description: string | null
+          id: string
+          max_new_leads_per_day: number | null
+          min_wait_minutes: number | null
+          name: string
+          owner_id: string | null
+          random_wait_minutes: number | null
+          status: Database["public"]["Enums"]["campaign_status"]
+          stop_on_auto_reply: boolean | null
+          stop_on_reply: boolean | null
+          template_id: string | null
+          updated_at: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          daily_limit?: number | null
+          description?: string | null
+          id?: string
+          max_new_leads_per_day?: number | null
+          min_wait_minutes?: number | null
+          name: string
+          owner_id?: string | null
+          random_wait_minutes?: number | null
+          status?: Database["public"]["Enums"]["campaign_status"]
+          stop_on_auto_reply?: boolean | null
+          stop_on_reply?: boolean | null
+          template_id?: string | null
+          updated_at?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          daily_limit?: number | null
+          description?: string | null
+          id?: string
+          max_new_leads_per_day?: number | null
+          min_wait_minutes?: number | null
+          name?: string
+          owner_id?: string | null
+          random_wait_minutes?: number | null
+          status?: Database["public"]["Enums"]["campaign_status"]
+          stop_on_auto_reply?: boolean | null
+          stop_on_reply?: boolean | null
+          template_id?: string | null
+          updated_at?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaigns_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "email_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaigns_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       companies: {
         Row: {
           annual_revenue: number | null
@@ -478,6 +694,48 @@ export type Database = {
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contact_suppression: {
+        Row: {
+          contact_id: string | null
+          created_at: string | null
+          id: string
+          reason: string
+          suppressed_by: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          contact_id?: string | null
+          created_at?: string | null
+          id?: string
+          reason?: string
+          suppressed_by?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          contact_id?: string | null
+          created_at?: string | null
+          id?: string
+          reason?: string
+          suppressed_by?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_suppression_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_suppression_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
         ]
@@ -1002,6 +1260,130 @@ export type Database = {
           },
         ]
       }
+      domain_send_limits: {
+        Row: {
+          created_at: string | null
+          domain: string
+          id: string
+          last_reset_at: string | null
+          max_per_day: number | null
+          sent_last_30_days: number | null
+          sent_today: number | null
+          workspace_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          domain: string
+          id?: string
+          last_reset_at?: string | null
+          max_per_day?: number | null
+          sent_last_30_days?: number | null
+          sent_today?: number | null
+          workspace_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          domain?: string
+          id?: string
+          last_reset_at?: string | null
+          max_per_day?: number | null
+          sent_last_30_days?: number | null
+          sent_today?: number | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "domain_send_limits_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      domain_suppression: {
+        Row: {
+          created_at: string | null
+          domain: string
+          id: string
+          reason: string
+          suppressed_by: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          domain: string
+          id?: string
+          reason?: string
+          suppressed_by?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          domain?: string
+          id?: string
+          reason?: string
+          suppressed_by?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "domain_suppression_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_bounces: {
+        Row: {
+          bounce_reason: string | null
+          bounce_type: string
+          created_at: string | null
+          email_id: string | null
+          id: string
+          mailbox_id: string | null
+          recipient_address: string | null
+          smtp_code: string | null
+        }
+        Insert: {
+          bounce_reason?: string | null
+          bounce_type?: string
+          created_at?: string | null
+          email_id?: string | null
+          id?: string
+          mailbox_id?: string | null
+          recipient_address?: string | null
+          smtp_code?: string | null
+        }
+        Update: {
+          bounce_reason?: string | null
+          bounce_type?: string
+          created_at?: string | null
+          email_id?: string | null
+          id?: string
+          mailbox_id?: string | null
+          recipient_address?: string | null
+          smtp_code?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_bounces_email_id_fkey"
+            columns: ["email_id"]
+            isOneToOne: false
+            referencedRelation: "emails"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_bounces_mailbox_id_fkey"
+            columns: ["mailbox_id"]
+            isOneToOne: false
+            referencedRelation: "mailboxes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_events: {
         Row: {
           created_at: string | null
@@ -1030,6 +1412,127 @@ export type Database = {
             columns: ["email_id"]
             isOneToOne: false
             referencedRelation: "emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_providers: {
+        Row: {
+          api_endpoint: string | null
+          auth_type: string
+          created_at: string | null
+          id: string
+          is_active: boolean
+          provider_name: string
+        }
+        Insert: {
+          api_endpoint?: string | null
+          auth_type?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          provider_name: string
+        }
+        Update: {
+          api_endpoint?: string | null
+          auth_type?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          provider_name?: string
+        }
+        Relationships: []
+      }
+      email_templates: {
+        Row: {
+          body: string | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          subject: string | null
+          updated_at: string | null
+          variables: Json | null
+          workspace_id: string | null
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          subject?: string | null
+          updated_at?: string | null
+          variables?: Json | null
+          workspace_id?: string | null
+        }
+        Update: {
+          body?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          subject?: string | null
+          updated_at?: string | null
+          variables?: Json | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_templates_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_variants: {
+        Row: {
+          body: string | null
+          click_count: number | null
+          created_at: string | null
+          id: string
+          open_count: number | null
+          reply_count: number | null
+          sent_count: number | null
+          subject: string | null
+          template_id: string
+          variant_name: string
+        }
+        Insert: {
+          body?: string | null
+          click_count?: number | null
+          created_at?: string | null
+          id?: string
+          open_count?: number | null
+          reply_count?: number | null
+          sent_count?: number | null
+          subject?: string | null
+          template_id: string
+          variant_name?: string
+        }
+        Update: {
+          body?: string | null
+          click_count?: number | null
+          created_at?: string | null
+          id?: string
+          open_count?: number | null
+          reply_count?: number | null
+          sent_count?: number | null
+          subject?: string | null
+          template_id?: string
+          variant_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_variants_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "email_templates"
             referencedColumns: ["id"]
           },
         ]
@@ -1160,6 +1663,44 @@ export type Database = {
             columns: ["sequence_step_id"]
             isOneToOne: false
             referencedRelation: "sequence_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      esp_routing_rules: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          preferred_mailbox_provider: string
+          priority: number | null
+          recipient_provider: string
+          workspace_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          preferred_mailbox_provider: string
+          priority?: number | null
+          recipient_provider: string
+          workspace_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          preferred_mailbox_provider?: string
+          priority?: number | null
+          recipient_provider?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esp_routing_rules_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
         ]
@@ -1452,6 +1993,140 @@ export type Database = {
           },
         ]
       }
+      inbox_messages: {
+        Row: {
+          body_html: string | null
+          body_text: string | null
+          created_at: string | null
+          direction: string
+          email_id: string | null
+          from_address: string | null
+          id: string
+          subject: string | null
+          thread_id: string
+          timestamp: string | null
+          to_address: string | null
+        }
+        Insert: {
+          body_html?: string | null
+          body_text?: string | null
+          created_at?: string | null
+          direction?: string
+          email_id?: string | null
+          from_address?: string | null
+          id?: string
+          subject?: string | null
+          thread_id: string
+          timestamp?: string | null
+          to_address?: string | null
+        }
+        Update: {
+          body_html?: string | null
+          body_text?: string | null
+          created_at?: string | null
+          direction?: string
+          email_id?: string | null
+          from_address?: string | null
+          id?: string
+          subject?: string | null
+          thread_id?: string
+          timestamp?: string | null
+          to_address?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inbox_messages_email_id_fkey"
+            columns: ["email_id"]
+            isOneToOne: false
+            referencedRelation: "emails"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "inbox_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inbox_threads: {
+        Row: {
+          assigned_to: string | null
+          campaign_id: string | null
+          contact_id: string | null
+          created_at: string | null
+          id: string
+          last_message_at: string | null
+          mailbox_id: string | null
+          message_count: number | null
+          status: Database["public"]["Enums"]["inbox_thread_status"]
+          subject: string | null
+          thread_id: string | null
+          updated_at: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          campaign_id?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          id?: string
+          last_message_at?: string | null
+          mailbox_id?: string | null
+          message_count?: number | null
+          status?: Database["public"]["Enums"]["inbox_thread_status"]
+          subject?: string | null
+          thread_id?: string | null
+          updated_at?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          campaign_id?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          id?: string
+          last_message_at?: string | null
+          mailbox_id?: string | null
+          message_count?: number | null
+          status?: Database["public"]["Enums"]["inbox_thread_status"]
+          subject?: string | null
+          thread_id?: string | null
+          updated_at?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inbox_threads_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_threads_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_threads_mailbox_id_fkey"
+            columns: ["mailbox_id"]
+            isOneToOne: false
+            referencedRelation: "mailboxes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_threads_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       list_contacts: {
         Row: {
           added_at: string | null
@@ -1532,6 +2207,103 @@ export type Database = {
           },
         ]
       }
+      mailbox_health: {
+        Row: {
+          bounce_rate: number | null
+          health_score: number | null
+          id: string
+          last_health_update: string | null
+          mailbox_id: string
+          open_rate: number | null
+          reply_rate: number | null
+          sent_last_30_days: number | null
+          sent_last_7_days: number | null
+        }
+        Insert: {
+          bounce_rate?: number | null
+          health_score?: number | null
+          id?: string
+          last_health_update?: string | null
+          mailbox_id: string
+          open_rate?: number | null
+          reply_rate?: number | null
+          sent_last_30_days?: number | null
+          sent_last_7_days?: number | null
+        }
+        Update: {
+          bounce_rate?: number | null
+          health_score?: number | null
+          id?: string
+          last_health_update?: string | null
+          mailbox_id?: string
+          open_rate?: number | null
+          reply_rate?: number | null
+          sent_last_30_days?: number | null
+          sent_last_7_days?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mailbox_health_mailbox_id_fkey"
+            columns: ["mailbox_id"]
+            isOneToOne: true
+            referencedRelation: "mailboxes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mailbox_warmup_settings: {
+        Row: {
+          created_at: string | null
+          daily_warmup_limit: number | null
+          id: string
+          increase_per_day: number | null
+          mailbox_id: string
+          open_rate_target: number | null
+          read_emulation: boolean | null
+          reply_rate_target: number | null
+          spam_protection_rate: number | null
+          updated_at: string | null
+          warmup_enabled: boolean | null
+          weekdays_only: boolean | null
+        }
+        Insert: {
+          created_at?: string | null
+          daily_warmup_limit?: number | null
+          id?: string
+          increase_per_day?: number | null
+          mailbox_id: string
+          open_rate_target?: number | null
+          read_emulation?: boolean | null
+          reply_rate_target?: number | null
+          spam_protection_rate?: number | null
+          updated_at?: string | null
+          warmup_enabled?: boolean | null
+          weekdays_only?: boolean | null
+        }
+        Update: {
+          created_at?: string | null
+          daily_warmup_limit?: number | null
+          id?: string
+          increase_per_day?: number | null
+          mailbox_id?: string
+          open_rate_target?: number | null
+          read_emulation?: boolean | null
+          reply_rate_target?: number | null
+          spam_protection_rate?: number | null
+          updated_at?: string | null
+          warmup_enabled?: boolean | null
+          weekdays_only?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mailbox_warmup_settings_mailbox_id_fkey"
+            columns: ["mailbox_id"]
+            isOneToOne: true
+            referencedRelation: "mailboxes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mailboxes: {
         Row: {
           connection_status:
@@ -1551,12 +2323,17 @@ export type Database = {
           imap_username: string | null
           last_checked_at: string | null
           notes: string | null
+          oauth_access_token: string | null
+          oauth_expires_at: string | null
+          oauth_refresh_token: string | null
           owner_id: string | null
+          provider_id: string | null
           provider_type:
             | Database["public"]["Enums"]["mailbox_provider_type"]
             | null
           sending_health: Database["public"]["Enums"]["sending_health"] | null
           smtp_host: string | null
+          smtp_password_encrypted: string | null
           smtp_port: number | null
           smtp_secure: boolean | null
           smtp_username: string | null
@@ -1582,12 +2359,17 @@ export type Database = {
           imap_username?: string | null
           last_checked_at?: string | null
           notes?: string | null
+          oauth_access_token?: string | null
+          oauth_expires_at?: string | null
+          oauth_refresh_token?: string | null
           owner_id?: string | null
+          provider_id?: string | null
           provider_type?:
             | Database["public"]["Enums"]["mailbox_provider_type"]
             | null
           sending_health?: Database["public"]["Enums"]["sending_health"] | null
           smtp_host?: string | null
+          smtp_password_encrypted?: string | null
           smtp_port?: number | null
           smtp_secure?: boolean | null
           smtp_username?: string | null
@@ -1613,12 +2395,17 @@ export type Database = {
           imap_username?: string | null
           last_checked_at?: string | null
           notes?: string | null
+          oauth_access_token?: string | null
+          oauth_expires_at?: string | null
+          oauth_refresh_token?: string | null
           owner_id?: string | null
+          provider_id?: string | null
           provider_type?:
             | Database["public"]["Enums"]["mailbox_provider_type"]
             | null
           sending_health?: Database["public"]["Enums"]["sending_health"] | null
           smtp_host?: string | null
+          smtp_password_encrypted?: string | null
           smtp_port?: number | null
           smtp_secure?: boolean | null
           smtp_username?: string | null
@@ -1632,6 +2419,13 @@ export type Database = {
             columns: ["domain_id"]
             isOneToOne: false
             referencedRelation: "sending_domains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mailboxes_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "email_providers"
             referencedColumns: ["id"]
           },
         ]
@@ -2151,6 +2945,50 @@ export type Database = {
           warmup_progress?: number | null
         }
         Relationships: []
+      }
+      sending_windows: {
+        Row: {
+          created_at: string | null
+          end_hour: number
+          id: string
+          is_active: boolean | null
+          name: string | null
+          start_hour: number
+          timezone: string
+          weekdays_only: boolean | null
+          workspace_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          end_hour?: number
+          id?: string
+          is_active?: boolean | null
+          name?: string | null
+          start_hour?: number
+          timezone?: string
+          weekdays_only?: boolean | null
+          workspace_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          end_hour?: number
+          id?: string
+          is_active?: boolean | null
+          name?: string | null
+          start_hour?: number
+          timezone?: string
+          weekdays_only?: boolean | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sending_windows_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sequence_enrollments: {
         Row: {
@@ -2699,6 +3537,14 @@ export type Database = {
         | "not_interested"
         | "callback"
         | "wrong_number"
+      campaign_contact_status:
+        | "pending"
+        | "sent"
+        | "replied"
+        | "bounced"
+        | "opted_out"
+        | "meeting_booked"
+      campaign_status: "draft" | "active" | "paused" | "completed"
       connection_status: "active" | "disconnected" | "warming" | "error"
       deal_status: "open" | "won" | "lost" | "abandoned"
       dns_record_status: "pending" | "pass" | "fail"
@@ -2741,6 +3587,7 @@ export type Database = {
         | "completed"
         | "failed"
         | "cancelled"
+      inbox_thread_status: "open" | "snoozed" | "closed" | "archived"
       lifecycle_status:
         | "new"
         | "researching"
@@ -2943,6 +3790,15 @@ export const Constants = {
         "callback",
         "wrong_number",
       ],
+      campaign_contact_status: [
+        "pending",
+        "sent",
+        "replied",
+        "bounced",
+        "opted_out",
+        "meeting_booked",
+      ],
+      campaign_status: ["draft", "active", "paused", "completed"],
       connection_status: ["active", "disconnected", "warming", "error"],
       deal_status: ["open", "won", "lost", "abandoned"],
       dns_record_status: ["pending", "pass", "fail"],
@@ -2990,6 +3846,7 @@ export const Constants = {
         "failed",
         "cancelled",
       ],
+      inbox_thread_status: ["open", "snoozed", "closed", "archived"],
       lifecycle_status: [
         "new",
         "researching",

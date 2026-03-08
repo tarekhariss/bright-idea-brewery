@@ -38,6 +38,9 @@ import SequencesListPage from "./pages/engage/SequencesPage";
 import EmailsPage from "./pages/engage/Emails";
 import CallsPage from "./pages/engage/Calls";
 import TasksPage from "./pages/engage/Tasks";
+import CampaignsPage from "./pages/engage/CampaignsPage";
+import EmailTemplatesPage from "./pages/engage/EmailTemplatesPage";
+import InboxPage from "./pages/engage/InboxPage";
 
 // Deals pages
 import MeetingsPage from "./pages/deals/Meetings";
@@ -52,6 +55,10 @@ import AnalyticsPage from "./pages/tools/AnalyticsPage";
 import DeliverabilityOverview from "./pages/settings/deliverability/DeliverabilityOverview";
 import DomainsPage from "./pages/settings/deliverability/DomainsPage";
 import MailboxesPage from "./pages/settings/deliverability/MailboxesPage";
+import DeliverabilityDashboard from "./pages/settings/deliverability/DeliverabilityDashboard";
+import SuppressionPage from "./pages/settings/deliverability/SuppressionPage";
+import SendingWindowsPage from "./pages/settings/deliverability/SendingWindowsPage";
+import ESPRoutingPage from "./pages/settings/deliverability/ESPRoutingPage";
 
 // Settings pages
 import SettingsIndex from "./pages/settings/SettingsIndex";
@@ -115,6 +122,9 @@ const App = () => (
             <Route path="/engage/emails" element={<PL><EmailsPage /></PL>} />
             <Route path="/engage/calls" element={<PL><CallsPage /></PL>} />
             <Route path="/engage/tasks" element={<PL><TasksPage /></PL>} />
+            <Route path="/engage/campaigns" element={<PL><CampaignsPage /></PL>} />
+            <Route path="/engage/templates" element={<PL><EmailTemplatesPage /></PL>} />
+            <Route path="/engage/inbox" element={<PL><InboxPage /></PL>} />
 
             {/* Deals */}
             <Route path="/deals" element={<PL><MeetingsPage /></PL>} />
@@ -158,6 +168,10 @@ const App = () => (
             <Route path="/settings/workspace/deliverability/overview" element={<SL><DeliverabilityOverview /></SL>} />
             <Route path="/settings/workspace/deliverability/domains" element={<SL><DomainsPage /></SL>} />
             <Route path="/settings/workspace/deliverability/mailboxes" element={<SL><MailboxesPage /></SL>} />
+            <Route path="/settings/workspace/deliverability/dashboard" element={<SL><DeliverabilityDashboard /></SL>} />
+            <Route path="/settings/workspace/deliverability/suppression" element={<SL><SuppressionPage /></SL>} />
+            <Route path="/settings/workspace/deliverability/sending-windows" element={<SL><SendingWindowsPage /></SL>} />
+            <Route path="/settings/workspace/deliverability/esp-routing" element={<SL><ESPRoutingPage /></SL>} />
             <Route path="/settings/workspace/users" element={<SL><UserTeamSettings /></SL>} />
             <Route path="/settings/workspace/security" element={<SL><SecuritySettings /></SL>} />
 
