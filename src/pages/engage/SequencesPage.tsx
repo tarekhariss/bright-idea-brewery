@@ -17,7 +17,7 @@ import { format } from "date-fns";
 import {
   useSequences, useSequenceSteps, useSequenceEnrollments,
   useCreateSequence, useUpdateSequence, useDeleteSequence,
-  useAddStep, useDeleteStep,
+  useAddStep, useDeleteStep, useUpdateStep,
 } from "@/hooks/use-engage";
 
 const statusBadge = (s: string) => {
@@ -44,11 +44,14 @@ export default function SequencesListPage() {
   const deleteSeq = useDeleteSequence();
   const addStep = useAddStep();
   const deleteStep = useDeleteStep();
+  const updateStep = useUpdateStep();
 
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
   const [editId, setEditId] = useState<string | null>(null);
+  const [expandedStepId, setExpandedStepId] = useState<string | null>(null);
+  const [stepEdits, setStepEdits] = useState<Record<string, { label?: string; delay_days?: number; delay_hours?: number; email_subject?: string; email_body?: string; task_instructions?: string; call_instructions?: string }>>({});
 
   const { data: steps } = useSequenceSteps(editId);
   const { data: enrollments } = useSequenceEnrollments(editId);
@@ -220,33 +223,160 @@ export default function SequencesListPage() {
                   </DropdownMenu>
                 </div>
                 <div className="space-y-2">
-                  {steps?.map((step, i) => (
-                    <div key={step.id} className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-muted/30 transition-colors group">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                        {stepIcon(step.step_type)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-bold text-muted-foreground">STEP {step.step_order}</span>
-                          <Badge variant="secondary" className="text-[10px] capitalize">{step.step_type}</Badge>
+                  {steps?.map((step, i) => {
+                    const isExpanded = expandedStepId === step.id;
+                    const edits = stepEdits[step.id] || {};
+                    return (
+                      <div key={step.id} className="rounded-lg border bg-card overflow-hidden">
+                        <div
+                          className="flex items-center gap-3 p-3 hover:bg-muted/30 transition-colors cursor-pointer group"
+                          onClick={() => {
+                            if (isExpanded) {
+                              setExpandedStepId(null);
+                            } else {
+                              setExpandedStepId(step.id);
+                              setStepEdits((prev) => ({
+                                ...prev,
+                                [step.id]: {
+                                  label: step.label,
+                                  delay_days: step.delay_days,
+                                  delay_hours: step.delay_hours,
+                                  email_subject: step.email_subject || "",
+                                  email_body: step.email_body || "",
+                                  task_instructions: step.task_instructions || "",
+                                  call_instructions: step.call_instructions || "",
+                                },
+                              }));
+                            }
+                          }}
+                        >
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                            {stepIcon(step.step_type)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-bold text-muted-foreground">STEP {step.step_order}</span>
+                              <Badge variant="secondary" className="text-[10px] capitalize">{step.step_type}</Badge>
+                            </div>
+                            <p className="text-sm mt-0.5 truncate">{step.label}</p>
+                          </div>
+                          {i > 0 && (
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Clock className="h-3 w-3" />
+                              <span>+{step.delay_days}d {step.delay_hours > 0 ? `${step.delay_hours}h` : ""}</span>
+                            </div>
+                          )}
+                          <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`} />
+                          <Button
+                            variant="ghost" size="icon"
+                            className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-destructive"
+                            onClick={(e) => { e.stopPropagation(); deleteStep.mutate({ id: step.id, sequenceId: editSeq.id }); }}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
                         </div>
-                        <p className="text-sm mt-0.5 truncate">{step.label}</p>
+                        {isExpanded && (
+                          <div className="border-t p-4 space-y-3 bg-muted/10">
+                            <div>
+                              <Label className="text-xs">Label</Label>
+                              <Input
+                                value={edits.label ?? step.label}
+                                onChange={(e) => setStepEdits((prev) => ({ ...prev, [step.id]: { ...prev[step.id], label: e.target.value } }))}
+                                className="mt-1 h-8 text-sm"
+                              />
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <Label className="text-xs">Delay (days)</Label>
+                                <Input
+                                  type="number" min={0}
+                                  value={edits.delay_days ?? step.delay_days}
+                                  onChange={(e) => setStepEdits((prev) => ({ ...prev, [step.id]: { ...prev[step.id], delay_days: parseInt(e.target.value) || 0 } }))}
+                                  className="mt-1 h-8 text-sm"
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-xs">Delay (hours)</Label>
+                                <Input
+                                  type="number" min={0}
+                                  value={edits.delay_hours ?? step.delay_hours}
+                                  onChange={(e) => setStepEdits((prev) => ({ ...prev, [step.id]: { ...prev[step.id], delay_hours: parseInt(e.target.value) || 0 } }))}
+                                  className="mt-1 h-8 text-sm"
+                                />
+                              </div>
+                            </div>
+                            {step.step_type === "email" && (
+                              <>
+                                <div>
+                                  <Label className="text-xs">Email Subject</Label>
+                                  <Input
+                                    value={edits.email_subject ?? ""}
+                                    onChange={(e) => setStepEdits((prev) => ({ ...prev, [step.id]: { ...prev[step.id], email_subject: e.target.value } }))}
+                                    placeholder="Subject line..."
+                                    className="mt-1 h-8 text-sm"
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="text-xs">Email Body</Label>
+                                  <Textarea
+                                    value={edits.email_body ?? ""}
+                                    onChange={(e) => setStepEdits((prev) => ({ ...prev, [step.id]: { ...prev[step.id], email_body: e.target.value } }))}
+                                    placeholder="Write your email content..."
+                                    className="mt-1 text-sm" rows={4}
+                                  />
+                                </div>
+                              </>
+                            )}
+                            {step.step_type === "call" && (
+                              <div>
+                                <Label className="text-xs">Call Instructions</Label>
+                                <Textarea
+                                  value={edits.call_instructions ?? ""}
+                                  onChange={(e) => setStepEdits((prev) => ({ ...prev, [step.id]: { ...prev[step.id], call_instructions: e.target.value } }))}
+                                  placeholder="Talking points, goals..."
+                                  className="mt-1 text-sm" rows={3}
+                                />
+                              </div>
+                            )}
+                            {step.step_type === "task" && (
+                              <div>
+                                <Label className="text-xs">Task Instructions</Label>
+                                <Textarea
+                                  value={edits.task_instructions ?? ""}
+                                  onChange={(e) => setStepEdits((prev) => ({ ...prev, [step.id]: { ...prev[step.id], task_instructions: e.target.value } }))}
+                                  placeholder="What needs to be done..."
+                                  className="mt-1 text-sm" rows={3}
+                                />
+                              </div>
+                            )}
+                            <div className="flex justify-end">
+                              <Button
+                                size="sm" className="text-xs h-7"
+                                disabled={updateStep.isPending}
+                                onClick={() => {
+                                  updateStep.mutate({
+                                    id: step.id,
+                                    sequenceId: editSeq.id,
+                                    label: edits.label,
+                                    delay_days: edits.delay_days,
+                                    delay_hours: edits.delay_hours,
+                                    email_subject: edits.email_subject || null,
+                                    email_body: edits.email_body || null,
+                                    call_instructions: edits.call_instructions || null,
+                                    task_instructions: edits.task_instructions || null,
+                                  });
+                                  setExpandedStepId(null);
+                                }}
+                              >
+                                {updateStep.isPending && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+                                Save Step
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      {i > 0 && (
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Clock className="h-3 w-3" />
-                          <span>+{step.delay_days}d {step.delay_hours > 0 ? `${step.delay_hours}h` : ""}</span>
-                        </div>
-                      )}
-                      <Button
-                        variant="ghost" size="icon"
-                        className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-destructive"
-                        onClick={() => deleteStep.mutate({ id: step.id, sequenceId: editSeq.id })}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ))}
+                    );
+                  })}
                   {!steps?.length && <p className="text-sm text-muted-foreground text-center py-4">No steps yet. Add one above.</p>}
                 </div>
               </div>
