@@ -89,9 +89,10 @@ export default function CampaignDetailPage() {
       delay_hours: newDelayHours,
       email_template_id: newTemplateId || undefined,
       task_description: newTaskDesc || undefined,
+      ...(newLinkedinTemplateId ? { linkedin_message_template_id: newLinkedinTemplateId } : {}),
     });
     setAddStepOpen(false);
-    setNewStepType("email"); setNewDelayDays(0); setNewDelayHours(0); setNewTemplateId(""); setNewTaskDesc("");
+    setNewStepType("email"); setNewDelayDays(0); setNewDelayHours(0); setNewTemplateId(""); setNewTaskDesc(""); setNewLinkedinTemplateId("");
   };
 
   const handleEnroll = async () => {
