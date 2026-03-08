@@ -25,6 +25,9 @@ export type ConnectionStatus = "active" | "disconnected" | "warming" | "error";
 export type WarmupStatus = "off" | "active" | "paused" | "complete";
 export type SendingHealth = "unknown" | "good" | "warning" | "poor";
 export type DealStatus = "open" | "won" | "lost" | "abandoned";
+export type CampaignStatus = "draft" | "active" | "paused" | "completed";
+export type CampaignContactStatus = "pending" | "sent" | "replied" | "bounced" | "opted_out" | "meeting_booked";
+export type InboxThreadStatus = "open" | "snoozed" | "closed" | "archived";
 export type MeetingStatus = "scheduled" | "completed" | "cancelled" | "no_show";
 export type ActivityType =
   | "email_sent" | "email_opened" | "email_clicked" | "email_replied" | "email_bounced"
