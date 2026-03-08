@@ -38,7 +38,9 @@ const settingsSections: SettingsNavSection[] = [
   {
     title: "Workspace",
     items: [
-      { label: "Deliverability Suite", path: "/settings/workspace/deliverability", icon: Inbox },
+      { label: "Deliverability Overview", path: "/settings/workspace/deliverability", icon: Inbox },
+      { label: "Domains", path: "/settings/workspace/deliverability/domains", icon: Globe },
+      { label: "Mailboxes", path: "/settings/workspace/deliverability/mailboxes", icon: Mail },
       { label: "Users & Teams", path: "/settings/workspace/users", icon: Users },
       { label: "Security", path: "/settings/workspace/security", icon: Shield },
     ],
