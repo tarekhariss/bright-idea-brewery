@@ -126,6 +126,22 @@ export function useDeleteStep() {
   });
 }
 
+export function useUpdateStep() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, sequenceId, ...vals }: { id: string; sequenceId: string } & Partial<Tables["sequence_steps"]["Update"]>) => {
+      const { data, error } = await from("sequence_steps").update(vals).eq("id", id).select().single();
+      if (error) throw error;
+      return data as SequenceStep;
+    },
+    onSuccess: (d) => {
+      qc.invalidateQueries({ queryKey: ["sequence_steps", d?.sequence_id] });
+      toast.success("Step updated");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+}
+
 // ── Enrollments ──
 export function useEnrollContact() {
   const qc = useQueryClient();
