@@ -196,6 +196,9 @@ export default function CompaniesPage() {
         <Table>
           <TableHeader className="sticky top-0 bg-card z-10">
             <TableRow className="hover:bg-transparent">
+              <TableHead className="w-10">
+                <Checkbox checked={companies.length > 0 && selected.size === companies.length} onCheckedChange={toggleSelectAll} />
+              </TableHead>
               {col("name") && <TableHead><SortableHeader label="Company" sortKey="name" currentSort={sortBy} currentDirection={sortDir} onSort={handleSort} /></TableHead>}
               {col("domain") && <TableHead><SortableHeader label="Domain" sortKey="domain" currentSort={sortBy} currentDirection={sortDir} onSort={handleSort} /></TableHead>}
               {col("industry") && <TableHead><SortableHeader label="Industry" sortKey="industry" currentSort={sortBy} currentDirection={sortDir} onSort={handleSort} /></TableHead>}
