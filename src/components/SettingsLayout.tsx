@@ -8,7 +8,7 @@ import {
   Scale, Crosshair, FileText, UsersRound, Activity as ActivityIcon,
   BarChart3, Flag, Layers, Download, GitBranch, PhoneCall,
   Video, Lock, ListChecks, Map, CalendarDays, Share2,
-  ClipboardList, Settings,
+  ClipboardList, Settings, Clock, Route, ShieldBan,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
