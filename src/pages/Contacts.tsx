@@ -197,9 +197,11 @@ export default function ContactsPage() {
           </div>
           <div className="flex items-center gap-2">
             {selected.size > 0 && (
-              <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setAddToListOpen(true)}>
-                <ListPlus className="h-3.5 w-3.5" /> Add to List ({selected.size})
-              </Button>
+              <BulkActionsBar
+                selectedIds={Array.from(selected)}
+                onDone={() => { setSelected(new Set()); fetchContacts(); }}
+                onOpenAddToList={() => setAddToListOpen(true)}
+              />
             )}
             <Button variant="outline" size="sm" className="gap-1.5 text-xs">
               <Download className="h-3.5 w-3.5" /> Export
