@@ -18,6 +18,12 @@ export type EmailStatus = "draft" | "queued" | "processing" | "sent_mock" | "sen
 export type TaskStatus = "pending" | "in_progress" | "completed" | "skipped" | "cancelled";
 export type CallOutcome = "no_answer" | "voicemail" | "connected" | "interested" | "not_interested" | "callback" | "wrong_number";
 export type QueueItemStatus = "pending" | "processing" | "completed" | "failed" | "cancelled";
+export type DomainStatus = "pending" | "verified" | "failed";
+export type DnsRecordStatus = "pending" | "pass" | "fail";
+export type MailboxProviderType = "google" | "microsoft" | "smtp" | "other";
+export type ConnectionStatus = "active" | "disconnected" | "warming" | "error";
+export type WarmupStatus = "off" | "active" | "paused" | "complete";
+export type SendingHealth = "unknown" | "good" | "warning" | "poor";
 
 export type Database = {
   public: {
