@@ -154,8 +154,10 @@ const App = () => (
             <Route path="/settings/search/chrome-extension" element={<SL><ChromeExtensionSettings /></SL>} />
             <Route path="/settings/search/conversations" element={<SL><ConversationSettings /></SL>} />
 
-            <Route path="/settings/workspace/deliverability" element={<SL><DeliverabilitySettings /></SL>} />
-            <Route path="/settings/workspace/deliverability/overview" element={<SL><DeliverabilitySettings /></SL>} />
+            <Route path="/settings/workspace/deliverability" element={<SL><DeliverabilityOverview /></SL>} />
+            <Route path="/settings/workspace/deliverability/overview" element={<SL><DeliverabilityOverview /></SL>} />
+            <Route path="/settings/workspace/deliverability/domains" element={<SL><DomainsPage /></SL>} />
+            <Route path="/settings/workspace/deliverability/mailboxes" element={<SL><MailboxesPage /></SL>} />
             <Route path="/settings/workspace/deliverability/domains" element={<SL><DeliverabilitySettings /></SL>} />
             <Route path="/settings/workspace/deliverability/mailboxes" element={<SL><DeliverabilitySettings /></SL>} />
             <Route path="/settings/workspace/users" element={<SL><UserTeamSettings /></SL>} />
