@@ -111,12 +111,24 @@ export default function MailboxesPage() {
     resetForm();
   };
 
-  const testConnection = (id: string) => {
-    toast.info("Testing SMTP connection...");
-    setTimeout(() => {
+  const checkReadiness = useCheckReadiness();
+  const sendTestEmail = useSendTestEmail();
+  const queueHealth = useQueueHealth();
+  const processQueue = useProcessQueue();
+  const [readinessData, setReadinessData] = useState<any>(null);
+  const [testEmailAddr, setTestEmailAddr] = useState("");
+  const [testDialogOpen, setTestDialogOpen] = useState<string | null>(null);
+
+  const testConnection = async (id: string) => {
+    toast.info("Checking mailbox readiness...");
+    const data = await checkReadiness.mutateAsync(id);
+    setReadinessData(data);
+    if (data.ready) {
       updateMailbox.mutate({ id, connection_status: "active", sending_health: "good", last_checked_at: new Date().toISOString() });
-      toast.success("Connection successful ✓");
-    }, 1500);
+      toast.success("Mailbox ready ✓");
+    } else {
+      toast.warning("Mailbox has issues — check readiness details");
+    }
   };
 
   return (

@@ -956,6 +956,7 @@ export type Database = {
           sequence_id: string | null;
           sequence_step_id: string | null;
           enrollment_id: string | null;
+          mailbox_id: string | null;
           owner_id: string | null;
           scheduled_at: string | null;
           sent_at: string | null;
@@ -983,6 +984,7 @@ export type Database = {
           sequence_id?: string | null;
           sequence_step_id?: string | null;
           enrollment_id?: string | null;
+          mailbox_id?: string | null;
           owner_id?: string | null;
           scheduled_at?: string | null;
         };
@@ -990,6 +992,7 @@ export type Database = {
           subject?: string;
           body_html?: string | null;
           status?: EmailStatus;
+          mailbox_id?: string | null;
           sent_at?: string | null;
           opened_at?: string | null;
           clicked_at?: string | null;
