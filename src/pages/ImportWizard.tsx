@@ -175,6 +175,7 @@ export default function ImportWizardPage() {
     try {
       // 1. Create import job
       const settings: Record<string, unknown> = {
+        ...importSettings,
         duplicate_strategy: dupStrategy,
         unmapped_columns: unmappedHeaders,
       };
