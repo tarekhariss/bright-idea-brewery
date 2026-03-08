@@ -39,31 +39,52 @@ const COLUMNS: ColumnDef[] = [
 const DEFAULT_VISIBLE = new Set(COLUMNS.filter((c) => c.defaultVisible).map((c) => c.key));
 
 const FILTER_CONFIGS: FilterConfig[] = [
-  { key: "lifecycle_status", label: "Lifecycle Status", type: "select", options: [
+  // Status
+  { key: "lifecycle_status", label: "Lifecycle Status", type: "select", group: "status", options: [
     { value: "new", label: "New" }, { value: "researching", label: "Researching" },
     { value: "qualified", label: "Qualified" }, { value: "nurturing", label: "Nurturing" },
     { value: "engaged", label: "Engaged" }, { value: "converted", label: "Converted" },
     { value: "churned", label: "Churned" }, { value: "archived", label: "Archived" },
   ]},
-  { key: "outreach_status", label: "Outreach Status", type: "select", options: [
+  { key: "outreach_status", label: "Outreach Status", type: "select", group: "status", options: [
     { value: "not_contacted", label: "Not Contacted" }, { value: "queued", label: "Queued" },
     { value: "contacted", label: "Contacted" }, { value: "replied", label: "Replied" },
     { value: "bounced", label: "Bounced" }, { value: "opted_out", label: "Opted Out" },
     { value: "unresponsive", label: "Unresponsive" },
   ]},
-  { key: "email_validity_status", label: "Email Validity", type: "select", options: [
+  { key: "do_not_contact", label: "Do Not Contact", type: "boolean", group: "status" },
+
+  // Contact Info
+  { key: "email", label: "Email", type: "exists", group: "contact_info" },
+  { key: "phone", label: "Phone", type: "exists", group: "contact_info" },
+  { key: "linkedin_url", label: "LinkedIn", type: "exists", group: "contact_info" },
+  { key: "secondary_email", label: "Secondary Email", type: "exists", group: "contact_info" },
+  { key: "email_validity_status", label: "Email Validity", type: "select", group: "contact_info", options: [
     { value: "unknown", label: "Unknown" }, { value: "valid", label: "Valid" },
     { value: "invalid", label: "Invalid" }, { value: "catch_all", label: "Catch-all" },
     { value: "disposable", label: "Disposable" }, { value: "role_based", label: "Role-based" },
   ]},
-  { key: "country", label: "Country", type: "text" },
-  { key: "department", label: "Department", type: "text" },
-  { key: "seniority_level", label: "Seniority Level", type: "text" },
-  { key: "source", label: "Source", type: "text" },
-  { key: "do_not_contact", label: "Do Not Contact", type: "boolean" },
-  { key: "data_quality_score", label: "Quality Score", type: "range" },
-  { key: "created_at", label: "Created", type: "date_range" },
-  { key: "updated_at", label: "Updated", type: "date_range" },
+
+  // Company
+  { key: "company_id", label: "Company Linked", type: "exists", group: "company" },
+  { key: "department", label: "Department", type: "text", group: "company" },
+  { key: "seniority_level", label: "Seniority Level", type: "text", group: "company" },
+
+  // Enrichment
+  { key: "country", label: "Country", type: "text", group: "enrichment" },
+  { key: "source", label: "Source", type: "text", group: "enrichment" },
+  { key: "data_quality_score", label: "Quality Score", type: "range", group: "enrichment" },
+
+  // Ownership
+  { key: "owner_id", label: "Owner Assigned", type: "exists", group: "ownership" },
+
+  // External
+  { key: "external_contact_id", label: "External Contact ID", type: "exists", group: "external" },
+
+  // Dates
+  { key: "created_at", label: "Created", type: "date_range", group: "dates" },
+  { key: "updated_at", label: "Updated", type: "date_range", group: "dates" },
+  { key: "last_contacted_at", label: "Last Contacted", type: "date_range", group: "dates" },
 ];
 
 interface Contact {
@@ -106,7 +127,6 @@ export default function ContactsPage() {
   const [visibleCols, setVisibleCols] = useState<Set<string>>(new Set(DEFAULT_VISIBLE));
   const [addToListOpen, setAddToListOpen] = useState(false);
 
-  // Load view from URL param on mount
   useEffect(() => {
     const viewId = searchParams.get("view");
     if (viewId && savedViews.views.length > 0) {
@@ -122,20 +142,14 @@ export default function ContactsPage() {
     setSortBy(state.sortBy);
     setSortDir(state.sortDirection);
     setPageSize(state.pageSize);
-    if (state.visibleColumns.length > 0) {
-      setVisibleCols(new Set(state.visibleColumns));
-    }
+    if (state.visibleColumns.length > 0) setVisibleCols(new Set(state.visibleColumns));
     savedViews.setActiveViewId(view.id);
     setPage(0);
   };
 
   const getCurrentViewState = (): ViewState => ({
-    search,
-    filters: filterValues,
-    visibleColumns: Array.from(visibleCols),
-    sortBy,
-    sortDirection: sortDir,
-    pageSize,
+    search, filters: filterValues, visibleColumns: Array.from(visibleCols),
+    sortBy, sortDirection: sortDir, pageSize,
   });
 
   const fetchContacts = useCallback(async () => {
@@ -147,21 +161,19 @@ export default function ContactsPage() {
       .range(page * pageSize, (page + 1) * pageSize - 1);
 
     if (search.trim()) {
-      query = query.or(`email.ilike.%${search}%,first_name.ilike.%${search}%,last_name.ilike.%${search}%,company_name_raw.ilike.%${search}%,job_title.ilike.%${search}%`);
+      query = query.or(`email.ilike.%${search}%,first_name.ilike.%${search}%,last_name.ilike.%${search}%,company_name_raw.ilike.%${search}%,job_title.ilike.%${search}%,department.ilike.%${search}%,linkedin_url.ilike.%${search}%,source.ilike.%${search}%`);
     }
 
     query = applyFilters(query, filterValues, FILTER_CONFIGS);
     const { data, count: total, error } = await query;
-    if (!error) {
-      setContacts(data ?? []);
-      setCount(total ?? 0);
-    }
+    if (!error) { setContacts(data ?? []); setCount(total ?? 0); }
     setLoading(false);
   }, [page, pageSize, search, sortBy, sortDir, filterValues]);
 
   useEffect(() => { fetchContacts(); }, [fetchContacts]);
 
   const totalPages = Math.ceil(count / pageSize);
+  const activeFilterCount = Object.values(filterValues).filter((v) => v && v !== "" && v !== "all").length;
 
   const handleSort = (key: string) => {
     if (sortBy === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -195,7 +207,11 @@ export default function ContactsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Contacts</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">{count.toLocaleString()} total contacts</p>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {count.toLocaleString()} total contacts
+              {search && <span className="ml-1">matching "{search}"</span>}
+              {activeFilterCount > 0 && <span className="ml-1">· {activeFilterCount} filter{activeFilterCount > 1 ? "s" : ""} active</span>}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             {selected.size > 0 && (
@@ -218,23 +234,25 @@ export default function ContactsPage() {
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
-              placeholder="Search contacts by name, email, company, title..."
+              placeholder="Search by name, email, company, title, department, LinkedIn, source..."
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(0); }}
               className="pl-9 h-8 text-xs"
             />
           </div>
           <SavedViewsDropdown
-            views={savedViews.views}
-            activeViewId={savedViews.activeViewId}
+            views={savedViews.views} activeViewId={savedViews.activeViewId}
             onLoad={applyView}
             onSave={(name) => savedViews.saveView(name, getCurrentViewState())}
             onUpdate={(id) => savedViews.updateView(id, getCurrentViewState())}
-            onRename={savedViews.renameView}
-            onDelete={savedViews.deleteView}
+            onRename={savedViews.renameView} onDelete={savedViews.deleteView}
             onSetDefault={savedViews.setDefault}
           />
-          <FilterPanel filters={FILTER_CONFIGS} values={filterValues} onChange={(v) => { setFilterValues(v); setPage(0); }} onClear={() => { setFilterValues({}); setPage(0); }} />
+          <FilterPanel
+            filters={FILTER_CONFIGS} values={filterValues}
+            onChange={(v) => { setFilterValues(v); setPage(0); }}
+            onClear={() => { setFilterValues({}); setPage(0); }}
+          />
           <ColumnVisibility columns={COLUMNS} visibleColumns={visibleCols} onToggle={toggleColumn} />
         </div>
 
@@ -265,22 +283,22 @@ export default function ContactsPage() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow>
-                <TableCell colSpan={20} className="h-48 text-center">
-                  <Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" />
-                  <p className="mt-2 text-xs text-muted-foreground">Loading contacts...</p>
-                </TableCell>
-              </TableRow>
+              <TableRow><TableCell colSpan={20} className="h-48 text-center">
+                <Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" />
+                <p className="mt-2 text-xs text-muted-foreground">Loading contacts...</p>
+              </TableCell></TableRow>
             ) : contacts.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={20} className="h-48 text-center">
-                  <div className="flex flex-col items-center gap-2">
-                    <Search className="h-8 w-8 text-muted-foreground/40" />
-                    <p className="text-sm font-medium text-muted-foreground">No contacts found</p>
-                    <p className="text-xs text-muted-foreground/70">Try adjusting your search or filters</p>
-                  </div>
-                </TableCell>
-              </TableRow>
+              <TableRow><TableCell colSpan={20} className="h-48 text-center">
+                <div className="flex flex-col items-center gap-2">
+                  <Search className="h-8 w-8 text-muted-foreground/40" />
+                  <p className="text-sm font-medium text-muted-foreground">No contacts found</p>
+                  <p className="text-xs text-muted-foreground/70">
+                    {search || activeFilterCount > 0
+                      ? "Try adjusting your search query or removing some filters"
+                      : "Import contacts or add them manually to get started"}
+                  </p>
+                </div>
+              </TableCell></TableRow>
             ) : (
               contacts.map((c) => (
                 <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50 h-10" onClick={() => navigate(`/contacts/${c.id}`)}>
@@ -320,12 +338,8 @@ export default function ContactsPage() {
         selectedCount={selected.size}
       />
 
-      <AddToListDialog
-        open={addToListOpen}
-        onOpenChange={setAddToListOpen}
-        contactIds={Array.from(selected)}
-        onSuccess={() => setSelected(new Set())}
-      />
+      <AddToListDialog open={addToListOpen} onOpenChange={setAddToListOpen}
+        contactIds={Array.from(selected)} onSuccess={() => setSelected(new Set())} />
     </div>
   );
 }

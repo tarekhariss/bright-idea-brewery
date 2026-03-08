@@ -27,6 +27,8 @@ const COLUMNS: ColumnDef[] = [
   { key: "employee_range", label: "Size", defaultVisible: true },
   { key: "revenue_range", label: "Revenue", defaultVisible: true },
   { key: "country", label: "Country", defaultVisible: true },
+  { key: "city", label: "City" },
+  { key: "state", label: "State" },
   { key: "data_quality_score", label: "Quality", defaultVisible: true },
   { key: "updated_at", label: "Updated", defaultVisible: true },
 ];
@@ -34,22 +36,41 @@ const COLUMNS: ColumnDef[] = [
 const DEFAULT_VISIBLE = new Set(COLUMNS.filter((c) => c.defaultVisible).map((c) => c.key));
 
 const FILTER_CONFIGS: FilterConfig[] = [
-  { key: "industry", label: "Industry", type: "text" },
-  { key: "country", label: "Country", type: "text" },
-  { key: "employee_range", label: "Employee Range", type: "select", options: [
+  // Firmographic
+  { key: "industry", label: "Industry", type: "text", group: "firmographic" },
+  { key: "employee_range", label: "Employee Range", type: "select", group: "firmographic", options: [
     { value: "1-10", label: "1-10" }, { value: "11-50", label: "11-50" },
     { value: "51-200", label: "51-200" }, { value: "201-500", label: "201-500" },
     { value: "501-1000", label: "501-1000" }, { value: "1001-5000", label: "1001-5000" },
     { value: "5001-10000", label: "5001-10000" }, { value: "10001+", label: "10001+" },
   ]},
-  { key: "revenue_range", label: "Revenue Range", type: "select", options: [
+  { key: "employee_count", label: "Employee Count", type: "range", group: "firmographic" },
+  { key: "revenue_range", label: "Revenue Range", type: "select", group: "firmographic", options: [
     { value: "<$1M", label: "< $1M" }, { value: "$1M-$10M", label: "$1M-$10M" },
     { value: "$10M-$50M", label: "$10M-$50M" }, { value: "$50M-$100M", label: "$50M-$100M" },
     { value: "$100M-$500M", label: "$100M-$500M" }, { value: "$500M+", label: "$500M+" },
   ]},
-  { key: "data_quality_score", label: "Quality Score", type: "range" },
-  { key: "created_at", label: "Created", type: "date_range" },
-  { key: "updated_at", label: "Updated", type: "date_range" },
+
+  // Contact Info
+  { key: "domain", label: "Domain", type: "exists", group: "contact_info" },
+  { key: "website", label: "Website", type: "exists", group: "contact_info" },
+  { key: "linkedin_url", label: "LinkedIn", type: "exists", group: "contact_info" },
+
+  // Enrichment
+  { key: "country", label: "Country", type: "text", group: "enrichment" },
+  { key: "city", label: "City", type: "text", group: "enrichment" },
+  { key: "state", label: "State", type: "text", group: "enrichment" },
+  { key: "data_quality_score", label: "Quality Score", type: "range", group: "enrichment" },
+
+  // Ownership
+  { key: "owner_id", label: "Owner Assigned", type: "exists", group: "ownership" },
+
+  // External
+  { key: "external_account_id", label: "External Account ID", type: "exists", group: "external" },
+
+  // Dates
+  { key: "created_at", label: "Created", type: "date_range", group: "dates" },
+  { key: "updated_at", label: "Updated", type: "date_range", group: "dates" },
 ];
 
 interface Company {
@@ -61,11 +82,13 @@ interface Company {
   employee_range: string | null;
   revenue_range: string | null;
   country: string | null;
+  city: string | null;
+  state: string | null;
   data_quality_score: number | null;
   updated_at: string;
 }
 
-const SELECT_FIELDS = "id, name, domain, industry, employee_count, employee_range, revenue_range, country, data_quality_score, updated_at";
+const SELECT_FIELDS = "id, name, domain, industry, employee_count, employee_range, revenue_range, country, city, state, data_quality_score, updated_at";
 
 export default function CompaniesPage() {
   const navigate = useNavigate();
@@ -119,7 +142,7 @@ export default function CompaniesPage() {
       .range(page * pageSize, (page + 1) * pageSize - 1);
 
     if (search.trim()) {
-      query = query.or(`name.ilike.%${search}%,domain.ilike.%${search}%,industry.ilike.%${search}%`);
+      query = query.or(`name.ilike.%${search}%,domain.ilike.%${search}%,industry.ilike.%${search}%,website.ilike.%${search}%,country.ilike.%${search}%,city.ilike.%${search}%`);
     }
 
     query = applyFilters(query, filterValues, FILTER_CONFIGS);
@@ -131,6 +154,8 @@ export default function CompaniesPage() {
   useEffect(() => { fetchCompanies(); }, [fetchCompanies]);
 
   const totalPages = Math.ceil(count / pageSize);
+  const activeFilterCount = Object.values(filterValues).filter((v) => v && v !== "" && v !== "all").length;
+
   const handleSort = (key: string) => {
     if (sortBy === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     else { setSortBy(key); setSortDir("asc"); }
@@ -161,14 +186,15 @@ export default function CompaniesPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Companies</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">{count.toLocaleString()} total companies</p>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {count.toLocaleString()} total companies
+              {search && <span className="ml-1">matching "{search}"</span>}
+              {activeFilterCount > 0 && <span className="ml-1">· {activeFilterCount} filter{activeFilterCount > 1 ? "s" : ""} active</span>}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             {selected.size > 0 && (
-              <CompanyBulkActionsBar
-                selectedIds={Array.from(selected)}
-                onDone={() => { setSelected(new Set()); fetchCompanies(); }}
-              />
+              <CompanyBulkActionsBar selectedIds={Array.from(selected)} onDone={() => { setSelected(new Set()); fetchCompanies(); }} />
             )}
             <Button variant="outline" size="sm" className="gap-1.5 text-xs"><Download className="h-3.5 w-3.5" /> Export</Button>
             <Button size="sm" className="gap-1.5 text-xs"><Plus className="h-3.5 w-3.5" /> Add Company</Button>
@@ -177,8 +203,8 @@ export default function CompaniesPage() {
         <div className="flex items-center gap-2">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input placeholder="Search companies by name, domain, or industry..." value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(0); }} className="pl-9 h-8 text-xs" />
+            <Input placeholder="Search by name, domain, industry, website, country, city..."
+              value={search} onChange={(e) => { setSearch(e.target.value); setPage(0); }} className="pl-9 h-8 text-xs" />
           </div>
           <SavedViewsDropdown
             views={savedViews.views} activeViewId={savedViews.activeViewId}
@@ -188,7 +214,9 @@ export default function CompaniesPage() {
             onRename={savedViews.renameView} onDelete={savedViews.deleteView}
             onSetDefault={savedViews.setDefault}
           />
-          <FilterPanel filters={FILTER_CONFIGS} values={filterValues} onChange={(v) => { setFilterValues(v); setPage(0); }} onClear={() => { setFilterValues({}); setPage(0); }} />
+          <FilterPanel filters={FILTER_CONFIGS} values={filterValues}
+            onChange={(v) => { setFilterValues(v); setPage(0); }}
+            onClear={() => { setFilterValues({}); setPage(0); }} />
           <ColumnVisibility columns={COLUMNS} visibleColumns={visibleCols} onToggle={toggleColumn} />
         </div>
         <ActiveFilters values={filterValues} filters={FILTER_CONFIGS} onRemove={handleFilterRemove} />
@@ -208,6 +236,8 @@ export default function CompaniesPage() {
               {col("employee_range") && <TableHead className="text-xs font-medium text-muted-foreground">Size</TableHead>}
               {col("revenue_range") && <TableHead className="text-xs font-medium text-muted-foreground">Revenue</TableHead>}
               {col("country") && <TableHead><SortableHeader label="Country" sortKey="country" currentSort={sortBy} currentDirection={sortDir} onSort={handleSort} /></TableHead>}
+              {col("city") && <TableHead><SortableHeader label="City" sortKey="city" currentSort={sortBy} currentDirection={sortDir} onSort={handleSort} /></TableHead>}
+              {col("state") && <TableHead className="text-xs font-medium text-muted-foreground">State</TableHead>}
               {col("data_quality_score") && <TableHead><SortableHeader label="Quality" sortKey="data_quality_score" currentSort={sortBy} currentDirection={sortDir} onSort={handleSort} /></TableHead>}
               {col("updated_at") && <TableHead><SortableHeader label="Updated" sortKey="updated_at" currentSort={sortBy} currentDirection={sortDir} onSort={handleSort} /></TableHead>}
             </TableRow>
@@ -223,7 +253,9 @@ export default function CompaniesPage() {
                 <div className="flex flex-col items-center gap-2">
                   <Building2 className="h-8 w-8 text-muted-foreground/40" />
                   <p className="text-sm font-medium text-muted-foreground">No companies found</p>
-                  <p className="text-xs text-muted-foreground/70">Try adjusting your search or filters</p>
+                  <p className="text-xs text-muted-foreground/70">
+                    {search || activeFilterCount > 0 ? "Try adjusting your search or filters" : "Import companies or add them manually"}
+                  </p>
                 </div>
               </TableCell></TableRow>
             ) : (
@@ -239,6 +271,8 @@ export default function CompaniesPage() {
                   {col("employee_range") && <TableCell>{c.employee_range ? <Badge variant="outline" className="text-[11px]">{c.employee_range}</Badge> : <span className="text-xs text-muted-foreground">—</span>}</TableCell>}
                   {col("revenue_range") && <TableCell>{c.revenue_range ? <Badge variant="outline" className="text-[11px]">{c.revenue_range}</Badge> : <span className="text-xs text-muted-foreground">—</span>}</TableCell>}
                   {col("country") && <TableCell className="text-xs">{c.country ?? "—"}</TableCell>}
+                  {col("city") && <TableCell className="text-xs">{c.city ?? "—"}</TableCell>}
+                  {col("state") && <TableCell className="text-xs">{c.state ?? "—"}</TableCell>}
                   {col("data_quality_score") && <TableCell><QualityScoreBadge score={c.data_quality_score} /></TableCell>}
                   {col("updated_at") && <TableCell className="text-xs text-muted-foreground">{formatDate(c.updated_at)}</TableCell>}
                 </TableRow>
