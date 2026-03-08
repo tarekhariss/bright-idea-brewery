@@ -49,6 +49,8 @@ export default function SequencesListPage() {
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
   const [editId, setEditId] = useState<string | null>(null);
+  const [expandedStepId, setExpandedStepId] = useState<string | null>(null);
+  const [stepEdits, setStepEdits] = useState<Record<string, { label?: string; delay_days?: number; delay_hours?: number; email_subject?: string; email_body?: string; task_instructions?: string; call_instructions?: string }>>({});
 
   const { data: steps } = useSequenceSteps(editId);
   const { data: enrollments } = useSequenceEnrollments(editId);
