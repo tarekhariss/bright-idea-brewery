@@ -136,6 +136,8 @@ export default function CompaniesPage() {
     sortBy, sortDirection: sortDir, pageSize,
   });
 
+  const debouncedSearch = useDebounce(search, 300);
+
   const fetchCompanies = useCallback(async () => {
     setLoading(true);
     let query = supabase
@@ -144,15 +146,15 @@ export default function CompaniesPage() {
       .order(sortBy, { ascending: sortDir === "asc" })
       .range(page * pageSize, (page + 1) * pageSize - 1);
 
-    if (search.trim()) {
-      query = query.or(`name.ilike.%${search}%,domain.ilike.%${search}%,industry.ilike.%${search}%,website.ilike.%${search}%,country.ilike.%${search}%,city.ilike.%${search}%`);
+    if (debouncedSearch.trim()) {
+      query = query.or(`name.ilike.%${debouncedSearch}%,domain.ilike.%${debouncedSearch}%,industry.ilike.%${debouncedSearch}%,country.ilike.%${debouncedSearch}%`);
     }
 
     query = applyFilters(query, filterValues, FILTER_CONFIGS);
     const { data, count: total, error } = await query;
     if (!error) { setCompanies(data ?? []); setCount(total ?? 0); }
     setLoading(false);
-  }, [page, pageSize, search, sortBy, sortDir, filterValues]);
+  }, [page, pageSize, debouncedSearch, sortBy, sortDir, filterValues]);
 
   useEffect(() => { fetchCompanies(); }, [fetchCompanies]);
 
