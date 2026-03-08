@@ -27,6 +27,7 @@ import {
   useLinkLinkedinAccount, useUnlinkLinkedinAccount, useLinkedinAccounts,
 } from "@/hooks/use-linkedin";
 import { toast } from "sonner";
+import { CampaignAnalyticsTab } from "@/components/analytics/CampaignAnalyticsTab";
 
 const stepTypeConfig: Record<string, { icon: any; label: string; color: string }> = {
   email: { icon: Mail, label: "Email", color: "bg-blue-500/10 text-blue-600 border-blue-500/20" },
