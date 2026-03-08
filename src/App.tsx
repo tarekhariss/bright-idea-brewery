@@ -39,6 +39,7 @@ import EmailsPage from "./pages/engage/Emails";
 import CallsPage from "./pages/engage/Calls";
 import TasksPage from "./pages/engage/Tasks";
 import CampaignsPage from "./pages/engage/CampaignsPage";
+import CampaignDetailPage from "./pages/engage/CampaignDetailPage";
 import EmailTemplatesPage from "./pages/engage/EmailTemplatesPage";
 import InboxPage from "./pages/engage/InboxPage";
 
