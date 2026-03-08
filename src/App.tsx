@@ -124,6 +124,7 @@ const App = () => (
             <Route path="/engage/calls" element={<PL><CallsPage /></PL>} />
             <Route path="/engage/tasks" element={<PL><TasksPage /></PL>} />
             <Route path="/engage/campaigns" element={<PL><CampaignsPage /></PL>} />
+            <Route path="/engage/campaigns/:id" element={<PL><CampaignDetailPage /></PL>} />
             <Route path="/engage/templates" element={<PL><EmailTemplatesPage /></PL>} />
             <Route path="/engage/inbox" element={<PL><InboxPage /></PL>} />
 

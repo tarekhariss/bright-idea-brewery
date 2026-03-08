@@ -100,7 +100,7 @@ export default function CampaignsPage() {
               {campaigns.map((c) => {
                 const stats = c.campaign_stats?.[0];
                 return (
-                  <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50">
+                  <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/engage/campaigns/${c.id}`)}>
                     <TableCell>
                       <p className="text-sm font-medium">{c.name}</p>
                       {c.description && <p className="text-[10px] text-muted-foreground">{c.description}</p>}
