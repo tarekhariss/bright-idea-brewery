@@ -6,11 +6,15 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppLayout } from "@/components/AppLayout";
+import { SettingsLayout } from "@/components/SettingsLayout";
 
+// Auth pages
 import LoginPage from "./pages/Login";
 import SignupPage from "./pages/Signup";
 import ForgotPasswordPage from "./pages/ForgotPassword";
 import ResetPasswordPage from "./pages/ResetPassword";
+
+// Core pages
 import DashboardPage from "./pages/Dashboard";
 import ContactsPage from "./pages/Contacts";
 import ContactDetailPage from "./pages/ContactDetail";
@@ -23,17 +27,57 @@ import ImportWizardPage from "./pages/ImportWizard";
 import ImportJobDetailPage from "./pages/ImportJobDetail";
 import SavedViewsPage from "./pages/SavedViews";
 import DataHealthPage from "./pages/DataHealth";
-import SettingsPage from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+
+// Search pages
+import ProspectEnrichPage from "./pages/search/ProspectEnrich";
+import DataEnrichmentPage from "./pages/search/DataEnrichment";
+
+// Engage pages
+import SequencesPage from "./pages/engage/Sequences";
+import EmailsPage from "./pages/engage/Emails";
+import CallsPage from "./pages/engage/Calls";
+import TasksPage from "./pages/engage/Tasks";
+
+// Deals pages
+import MeetingsPage from "./pages/deals/Meetings";
+import ConversationsPage from "./pages/deals/Conversations";
+import DealsPage from "./pages/deals/DealsPage";
+
+// Tools pages
+import WorkflowsPage from "./pages/tools/Workflows";
+import AnalyticsPage from "./pages/tools/AnalyticsPage";
+
+// Settings pages
+import SettingsIndex from "./pages/settings/SettingsIndex";
+import ProfileSettings from "./pages/settings/ProfileSettings";
+import DeliverabilitySettings from "./pages/settings/DeliverabilitySettings";
+import {
+  MailboxDomainSettings, PhoneNumberSettings, NotificationSettings,
+  ChromeExtensionSettings, ConversationSettings,
+  UserTeamSettings, SecuritySettings,
+  PlanOverviewSettings, LicenseSettings, CreditsAISettings, AIRunSettings,
+  IntegrationsSettings, ICPSettings, PersonasSettings, BuyingIntentSettings,
+  WebsiteVisitorsSettings, SignalsSettings, ScoringSettings, AIContextSettings,
+  RulesOfEngagementSettings, ProspectingConfigSettings, SnippetsSettings,
+  TeamEmailSequencesSettings, TrackingSettings, TeamSequencesSettings,
+  TeamDialerSettings, TeamConversationsSettings, RecordingSettings,
+  TeamPermissionsSettings, TrackersSettings, ScorecardsSettings,
+  FieldMappingsSettings, TeamMeetingsSettings, TeamSharingSettings,
+  DataRequestsSettings, SystemActivityLogSettings,
+  DMAnalyticsSettings, GoalsSettings, ContactFieldsSettings,
+  AccountFieldsSettings, DealFieldsSettings, GlobalPicklistsSettings,
+  ImportsExportsSettings,
+} from "./pages/settings/SettingsPages";
 
 const queryClient = new QueryClient();
 
-function ProtectedLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <ProtectedRoute>
-      <AppLayout>{children}</AppLayout>
-    </ProtectedRoute>
-  );
+function PL({ children }: { children: React.ReactNode }) {
+  return <ProtectedRoute><AppLayout>{children}</AppLayout></ProtectedRoute>;
+}
+
+function SL({ children }: { children: React.ReactNode }) {
+  return <PL><SettingsLayout>{children}</SettingsLayout></PL>;
 }
 
 const App = () => (
@@ -44,24 +88,114 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <Routes>
+            {/* Auth */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-            <Route path="/" element={<ProtectedLayout><DashboardPage /></ProtectedLayout>} />
-            <Route path="/contacts" element={<ProtectedLayout><ContactsPage /></ProtectedLayout>} />
-            <Route path="/contacts/:id" element={<ProtectedLayout><ContactDetailPage /></ProtectedLayout>} />
-            <Route path="/companies" element={<ProtectedLayout><CompaniesPage /></ProtectedLayout>} />
-            <Route path="/companies/:id" element={<ProtectedLayout><CompanyDetailPage /></ProtectedLayout>} />
-            <Route path="/lists" element={<ProtectedLayout><ListsPage /></ProtectedLayout>} />
-            <Route path="/lists/:id" element={<ProtectedLayout><ListDetailPage /></ProtectedLayout>} />
-            <Route path="/imports" element={<ProtectedLayout><ImportsPage /></ProtectedLayout>} />
-            <Route path="/imports/new" element={<ProtectedLayout><ImportWizardPage /></ProtectedLayout>} />
-            <Route path="/imports/:id" element={<ProtectedLayout><ImportJobDetailPage /></ProtectedLayout>} />
-            <Route path="/saved-views" element={<ProtectedLayout><SavedViewsPage /></ProtectedLayout>} />
-            <Route path="/data-health" element={<ProtectedLayout><DataHealthPage /></ProtectedLayout>} />
-            <Route path="/settings" element={<ProtectedLayout><SettingsPage /></ProtectedLayout>} />
+            {/* Dashboard */}
+            <Route path="/" element={<PL><DashboardPage /></PL>} />
+
+            {/* Search */}
+            <Route path="/search" element={<PL><ProspectEnrichPage /></PL>} />
+            <Route path="/search/people" element={<PL><ContactsPage /></PL>} />
+            <Route path="/search/companies" element={<PL><CompaniesPage /></PL>} />
+            <Route path="/search/lists" element={<PL><ListsPage /></PL>} />
+            <Route path="/search/data-enrichment" element={<PL><DataEnrichmentPage /></PL>} />
+
+            {/* Engage */}
+            <Route path="/engage" element={<PL><SequencesPage /></PL>} />
+            <Route path="/engage/sequences" element={<PL><SequencesPage /></PL>} />
+            <Route path="/engage/emails" element={<PL><EmailsPage /></PL>} />
+            <Route path="/engage/calls" element={<PL><CallsPage /></PL>} />
+            <Route path="/engage/tasks" element={<PL><TasksPage /></PL>} />
+
+            {/* Deals */}
+            <Route path="/deals" element={<PL><MeetingsPage /></PL>} />
+            <Route path="/deals/meetings" element={<PL><MeetingsPage /></PL>} />
+            <Route path="/deals/conversations" element={<PL><ConversationsPage /></PL>} />
+            <Route path="/deals/deals" element={<PL><DealsPage /></PL>} />
+
+            {/* Tools */}
+            <Route path="/tools" element={<PL><WorkflowsPage /></PL>} />
+            <Route path="/tools/workflows" element={<PL><WorkflowsPage /></PL>} />
+            <Route path="/tools/analytics" element={<PL><AnalyticsPage /></PL>} />
+
+            {/* Records (reuse existing) */}
+            <Route path="/records" element={<PL><ContactsPage /></PL>} />
+            <Route path="/records/people" element={<PL><ContactsPage /></PL>} />
+            <Route path="/records/companies" element={<PL><CompaniesPage /></PL>} />
+
+            {/* Legacy routes (keep working) */}
+            <Route path="/contacts" element={<PL><ContactsPage /></PL>} />
+            <Route path="/contacts/:id" element={<PL><ContactDetailPage /></PL>} />
+            <Route path="/companies" element={<PL><CompaniesPage /></PL>} />
+            <Route path="/companies/:id" element={<PL><CompanyDetailPage /></PL>} />
+            <Route path="/lists" element={<PL><ListsPage /></PL>} />
+            <Route path="/lists/:id" element={<PL><ListDetailPage /></PL>} />
+            <Route path="/imports" element={<PL><ImportsPage /></PL>} />
+            <Route path="/imports/new" element={<PL><ImportWizardPage /></PL>} />
+            <Route path="/imports/:id" element={<PL><ImportJobDetailPage /></PL>} />
+            <Route path="/saved-views" element={<PL><SavedViewsPage /></PL>} />
+            <Route path="/data-health" element={<PL><DataHealthPage /></PL>} />
+
+            {/* Settings */}
+            <Route path="/settings" element={<SL><SettingsIndex /></SL>} />
+            <Route path="/settings/search/profile" element={<SL><ProfileSettings /></SL>} />
+            <Route path="/settings/search/mailboxes-domains" element={<SL><MailboxDomainSettings /></SL>} />
+            <Route path="/settings/search/phone-numbers" element={<SL><PhoneNumberSettings /></SL>} />
+            <Route path="/settings/search/notifications" element={<SL><NotificationSettings /></SL>} />
+            <Route path="/settings/search/chrome-extension" element={<SL><ChromeExtensionSettings /></SL>} />
+            <Route path="/settings/search/conversations" element={<SL><ConversationSettings /></SL>} />
+
+            <Route path="/settings/workspace/deliverability" element={<SL><DeliverabilitySettings /></SL>} />
+            <Route path="/settings/workspace/deliverability/overview" element={<SL><DeliverabilitySettings /></SL>} />
+            <Route path="/settings/workspace/deliverability/domains" element={<SL><DeliverabilitySettings /></SL>} />
+            <Route path="/settings/workspace/deliverability/mailboxes" element={<SL><DeliverabilitySettings /></SL>} />
+            <Route path="/settings/workspace/users" element={<SL><UserTeamSettings /></SL>} />
+            <Route path="/settings/workspace/security" element={<SL><SecuritySettings /></SL>} />
+
+            <Route path="/settings/billing/plan-overview" element={<SL><PlanOverviewSettings /></SL>} />
+            <Route path="/settings/billing/license-settings" element={<SL><LicenseSettings /></SL>} />
+            <Route path="/settings/billing/credits-ai-usage" element={<SL><CreditsAISettings /></SL>} />
+            <Route path="/settings/billing/ai-run-usage" element={<SL><AIRunSettings /></SL>} />
+
+            <Route path="/settings/integrations" element={<SL><IntegrationsSettings /></SL>} />
+            <Route path="/settings/integrations/icp" element={<SL><ICPSettings /></SL>} />
+            <Route path="/settings/integrations/personas" element={<SL><PersonasSettings /></SL>} />
+            <Route path="/settings/integrations/buying-intent" element={<SL><BuyingIntentSettings /></SL>} />
+            <Route path="/settings/integrations/website-visitors" element={<SL><WebsiteVisitorsSettings /></SL>} />
+            <Route path="/settings/integrations/signals" element={<SL><SignalsSettings /></SL>} />
+            <Route path="/settings/integrations/scoring" element={<SL><ScoringSettings /></SL>} />
+            <Route path="/settings/integrations/ai-context" element={<SL><AIContextSettings /></SL>} />
+            <Route path="/settings/integrations/rules-of-engagement" element={<SL><RulesOfEngagementSettings /></SL>} />
+            <Route path="/settings/integrations/prospecting-config" element={<SL><ProspectingConfigSettings /></SL>} />
+            <Route path="/settings/integrations/snippets" element={<SL><SnippetsSettings /></SL>} />
+
+            <Route path="/settings/team/email-sequences" element={<SL><TeamEmailSequencesSettings /></SL>} />
+            <Route path="/settings/team/tracking" element={<SL><TrackingSettings /></SL>} />
+            <Route path="/settings/team/sequences" element={<SL><TeamSequencesSettings /></SL>} />
+            <Route path="/settings/team/dialer" element={<SL><TeamDialerSettings /></SL>} />
+            <Route path="/settings/team/conversations" element={<SL><TeamConversationsSettings /></SL>} />
+            <Route path="/settings/team/recording" element={<SL><RecordingSettings /></SL>} />
+            <Route path="/settings/team/permissions" element={<SL><TeamPermissionsSettings /></SL>} />
+            <Route path="/settings/team/trackers" element={<SL><TrackersSettings /></SL>} />
+            <Route path="/settings/team/scorecards" element={<SL><ScorecardsSettings /></SL>} />
+            <Route path="/settings/team/field-mappings" element={<SL><FieldMappingsSettings /></SL>} />
+            <Route path="/settings/team/meetings" element={<SL><TeamMeetingsSettings /></SL>} />
+            <Route path="/settings/team/sharing-defaults" element={<SL><TeamSharingSettings /></SL>} />
+
+            <Route path="/settings/system-activity/data-requests" element={<SL><DataRequestsSettings /></SL>} />
+            <Route path="/settings/system-activity/log" element={<SL><SystemActivityLogSettings /></SL>} />
+
+            <Route path="/settings/data-management/analytics" element={<SL><DMAnalyticsSettings /></SL>} />
+            <Route path="/settings/data-management/goals" element={<SL><GoalsSettings /></SL>} />
+            <Route path="/settings/data-management/contact-fields-stages" element={<SL><ContactFieldsSettings /></SL>} />
+            <Route path="/settings/data-management/account-fields-stages" element={<SL><AccountFieldsSettings /></SL>} />
+            <Route path="/settings/data-management/deal-fields-stages" element={<SL><DealFieldsSettings /></SL>} />
+            <Route path="/settings/data-management/global-picklists" element={<SL><GlobalPicklistsSettings /></SL>} />
+            <Route path="/settings/data-management/imports-exports" element={<SL><ImportsExportsSettings /></SL>} />
 
             <Route path="*" element={<NotFound />} />
           </Routes>
