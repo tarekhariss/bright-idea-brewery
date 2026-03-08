@@ -5,16 +5,52 @@ import { SmtpClient } from "https://deno.land/x/smtp@v0.7.0/mod.ts";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+    "authorization, x-client-info, apikey, content-type, x-cron-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+const cronSecret = Deno.env.get("CRON_SECRET");
 
 interface SendRequest {
   email_id: string;
   mailbox_id: string;
-  dry_run?: boolean; // preview payload without sending
+  dry_run?: boolean;
+}
+
+/**
+ * Authenticates the request. Supports two modes:
+ * 1. User JWT — validated via getClaims(), returns user ID
+ * 2. Internal/cron — validated via x-cron-secret header, returns "__cron__"
+ */
+async function authenticateCaller(req: Request): Promise<{ callerId: string } | { error: string }> {
+  // Check cron secret first (internal calls from pg_cron or other functions)
+  const incomingCronSecret = req.headers.get("x-cron-secret");
+  if (incomingCronSecret && cronSecret && incomingCronSecret === cronSecret) {
+    return { callerId: "__cron__" };
+  }
+
+  // Check service_role key passed as Bearer token (function-to-function calls)
+  const authHeader = req.headers.get("Authorization");
+  if (authHeader === `Bearer ${serviceKey}`) {
+    return { callerId: "__service__" };
+  }
+
+  // Otherwise validate as user JWT
+  if (!authHeader?.startsWith("Bearer ")) {
+    return { error: "Unauthorized — no valid auth header" };
+  }
+
+  const token = authHeader.replace("Bearer ", "");
+  const anonClient = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+  const { data, error } = await anonClient.auth.getUser(token);
+  if (error || !data?.user) {
+    return { error: "Unauthorized — invalid JWT" };
+  }
+  return { callerId: data.user.id };
 }
 
 Deno.serve(async (req: Request) => {
@@ -23,29 +59,15 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    // Auth check
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+    const auth = await authenticateCaller(req);
+    if ("error" in auth) {
+      return new Response(JSON.stringify({ error: auth.error }), {
         status: 401,
         headers: corsHeaders,
       });
     }
 
     const supabase = createClient(supabaseUrl, serviceKey);
-
-    // Validate caller
-    const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: claimsData, error: claimsErr } = await anonClient.auth.getUser();
-    if (claimsErr || !claimsData?.user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: corsHeaders,
-      });
-    }
-
     const body: SendRequest = await req.json();
     const { email_id, mailbox_id, dry_run } = body;
 
@@ -69,7 +91,7 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // 2. Fetch mailbox config
+    // 2. Fetch mailbox config (with joined domain)
     const { data: mailbox, error: mbErr } = await supabase
       .from("mailboxes")
       .select("*, sending_domains(id, domain_name, status)")
@@ -82,9 +104,11 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // 3. Readiness checks
+    // 3. Readiness checks — uses real ConnectionStatus enum values
     const issues: string[] = [];
-    if (mailbox.connection_status !== "active") issues.push("Mailbox not active");
+    if (mailbox.connection_status !== "active") {
+      issues.push(`Mailbox connection is ${mailbox.connection_status}`);
+    }
     if (!mailbox.smtp_host) issues.push("No SMTP host configured");
     if (mailbox.daily_sending_limit <= 0) issues.push("No daily limit set");
 
@@ -129,14 +153,15 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // 5. Check daily limit atomically
+    // 5. Check daily limit atomically via RPC
     const { data: limitOk } = await supabase.rpc("increment_daily_send_count", {
       p_mailbox_id: mailbox_id,
       p_limit: mailbox.daily_sending_limit,
     });
 
     if (!limitOk) {
-      await supabase.from("emails").update({ status: "failed", error_message: "Daily sending limit reached", updated_at: new Date().toISOString() }).eq("id", email_id);
+      const now = new Date().toISOString();
+      await supabase.from("emails").update({ status: "failed", error_message: "Daily sending limit reached", updated_at: now }).eq("id", email_id);
       await supabase.from("email_events").insert({ email_id, event_type: "failed", details: { reason: "daily_limit_reached" } });
       return new Response(JSON.stringify({ error: "Daily sending limit reached" }), {
         status: 429,
@@ -145,13 +170,14 @@ Deno.serve(async (req: Request) => {
     }
 
     // 6. Mark as processing
-    await supabase.from("emails").update({ status: "processing", mailbox_id, updated_at: new Date().toISOString() }).eq("id", email_id);
+    const now = new Date().toISOString();
+    await supabase.from("emails").update({ status: "processing", mailbox_id, updated_at: now }).eq("id", email_id);
     await supabase.from("email_events").insert({ email_id, event_type: "processing" });
 
     // 7. Get SMTP password from secrets
     const smtpPassword = Deno.env.get(`SMTP_PASS_${mailbox_id}`);
     if (!smtpPassword) {
-      await supabase.from("emails").update({ status: "failed", error_message: "SMTP password not configured (secret SMTP_PASS_" + mailbox_id + ")", updated_at: new Date().toISOString() }).eq("id", email_id);
+      await supabase.from("emails").update({ status: "failed", error_message: `SMTP password not configured (secret SMTP_PASS_${mailbox_id})`, updated_at: now }).eq("id", email_id);
       await supabase.from("email_events").insert({ email_id, event_type: "failed", details: { reason: "missing_smtp_secret" } });
       return new Response(JSON.stringify({ error: `SMTP secret not found: SMTP_PASS_${mailbox_id}` }), {
         status: 500,
@@ -189,41 +215,43 @@ Deno.serve(async (req: Request) => {
       await client.close();
 
       // 9. Mark as sent
-      const now = new Date().toISOString();
+      const sentAt = new Date().toISOString();
       await supabase.from("emails").update({
         status: "sent",
-        sent_at: now,
+        sent_at: sentAt,
         from_address: mailbox.email,
-        updated_at: now,
+        updated_at: sentAt,
       }).eq("id", email_id);
 
       await supabase.from("email_events").insert({
         email_id,
         event_type: "sent",
-        details: { mailbox_id, sent_at: now },
+        details: { mailbox_id, sent_at: sentAt },
       });
 
-      // Update mailbox sent count
+      // Update mailbox convenience counter (emails_sent_today exists on mailboxes table)
       await supabase.from("mailboxes").update({
         emails_sent_today: (mailbox.emails_sent_today || 0) + 1,
-        last_checked_at: now,
-        updated_at: now,
+        last_checked_at: sentAt,
+        updated_at: sentAt,
       }).eq("id", mailbox_id);
 
       // Update message_queue if exists
       await supabase.from("message_queue").update({
         status: "completed",
-        completed_at: now,
+        completed_at: sentAt,
       }).eq("reference_id", email_id).eq("reference_type", "email").eq("status", "processing");
 
-      // Activity log
-      await supabase.from("system_activity_log").insert({
-        action: "email_sent",
-        entity_type: "email",
-        entity_id: email_id,
-        performed_by: claimsData.user.id,
-        details: { mailbox_id, to: email.to_address },
-      });
+      // Activity log (only if caller is a real user)
+      if (auth.callerId !== "__cron__" && auth.callerId !== "__service__") {
+        await supabase.from("system_activity_log").insert({
+          action: "email_sent",
+          entity_type: "email",
+          entity_id: email_id,
+          performed_by: auth.callerId,
+          details: { mailbox_id, to: email.to_address },
+        });
+      }
 
       return new Response(
         JSON.stringify({ success: true, email_id, status: "sent" }),
@@ -232,10 +260,11 @@ Deno.serve(async (req: Request) => {
     } catch (smtpError: any) {
       // SMTP failure
       const errMsg = smtpError?.message || "Unknown SMTP error";
+      const failedAt = new Date().toISOString();
       await supabase.from("emails").update({
         status: "failed",
         error_message: errMsg,
-        updated_at: new Date().toISOString(),
+        updated_at: failedAt,
       }).eq("id", email_id);
 
       await supabase.from("email_events").insert({
@@ -247,7 +276,7 @@ Deno.serve(async (req: Request) => {
       await supabase.from("message_queue").update({
         status: "failed",
         last_error: errMsg,
-        completed_at: new Date().toISOString(),
+        completed_at: failedAt,
       }).eq("reference_id", email_id).eq("reference_type", "email").eq("status", "processing");
 
       return new Response(

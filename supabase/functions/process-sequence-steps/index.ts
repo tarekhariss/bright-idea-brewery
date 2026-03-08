@@ -4,11 +4,33 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+    "authorization, x-client-info, apikey, content-type, x-cron-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+const cronSecret = Deno.env.get("CRON_SECRET");
+
+/**
+ * Auth: accepts either a valid user JWT or a cron secret header.
+ */
+async function authenticateCaller(req: Request): Promise<boolean> {
+  const incomingCronSecret = req.headers.get("x-cron-secret");
+  if (incomingCronSecret && cronSecret && incomingCronSecret === cronSecret) {
+    return true;
+  }
+
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) return false;
+
+  const token = authHeader.replace("Bearer ", "");
+  const anonClient = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+  const { data, error } = await anonClient.auth.getUser(token);
+  return !error && !!data?.user;
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -16,17 +38,8 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
-    }
-
-    // Verify caller
-    const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { error: authErr } = await anonClient.auth.getUser();
-    if (authErr) {
+    const authorized = await authenticateCaller(req);
+    if (!authorized) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
 
@@ -36,6 +49,8 @@ Deno.serve(async (req: Request) => {
     const defaultMailboxId = body.mailbox_id || null;
 
     // 1. Fetch active enrollments with next_step_at <= now
+    // current_step_order starts at 1 and represents the step to process NEXT.
+    // On enrollment creation, current_step_order = 1 means "step 1 is next".
     const { data: enrollments, error: enErr } = await supabase
       .from("sequence_enrollments")
       .select("*, sequences(id, name, status)")
@@ -63,17 +78,18 @@ Deno.serve(async (req: Request) => {
         continue;
       }
 
-      // 2. Get the next step
-      const nextStepOrder = enrollment.current_step_order + 1;
+      // 2. Get the step matching current_step_order (NOT +1).
+      // current_step_order = the step_order we need to execute now.
+      const currentStepOrder = enrollment.current_step_order;
       const { data: step } = await supabase
         .from("sequence_steps")
         .select("*")
         .eq("sequence_id", enrollment.sequence_id)
-        .eq("step_order", nextStepOrder)
+        .eq("step_order", currentStepOrder)
         .single();
 
       if (!step) {
-        // No more steps — mark enrollment as completed
+        // No step at this order — enrollment is complete
         await supabase.from("sequence_enrollments").update({
           status: "completed",
           completed_at: now,
@@ -83,17 +99,29 @@ Deno.serve(async (req: Request) => {
         continue;
       }
 
-      // Safeguard: skip inactive steps
+      // Calculate the next step's timing for after we process this step
+      const nextStepOrder = currentStepOrder + 1;
+
+      // Get the NEXT step to calculate its delay (if it exists)
+      const { data: nextStep } = await supabase
+        .from("sequence_steps")
+        .select("delay_days, delay_hours")
+        .eq("sequence_id", enrollment.sequence_id)
+        .eq("step_order", nextStepOrder)
+        .maybeSingle();
+
+      // Safeguard: skip inactive steps (advance to next)
       if (!step.is_active) {
-        // Advance to next step
-        const delayMs = ((step.delay_days || 0) * 86400 + (step.delay_hours || 0) * 3600) * 1000;
+        const delayMs = nextStep
+          ? ((nextStep.delay_days || 0) * 86400 + (nextStep.delay_hours || 0) * 3600) * 1000
+          : 60000;
         const nextAt = new Date(Date.now() + Math.max(delayMs, 60000)).toISOString();
         await supabase.from("sequence_enrollments").update({
           current_step_order: nextStepOrder,
-          next_step_at: nextAt,
+          next_step_at: nextStep ? nextAt : null,
           updated_at: now,
         }).eq("id", enrollment.id);
-        results.push({ enrollment_id: enrollment.id, step_order: nextStepOrder, status: "skipped", reason: "step_inactive" });
+        results.push({ enrollment_id: enrollment.id, step_order: currentStepOrder, status: "skipped", reason: "step_inactive" });
         continue;
       }
 
@@ -139,15 +167,17 @@ Deno.serve(async (req: Request) => {
           .maybeSingle();
 
         if (existingEmail) {
-          results.push({ enrollment_id: enrollment.id, status: "skipped", reason: "duplicate_email_exists" });
-          // Still advance
-          const delayMs = ((step.delay_days || 0) * 86400 + (step.delay_hours || 0) * 3600) * 1000;
+          // Duplicate — still advance
+          const delayMs = nextStep
+            ? ((nextStep.delay_days || 0) * 86400 + (nextStep.delay_hours || 0) * 3600) * 1000
+            : 60000;
           const nextAt = new Date(Date.now() + Math.max(delayMs, 60000)).toISOString();
           await supabase.from("sequence_enrollments").update({
             current_step_order: nextStepOrder,
-            next_step_at: nextAt,
+            next_step_at: nextStep ? nextAt : null,
             updated_at: now,
           }).eq("id", enrollment.id);
+          results.push({ enrollment_id: enrollment.id, status: "skipped", reason: "duplicate_email_exists" });
           continue;
         }
 
@@ -189,32 +219,37 @@ Deno.serve(async (req: Request) => {
         await supabase.from("email_events").insert({
           email_id: newEmail.id,
           event_type: "queued",
-          details: { sequence_id: enrollment.sequence_id, step_order: nextStepOrder },
+          details: { sequence_id: enrollment.sequence_id, step_order: currentStepOrder },
         });
 
-        // Advance enrollment
-        const delayMs = ((step.delay_days || 0) * 86400 + (step.delay_hours || 0) * 3600) * 1000;
+        // Advance enrollment to next step
+        const delayMs = nextStep
+          ? ((nextStep.delay_days || 0) * 86400 + (nextStep.delay_hours || 0) * 3600) * 1000
+          : 60000;
         const nextAt = new Date(Date.now() + Math.max(delayMs, 60000)).toISOString();
         await supabase.from("sequence_enrollments").update({
           current_step_order: nextStepOrder,
-          next_step_at: nextAt,
+          next_step_at: nextStep ? nextAt : null,
           updated_at: now,
         }).eq("id", enrollment.id);
 
-        results.push({ enrollment_id: enrollment.id, step_order: nextStepOrder, email_id: newEmail.id, status: "queued" });
+        results.push({ enrollment_id: enrollment.id, step_order: currentStepOrder, email_id: newEmail.id, status: "queued" });
 
       } else if (step.step_type === "task" || step.step_type === "call") {
-        // Create task/call record and advance
+        // Create task or call record
         if (step.step_type === "task") {
+          // task_type constraint: 'general','call','email','follow_up','linkedin','custom'
+          // Use 'follow_up' for sequence-generated tasks (NOT 'sequence' which is invalid)
           await supabase.from("tasks").insert({
-            title: step.label || `Sequence task (Step ${nextStepOrder})`,
+            title: step.label || `Sequence task (Step ${currentStepOrder})`,
             description: step.task_instructions,
-            task_type: "sequence",
+            task_type: "follow_up",
             contact_id: enrollment.contact_id,
             sequence_id: enrollment.sequence_id,
             sequence_step_id: step.id,
             enrollment_id: enrollment.id,
             owner_id: enrollment.enrolled_by,
+            assigned_to: enrollment.enrolled_by,
             created_by: enrollment.enrolled_by,
           });
         } else {
@@ -230,15 +265,18 @@ Deno.serve(async (req: Request) => {
           });
         }
 
-        const delayMs = ((step.delay_days || 0) * 86400 + (step.delay_hours || 0) * 3600) * 1000;
+        // Advance enrollment
+        const delayMs = nextStep
+          ? ((nextStep.delay_days || 0) * 86400 + (nextStep.delay_hours || 0) * 3600) * 1000
+          : 60000;
         const nextAt = new Date(Date.now() + Math.max(delayMs, 60000)).toISOString();
         await supabase.from("sequence_enrollments").update({
           current_step_order: nextStepOrder,
-          next_step_at: nextAt,
+          next_step_at: nextStep ? nextAt : null,
           updated_at: now,
         }).eq("id", enrollment.id);
 
-        results.push({ enrollment_id: enrollment.id, step_order: nextStepOrder, type: step.step_type, status: "created" });
+        results.push({ enrollment_id: enrollment.id, step_order: currentStepOrder, type: step.step_type, status: "created" });
       }
     }
 
