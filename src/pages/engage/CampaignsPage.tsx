@@ -30,6 +30,7 @@ const statusBadge = (s: string) => {
 };
 
 export default function CampaignsPage() {
+  const navigate = useNavigate();
   const { data: campaigns, isLoading } = useCampaigns();
   const createCampaign = useCreateCampaign();
   const updateCampaign = useUpdateCampaign();
