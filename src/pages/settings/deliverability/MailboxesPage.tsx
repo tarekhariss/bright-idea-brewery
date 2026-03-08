@@ -384,9 +384,67 @@ export default function MailboxesPage() {
                 {detailMb.last_checked_at && (
                   <p className="text-[10px] text-muted-foreground">Last checked: {format(new Date(detailMb.last_checked_at), "MMM d, yyyy HH:mm")}</p>
                 )}
-                <Button size="sm" variant="outline" className="text-xs gap-1.5" onClick={() => testConnection(detailMb.id)}>
-                  <RefreshCw className="h-3 w-3" /> Test Connection
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="outline" className="text-xs gap-1.5" onClick={() => testConnection(detailMb.id)}>
+                    <RefreshCw className="h-3 w-3" /> Check Readiness
+                  </Button>
+                  <Button size="sm" variant="outline" className="text-xs gap-1.5" onClick={() => setTestDialogOpen(detailMb.id)}>
+                    <Mail className="h-3 w-3" /> Send Test Email
+                  </Button>
+                </div>
+
+                {readinessData && (
+                  <div className="rounded-lg border p-3 space-y-2 mt-3">
+                    <div className="flex items-center gap-2">
+                      {readinessData.ready ? (
+                        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                      ) : (
+                        <AlertTriangle className="h-4 w-4 text-amber-500" />
+                      )}
+                      <span className="text-xs font-medium">{readinessData.ready ? "Ready to send" : "Issues found"}</span>
+                    </div>
+                    {readinessData.issues?.length > 0 && (
+                      <ul className="text-[10px] text-muted-foreground space-y-0.5 list-disc list-inside">
+                        {readinessData.issues.map((issue: string, i: number) => (
+                          <li key={i}>{issue}</li>
+                        ))}
+                      </ul>
+                    )}
+                    <div className="grid grid-cols-2 gap-2 text-[10px]">
+                      <span className="text-muted-foreground">Sent today: {readinessData.sent_today ?? 0}</span>
+                      <span className="text-muted-foreground">Limit: {readinessData.daily_limit ?? 0}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Queue Health Summary */}
+                {queueHealth.data && (
+                  <div className="rounded-lg bg-muted/50 p-3 mt-3">
+                    <p className="text-xs font-medium mb-2">Email Queue Health</p>
+                    <div className="grid grid-cols-4 gap-2 text-center">
+                      <div>
+                        <p className="text-sm font-semibold">{queueHealth.data.pending}</p>
+                        <p className="text-[10px] text-muted-foreground">Pending</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold">{queueHealth.data.processing}</p>
+                        <p className="text-[10px] text-muted-foreground">Processing</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold">{queueHealth.data.failed}</p>
+                        <p className="text-[10px] text-muted-foreground">Failed</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold">{queueHealth.data.completed}</p>
+                        <p className="text-[10px] text-muted-foreground">Completed</p>
+                      </div>
+                    </div>
+                    <Button size="sm" variant="outline" className="text-xs gap-1.5 mt-2 w-full" onClick={() => processQueue.mutate()} disabled={processQueue.isPending}>
+                      {processQueue.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                      Process Queue Now
+                    </Button>
+                  </div>
+                )}
               </TabsContent>
 
               <TabsContent value="smtp" className="space-y-4">
