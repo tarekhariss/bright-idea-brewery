@@ -1,9 +1,50 @@
 -- ============================================================
 -- TLBG Prospect Intelligence — Data Management Tables
--- Run in Supabase SQL Editor
+-- Paste this entire script into Supabase SQL Editor and Run
 -- ============================================================
 
--- 1. CUSTOM FIELDS — user-defined fields for contacts, companies, deals
+-- PREREQUISITES: Ensure these exist first (skip if already created)
+-- create type public.app_role as enum ('admin', 'moderator', 'user');
+-- create function public.has_role(...)
+-- create function public.has_any_role(...)
+
+-- ============================================================
+-- 1. GLOBAL PICKLISTS (must come before custom_fields)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.global_picklists (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    name text NOT NULL UNIQUE,
+    description text,
+    is_active boolean DEFAULT true,
+    created_by uuid REFERENCES auth.users(id),
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE public.global_picklists ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Authenticated users can read picklists" ON public.global_picklists FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Admins and managers can manage picklists" ON public.global_picklists FOR ALL TO authenticated USING (public.has_any_role(auth.uid(), ARRAY['admin', 'manager']::app_role[]));
+
+-- 2. GLOBAL PICKLIST OPTIONS
+CREATE TABLE IF NOT EXISTS public.global_picklist_options (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    picklist_id uuid NOT NULL REFERENCES public.global_picklists(id) ON DELETE CASCADE,
+    label text NOT NULL,
+    value text NOT NULL,
+    display_order integer DEFAULT 0,
+    is_active boolean DEFAULT true,
+    color text,
+    created_at timestamptz DEFAULT now(),
+    UNIQUE(picklist_id, value)
+);
+
+ALTER TABLE public.global_picklist_options ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Authenticated users can read picklist options" ON public.global_picklist_options FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Admins and managers can manage picklist options" ON public.global_picklist_options FOR ALL TO authenticated USING (public.has_any_role(auth.uid(), ARRAY['admin', 'manager']::app_role[]));
+
+-- ============================================================
+-- 3. CUSTOM FIELDS (references global_picklists)
+-- ============================================================
 CREATE TABLE IF NOT EXISTS public.custom_fields (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     entity_type text NOT NULL CHECK (entity_type IN ('contact', 'company', 'deal')),
@@ -26,7 +67,9 @@ ALTER TABLE public.custom_fields ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Authenticated users can read custom fields" ON public.custom_fields FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Admins and managers can manage custom fields" ON public.custom_fields FOR ALL TO authenticated USING (public.has_any_role(auth.uid(), ARRAY['admin', 'manager']::app_role[]));
 
--- 2. PIPELINE STAGES — lifecycle/pipeline stages for contacts, companies, deals
+-- ============================================================
+-- 4. PIPELINE STAGES
+-- ============================================================
 CREATE TABLE IF NOT EXISTS public.pipeline_stages (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     entity_type text NOT NULL CHECK (entity_type IN ('contact', 'company', 'deal')),
@@ -49,39 +92,9 @@ ALTER TABLE public.pipeline_stages ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Authenticated users can read pipeline stages" ON public.pipeline_stages FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Admins and managers can manage pipeline stages" ON public.pipeline_stages FOR ALL TO authenticated USING (public.has_any_role(auth.uid(), ARRAY['admin', 'manager']::app_role[]));
 
--- 3. GLOBAL PICKLISTS — shared dropdown value sets
-CREATE TABLE IF NOT EXISTS public.global_picklists (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    name text NOT NULL UNIQUE,
-    description text,
-    is_active boolean DEFAULT true,
-    created_by uuid REFERENCES auth.users(id),
-    created_at timestamptz DEFAULT now(),
-    updated_at timestamptz DEFAULT now()
-);
-
-ALTER TABLE public.global_picklists ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Authenticated users can read picklists" ON public.global_picklists FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Admins and managers can manage picklists" ON public.global_picklists FOR ALL TO authenticated USING (public.has_any_role(auth.uid(), ARRAY['admin', 'manager']::app_role[]));
-
--- 4. GLOBAL PICKLIST OPTIONS — individual values within a picklist
-CREATE TABLE IF NOT EXISTS public.global_picklist_options (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    picklist_id uuid NOT NULL REFERENCES public.global_picklists(id) ON DELETE CASCADE,
-    label text NOT NULL,
-    value text NOT NULL,
-    display_order integer DEFAULT 0,
-    is_active boolean DEFAULT true,
-    color text,
-    created_at timestamptz DEFAULT now(),
-    UNIQUE(picklist_id, value)
-);
-
-ALTER TABLE public.global_picklist_options ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Authenticated users can read picklist options" ON public.global_picklist_options FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Admins and managers can manage picklist options" ON public.global_picklist_options FOR ALL TO authenticated USING (public.has_any_role(auth.uid(), ARRAY['admin', 'manager']::app_role[]));
-
--- 5. GOALS — performance goals for team/individual tracking
+-- ============================================================
+-- 5. GOALS
+-- ============================================================
 CREATE TABLE IF NOT EXISTS public.goals (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     name text NOT NULL,
@@ -105,7 +118,9 @@ CREATE POLICY "Authenticated users can read goals" ON public.goals FOR SELECT TO
 CREATE POLICY "Admins and managers can manage goals" ON public.goals FOR ALL TO authenticated USING (public.has_any_role(auth.uid(), ARRAY['admin', 'manager']::app_role[]));
 CREATE POLICY "Users can update own goals" ON public.goals FOR UPDATE TO authenticated USING (assigned_to = auth.uid());
 
--- 6. SYSTEM ACTIVITY LOG — platform-wide audit log
+-- ============================================================
+-- 6. SYSTEM ACTIVITY LOG
+-- ============================================================
 CREATE TABLE IF NOT EXISTS public.system_activity_log (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     action text NOT NULL,
@@ -121,7 +136,9 @@ ALTER TABLE public.system_activity_log ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Admins can read system activity log" ON public.system_activity_log FOR SELECT TO authenticated USING (public.has_role(auth.uid(), 'admin'));
 CREATE POLICY "Authenticated users can insert activity" ON public.system_activity_log FOR INSERT TO authenticated WITH CHECK (true);
 
--- Indexes
+-- ============================================================
+-- 7. INDEXES
+-- ============================================================
 CREATE INDEX IF NOT EXISTS idx_custom_fields_entity ON custom_fields (entity_type, is_active);
 CREATE INDEX IF NOT EXISTS idx_pipeline_stages_entity ON pipeline_stages (entity_type, pipeline_name, display_order);
 CREATE INDEX IF NOT EXISTS idx_picklist_options_picklist ON global_picklist_options (picklist_id, display_order);
@@ -130,11 +147,9 @@ CREATE INDEX IF NOT EXISTS idx_goals_period ON goals (period, start_date, end_da
 CREATE INDEX IF NOT EXISTS idx_system_activity_log_action ON system_activity_log (action, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_system_activity_log_entity ON system_activity_log (entity_type, entity_id);
 
--- NOTE: Run the global_picklists table BEFORE custom_fields since custom_fields references it.
--- If you get a dependency error, run global_picklists + global_picklist_options first,
--- then custom_fields, then the rest.
-
--- Seed default pipeline stages
+-- ============================================================
+-- 8. SEED DATA
+-- ============================================================
 INSERT INTO public.pipeline_stages (entity_type, pipeline_name, stage_name, stage_key, display_order, color) VALUES
   ('contact', 'default', 'New', 'new', 1, '#6366f1'),
   ('contact', 'default', 'Researching', 'researching', 2, '#8b5cf6'),
@@ -157,7 +172,6 @@ INSERT INTO public.pipeline_stages (entity_type, pipeline_name, stage_name, stag
   ('deal', 'default', 'Closed Lost', 'closed_lost', 6, '#ef4444')
 ON CONFLICT DO NOTHING;
 
--- Seed default picklists
 INSERT INTO public.global_picklists (name, description) VALUES
   ('Industry', 'Company industry classification'),
   ('Lead Source', 'How the contact was acquired'),
