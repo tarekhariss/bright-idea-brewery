@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { Search, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 
 const PAGE_SIZE = 25;
@@ -13,7 +14,9 @@ interface Company {
   domain: string | null;
   industry: string | null;
   country: string | null;
+  employee_range: string | null;
   employee_count: number | null;
+  data_quality_score: number | null;
 }
 
 export default function CompaniesPage() {
@@ -27,7 +30,7 @@ export default function CompaniesPage() {
     setLoading(true);
     let query = supabase
       .from("companies")
-      .select("id, name, domain, industry, country, employee_count", { count: "exact" })
+      .select("id, name, domain, industry, country, employee_range, employee_count, data_quality_score", { count: "exact" })
       .order("updated_at", { ascending: false })
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
@@ -48,6 +51,13 @@ export default function CompaniesPage() {
   }, [fetchCompanies]);
 
   const totalPages = Math.ceil(count / PAGE_SIZE);
+
+  const qualityColor = (score: number | null) => {
+    if (score === null) return "text-muted-foreground";
+    if (score >= 70) return "text-green-600";
+    if (score >= 40) return "text-yellow-600";
+    return "text-red-600";
+  };
 
   return (
     <div className="p-6 space-y-4 animate-fade-in">
@@ -78,19 +88,20 @@ export default function CompaniesPage() {
               <TableHead>Domain</TableHead>
               <TableHead>Industry</TableHead>
               <TableHead>Country</TableHead>
-              <TableHead className="text-right">Employees</TableHead>
+              <TableHead>Size</TableHead>
+              <TableHead className="text-right">Quality</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={5} className="h-32 text-center">
+                <TableCell colSpan={6} className="h-32 text-center">
                   <Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" />
                 </TableCell>
               </TableRow>
             ) : companies.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
+                <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
                   No companies found
                 </TableCell>
               </TableRow>
@@ -101,7 +112,16 @@ export default function CompaniesPage() {
                   <TableCell className="text-muted-foreground">{c.domain ?? "—"}</TableCell>
                   <TableCell>{c.industry ?? "—"}</TableCell>
                   <TableCell>{c.country ?? "—"}</TableCell>
-                  <TableCell className="text-right">{c.employee_count?.toLocaleString() ?? "—"}</TableCell>
+                  <TableCell>
+                    {c.employee_range ? (
+                      <Badge variant="outline" className="text-xs">{c.employee_range}</Badge>
+                    ) : c.employee_count ? (
+                      c.employee_count.toLocaleString()
+                    ) : "—"}
+                  </TableCell>
+                  <TableCell className={`text-right font-medium ${qualityColor(c.data_quality_score)}`}>
+                    {c.data_quality_score !== null ? `${c.data_quality_score}%` : "—"}
+                  </TableCell>
                 </TableRow>
               ))
             )}
