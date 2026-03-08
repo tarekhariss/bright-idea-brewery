@@ -57,6 +57,8 @@ const App = () => (
             <Route path="/lists" element={<ProtectedLayout><ListsPage /></ProtectedLayout>} />
             <Route path="/lists/:id" element={<ProtectedLayout><ListDetailPage /></ProtectedLayout>} />
             <Route path="/imports" element={<ProtectedLayout><ImportsPage /></ProtectedLayout>} />
+            <Route path="/imports/new" element={<ProtectedLayout><ImportWizardPage /></ProtectedLayout>} />
+            <Route path="/imports/:id" element={<ProtectedLayout><ImportJobDetailPage /></ProtectedLayout>} />
             <Route path="/saved-views" element={<ProtectedLayout><SavedViewsPage /></ProtectedLayout>} />
             <Route path="/data-health" element={<ProtectedLayout><DataHealthPage /></ProtectedLayout>} />
             <Route path="/settings" element={<ProtectedLayout><SettingsPage /></ProtectedLayout>} />
