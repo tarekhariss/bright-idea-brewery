@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Search, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import type { LifecycleStatus, OutreachStatus } from "@/integrations/supabase/db-types";
 
 const PAGE_SIZE = 25;
 
@@ -14,10 +15,25 @@ interface Contact {
   last_name: string | null;
   email: string | null;
   job_title: string | null;
-  company_name: string | null;
+  company_name_raw: string | null;
   country: string | null;
-  status: string;
+  lifecycle_status: LifecycleStatus;
+  outreach_status: OutreachStatus;
 }
+
+const lifecycleBadgeVariant = (s: LifecycleStatus): "default" | "secondary" | "destructive" | "outline" => {
+  switch (s) {
+    case "qualified":
+    case "engaged":
+    case "converted":
+      return "default";
+    case "churned":
+    case "archived":
+      return "destructive";
+    default:
+      return "secondary";
+  }
+};
 
 export default function ContactsPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -30,12 +46,12 @@ export default function ContactsPage() {
     setLoading(true);
     let query = supabase
       .from("contacts")
-      .select("id, first_name, last_name, email, job_title, company_name, country, status", { count: "exact" })
+      .select("id, first_name, last_name, email, job_title, company_name_raw, country, lifecycle_status, outreach_status", { count: "exact" })
       .order("updated_at", { ascending: false })
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
     if (search.trim()) {
-      query = query.or(`email.ilike.%${search}%,first_name.ilike.%${search}%,last_name.ilike.%${search}%,company_name.ilike.%${search}%`);
+      query = query.or(`email.ilike.%${search}%,first_name.ilike.%${search}%,last_name.ilike.%${search}%,company_name_raw.ilike.%${search}%`);
     }
 
     const { data, count: total, error } = await query;
@@ -82,19 +98,20 @@ export default function ContactsPage() {
               <TableHead>Job Title</TableHead>
               <TableHead>Company</TableHead>
               <TableHead>Country</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead>Lifecycle</TableHead>
+              <TableHead>Outreach</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={6} className="h-32 text-center">
+                <TableCell colSpan={7} className="h-32 text-center">
                   <Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" />
                 </TableCell>
               </TableRow>
             ) : contacts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
                   No contacts found
                 </TableCell>
               </TableRow>
@@ -106,11 +123,16 @@ export default function ContactsPage() {
                   </TableCell>
                   <TableCell className="text-muted-foreground">{c.email ?? "—"}</TableCell>
                   <TableCell>{c.job_title ?? "—"}</TableCell>
-                  <TableCell>{c.company_name ?? "—"}</TableCell>
+                  <TableCell>{c.company_name_raw ?? "—"}</TableCell>
                   <TableCell>{c.country ?? "—"}</TableCell>
                   <TableCell>
-                    <Badge variant={c.status === "active" ? "default" : "secondary"} className="text-xs">
-                      {c.status}
+                    <Badge variant={lifecycleBadgeVariant(c.lifecycle_status)} className="text-xs capitalize">
+                      {c.lifecycle_status.replace("_", " ")}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="text-xs capitalize">
+                      {c.outreach_status.replace(/_/g, " ")}
                     </Badge>
                   </TableCell>
                 </TableRow>
