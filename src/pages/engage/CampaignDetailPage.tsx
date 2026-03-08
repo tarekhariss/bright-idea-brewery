@@ -274,6 +274,67 @@ export default function CampaignDetailPage() {
           )}
         </TabsContent>
 
+        {/* ── LinkedIn Accounts Tab ── */}
+        <TabsContent value="linkedin" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <p className="text-sm text-muted-foreground">{campaignLinkedinAccounts?.length || 0} LinkedIn accounts linked</p>
+          </div>
+          {campaignLinkedinAccounts?.length ? (
+            <Card>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs">Profile</TableHead>
+                    <TableHead className="text-xs">Status</TableHead>
+                    <TableHead className="text-xs w-10"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {campaignLinkedinAccounts.map((cla: any) => (
+                    <TableRow key={cla.linkedin_account_id}>
+                      <TableCell className="text-sm font-medium">{cla.linkedin_accounts?.profile_name || "—"}</TableCell>
+                      <TableCell>
+                        <Badge className={`text-[10px] ${cla.linkedin_accounts?.connection_status === "connected" ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" : "bg-muted text-muted-foreground"}`}>
+                          {cla.linkedin_accounts?.connection_status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive"
+                          onClick={() => unlinkLinkedin.mutate({ campaignId: id!, linkedinAccountId: cla.linkedin_account_id })}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Card>
+          ) : (
+            <Card className="border-dashed">
+              <CardContent className="flex flex-col items-center py-12 text-center">
+                <Linkedin className="h-8 w-8 text-muted-foreground/40 mb-2" />
+                <p className="text-sm font-medium">No LinkedIn accounts linked</p>
+                <p className="text-xs text-muted-foreground mt-1">Link accounts to use LinkedIn steps in this campaign.</p>
+              </CardContent>
+            </Card>
+          )}
+          {linkedinAccounts?.length ? (
+            <div>
+              <Label className="text-xs">Link a LinkedIn Account</Label>
+              <Select onValueChange={(val) => linkLinkedin.mutate({ campaignId: id!, linkedinAccountId: val })}>
+                <SelectTrigger className="mt-1 h-9 text-sm w-64"><SelectValue placeholder="Select account..." /></SelectTrigger>
+                <SelectContent>
+                  {linkedinAccounts
+                    .filter((a: any) => !campaignLinkedinAccounts?.some((c: any) => c.linkedin_account_id === a.id))
+                    .map((a: any) => (
+                      <SelectItem key={a.id} value={a.id}>{a.profile_name}</SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
+        </TabsContent>
+
         {/* ── Settings Tab ── */}
         <TabsContent value="settings">
           <Card>
