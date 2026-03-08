@@ -168,6 +168,4 @@ export function DealFieldsSettings() {
 export function GlobalPicklistsSettings() {
   return <GenericSettings icon={ListChecks} title="Global Picklists" description="Manage shared dropdown values used across objects." />;
 }
-export function ImportsExportsSettings() {
-  return <GenericSettings icon={Download} title="Imports & Exports" description="Manage data import templates and export configurations." />;
-}
+export { default as ImportsExportsSettings } from "./ImportsExportsPage";
