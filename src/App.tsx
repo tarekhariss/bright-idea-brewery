@@ -32,6 +32,7 @@ import NotFound from "./pages/NotFound";
 // Search pages
 import ProspectEnrichPage from "./pages/search/ProspectEnrich";
 import DataEnrichmentPage from "./pages/search/DataEnrichment";
+import ProspectIntelligencePage from "./pages/search/ProspectIntelligence";
 
 // Engage pages
 import SequencesListPage from "./pages/engage/SequencesPage";
