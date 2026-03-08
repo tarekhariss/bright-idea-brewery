@@ -147,6 +147,7 @@ export default function CompanyDetailPage() {
         <TabsList>
           <TabsTrigger value="details" className="text-xs">Details</TabsTrigger>
           <TabsTrigger value="intelligence" className="text-xs gap-1.5"><Brain className="h-3 w-3" /> Intelligence</TabsTrigger>
+          <TabsTrigger value="attribution" className="text-xs gap-1.5"><TrendingUp className="h-3 w-3" /> Attribution</TabsTrigger>
         </TabsList>
 
         <TabsContent value="details">
