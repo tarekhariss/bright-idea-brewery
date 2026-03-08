@@ -4,9 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Search, Plus, Download, ListPlus } from "lucide-react";
+import { Search, Plus, Download } from "lucide-react";
 import { LifecycleBadge, OutreachBadge, QualityScoreBadge, DncBadge } from "@/components/data-table/StatusBadge";
 import { BulkActionsBar } from "@/components/contacts/BulkActionsBar";
 import { SortableHeader } from "@/components/data-table/SortableHeader";
@@ -17,6 +17,9 @@ import { SavedViewsDropdown } from "@/components/data-table/SavedViewsDropdown";
 import { AddToListDialog } from "@/components/lists/AddToListDialog";
 import { useSavedViews, type ViewState } from "@/hooks/use-saved-views";
 import { applyFilters } from "@/lib/filter-utils";
+import { useDebounce } from "@/hooks/use-debounce";
+import { TableSkeleton } from "@/components/data-table/TableSkeleton";
+import { VirtualizedTableBody } from "@/components/data-table/VirtualizedTableBody";
 import { format } from "date-fns";
 import type { LifecycleStatus, OutreachStatus } from "@/integrations/supabase/db-types";
 
@@ -152,6 +155,8 @@ export default function ContactsPage() {
     sortBy, sortDirection: sortDir, pageSize,
   });
 
+  const debouncedSearch = useDebounce(search, 300);
+
   const fetchContacts = useCallback(async () => {
     setLoading(true);
     let query = supabase
@@ -160,15 +165,15 @@ export default function ContactsPage() {
       .order(sortBy, { ascending: sortDir === "asc" })
       .range(page * pageSize, (page + 1) * pageSize - 1);
 
-    if (search.trim()) {
-      query = query.or(`email.ilike.%${search}%,first_name.ilike.%${search}%,last_name.ilike.%${search}%,company_name_raw.ilike.%${search}%,job_title.ilike.%${search}%,department.ilike.%${search}%,linkedin_url.ilike.%${search}%,source.ilike.%${search}%`);
+    if (debouncedSearch.trim()) {
+      query = query.or(`email.ilike.%${debouncedSearch}%,first_name.ilike.%${debouncedSearch}%,last_name.ilike.%${debouncedSearch}%,company_name_raw.ilike.%${debouncedSearch}%,job_title.ilike.%${debouncedSearch}%`);
     }
 
     query = applyFilters(query, filterValues, FILTER_CONFIGS);
     const { data, count: total, error } = await query;
     if (!error) { setContacts(data ?? []); setCount(total ?? 0); }
     setLoading(false);
-  }, [page, pageSize, search, sortBy, sortDir, filterValues]);
+  }, [page, pageSize, debouncedSearch, sortBy, sortDir, filterValues]);
 
   useEffect(() => { fetchContacts(); }, [fetchContacts]);
 
@@ -281,13 +286,10 @@ export default function ContactsPage() {
               {col("updated_at") && <TableHead><SortableHeader label="Updated" sortKey="updated_at" currentSort={sortBy} currentDirection={sortDir} onSort={handleSort} /></TableHead>}
             </TableRow>
           </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={20} className="h-48 text-center">
-                <Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" />
-                <p className="mt-2 text-xs text-muted-foreground">Loading contacts...</p>
-              </TableCell></TableRow>
-            ) : contacts.length === 0 ? (
+          {loading ? (
+            <tbody><TableSkeleton rows={pageSize > 50 ? 15 : 10} columns={visibleCols.size + 1} /></tbody>
+          ) : contacts.length === 0 ? (
+            <tbody>
               <TableRow><TableCell colSpan={20} className="h-48 text-center">
                 <div className="flex flex-col items-center gap-2">
                   <Search className="h-8 w-8 text-muted-foreground/40" />
@@ -299,8 +301,12 @@ export default function ContactsPage() {
                   </p>
                 </div>
               </TableCell></TableRow>
-            ) : (
-              contacts.map((c) => (
+            </tbody>
+          ) : (
+            <VirtualizedTableBody
+              items={contacts}
+              estimateSize={40}
+              renderRow={(c) => (
                 <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50 h-10" onClick={() => navigate(`/contacts/${c.id}`)}>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <Checkbox checked={selected.has(c.id)} onCheckedChange={() => toggleSelect(c.id)} />
@@ -326,9 +332,9 @@ export default function ContactsPage() {
                   {col("last_contacted_at") && <TableCell className="text-xs text-muted-foreground">{formatDate(c.last_contacted_at)}</TableCell>}
                   {col("updated_at") && <TableCell className="text-xs text-muted-foreground">{formatDate(c.updated_at)}</TableCell>}
                 </TableRow>
-              ))
-            )}
-          </TableBody>
+              )}
+            />
+          )}
         </Table>
       </div>
 

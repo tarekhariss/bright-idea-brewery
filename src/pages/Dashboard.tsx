@@ -62,6 +62,7 @@ export default function DashboardPage() {
     const d7 = subDays(now, 7).toISOString();
     const d30 = subDays(now, 30).toISOString();
 
+    // All count queries use head:true — zero row transfer
     const [
       cTotal, coTotal, lTotal, iTotal,
       cHigh, cLow, cDnc,
@@ -70,8 +71,6 @@ export default function DashboardPage() {
       reviewQ,
       c7, c30, co7, co30,
       recentImp,
-      allContacts,
-      allCompanies,
     ] = await Promise.all([
       supabase.from("contacts").select("id", { count: "exact", head: true }),
       supabase.from("companies").select("id", { count: "exact", head: true }),
@@ -89,8 +88,12 @@ export default function DashboardPage() {
       supabase.from("companies").select("id", { count: "exact", head: true }).gte("created_at", d7),
       supabase.from("companies").select("id", { count: "exact", head: true }).gte("created_at", d30),
       supabase.from("import_jobs").select("id, file_name, status, total_rows, created_at").order("created_at", { ascending: false }).limit(5),
-      supabase.from("contacts").select("lifecycle_status, outreach_status, country, data_quality_score"),
-      supabase.from("companies").select("industry"),
+    ]);
+
+    // Fetch only needed single columns with limits for aggregation
+    const [allContacts, allCompanies] = await Promise.all([
+      supabase.from("contacts").select("lifecycle_status, outreach_status, country, data_quality_score").limit(50000),
+      supabase.from("companies").select("industry").not("industry", "is", null).limit(50000),
     ]);
 
     // Aggregate lifecycle, outreach, countries, quality
