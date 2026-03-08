@@ -28,6 +28,9 @@ export interface SavedView {
   updated_at: string;
 }
 
+// Helper to bypass strict Supabase type inference
+const db = () => supabase as any;
+
 export function useSavedViews(entityType: "contact" | "company") {
   const { user } = useAuth();
   const [views, setViews] = useState<SavedView[]>([]);
@@ -37,21 +40,21 @@ export function useSavedViews(entityType: "contact" | "company") {
   const fetchViews = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const { data } = await supabase
+    const { data } = await db()
       .from("saved_views")
       .select("*")
       .eq("entity_type", entityType)
       .order("is_default", { ascending: false })
       .order("name", { ascending: true });
-    setViews((data as unknown as SavedView[] | null) ?? []);
+    setViews((data as SavedView[]) ?? []);
     setLoading(false);
   }, [user, entityType]);
 
   useEffect(() => { fetchViews(); }, [fetchViews]);
 
   const saveView = async (name: string, state: ViewState) => {
-    if (!user) return;
-    const payload: any = {
+    if (!user) return null;
+    const { data, error } = await db().from("saved_views").insert({
       name,
       entity_type: entityType,
       filters: { search: state.search, filterValues: state.filters, pageSize: state.pageSize },
@@ -60,25 +63,23 @@ export function useSavedViews(entityType: "contact" | "company") {
       sort_direction: state.sortDirection,
       is_default: false,
       created_by: user.id,
-    };
-    const { data, error } = await supabase.from("saved_views").insert(payload as any).select().single();
+    }).select().single();
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
       return null;
     }
     toast({ title: "View saved", description: `"${name}" has been saved.` });
     await fetchViews();
-    return data as unknown as SavedView;
+    return data as SavedView;
   };
 
   const updateView = async (id: string, state: ViewState) => {
-    const payload: any = {
+    const { error } = await db().from("saved_views").update({
       filters: { search: state.search, filterValues: state.filters, pageSize: state.pageSize },
       columns: state.visibleColumns,
       sort_by: state.sortBy,
       sort_direction: state.sortDirection,
-    };
-    const { error } = await supabase.from("saved_views").update(payload as any).eq("id", id);
+    }).eq("id", id);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
       return;
@@ -88,7 +89,7 @@ export function useSavedViews(entityType: "contact" | "company") {
   };
 
   const renameView = async (id: string, name: string) => {
-    const { error } = await supabase.from("saved_views").update({ name } as any).eq("id", id);
+    const { error } = await db().from("saved_views").update({ name }).eq("id", id);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
       return;
@@ -97,7 +98,7 @@ export function useSavedViews(entityType: "contact" | "company") {
   };
 
   const deleteView = async (id: string) => {
-    const { error } = await supabase.from("saved_views").delete().eq("id", id);
+    const { error } = await db().from("saved_views").delete().eq("id", id);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
       return;
@@ -109,9 +110,9 @@ export function useSavedViews(entityType: "contact" | "company") {
 
   const setDefault = async (id: string) => {
     if (user) {
-      await supabase.from("saved_views").update({ is_default: false } as any).eq("entity_type", entityType).eq("created_by", user.id);
+      await db().from("saved_views").update({ is_default: false }).eq("entity_type", entityType).eq("created_by", user.id);
     }
-    await supabase.from("saved_views").update({ is_default: true } as any).eq("id", id);
+    await db().from("saved_views").update({ is_default: true }).eq("id", id);
     toast({ title: "Default view set" });
     await fetchViews();
   };
@@ -129,16 +130,8 @@ export function useSavedViews(entityType: "contact" | "company") {
   };
 
   return {
-    views,
-    activeViewId,
-    setActiveViewId,
-    loading,
-    saveView,
-    updateView,
-    renameView,
-    deleteView,
-    setDefault,
-    loadViewState,
+    views, activeViewId, setActiveViewId, loading,
+    saveView, updateView, renameView, deleteView, setDefault, loadViewState,
     refetch: fetchViews,
   };
 }
