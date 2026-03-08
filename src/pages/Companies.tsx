@@ -227,6 +227,9 @@ export default function CompaniesPage() {
             ) : (
               companies.map((c) => (
                 <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50 h-10" onClick={() => navigate(`/companies/${c.id}`)}>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <Checkbox checked={selected.has(c.id)} onCheckedChange={() => toggleSelect(c.id)} />
+                  </TableCell>
                   {col("name") && <TableCell className="font-medium text-sm">{c.name}</TableCell>}
                   {col("domain") && <TableCell className="text-xs text-muted-foreground">{c.domain ? <span className="text-primary">{c.domain}</span> : "—"}</TableCell>}
                   {col("industry") && <TableCell className="text-xs">{c.industry ?? "—"}</TableCell>}
