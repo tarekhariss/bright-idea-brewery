@@ -1967,6 +1967,9 @@ export type Database = {
       deal_status: DealStatus;
       meeting_status: MeetingStatus;
       activity_type: ActivityType;
+      campaign_status: CampaignStatus;
+      campaign_contact_status: CampaignContactStatus;
+      inbox_thread_status: InboxThreadStatus;
     };
   };
 };
