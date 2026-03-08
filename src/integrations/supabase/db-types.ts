@@ -1974,6 +1974,7 @@ export type Database = {
       campaign_status: CampaignStatus;
       campaign_contact_status: CampaignContactStatus;
       inbox_thread_status: InboxThreadStatus;
+      attribution_type: AttributionType;
     };
   };
 };
