@@ -57,9 +57,10 @@ export default function CompanyDetailPage() {
         .limit(50);
       setActivities(acts ?? []);
 
-      const { data: tagLinks } = await supabase.from("company_tags").select("tag_id").eq("company_id", id);
+      const { data: tagLinks } = await supabase.from("company_tags").select("tag_id").eq("company_id", id!);
       if (tagLinks && tagLinks.length > 0) {
-        const { data: tagData } = await supabase.from("tags").select("*").in("id", tagLinks.map((t) => t.tag_id));
+        const tagIds = tagLinks.map((t: { tag_id: string }) => t.tag_id);
+        const { data: tagData } = await supabase.from("tags").select("*").in("id", tagIds);
         setTags(tagData ?? []);
       }
 

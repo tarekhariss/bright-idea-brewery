@@ -28,18 +28,18 @@ export default function ContactDetailPage() {
     if (!id) return;
     async function load() {
       setLoading(true);
-      const { data: c } = await supabase.from("contacts").select("*").eq("id", id).maybeSingle();
-      setContact(c);
+      const { data: contactData } = await supabase.from("contacts").select("*").eq("id", id!).maybeSingle();
+      setContact(contactData);
 
-      if (c?.company_id) {
-        const { data: co } = await supabase.from("companies").select("*").eq("id", c.company_id).maybeSingle();
+      if (contactData?.company_id) {
+        const { data: co } = await supabase.from("companies").select("*").eq("id", contactData.company_id).maybeSingle();
         setCompany(co);
       }
 
       const { data: acts } = await supabase
         .from("contact_activity_log")
         .select("*")
-        .eq("contact_id", id)
+        .eq("contact_id", id!)
         .order("created_at", { ascending: false })
         .limit(50);
       setActivities(acts ?? []);
@@ -47,12 +47,13 @@ export default function ContactDetailPage() {
       const { data: tagLinks } = await supabase
         .from("contact_tags")
         .select("tag_id")
-        .eq("contact_id", id);
+        .eq("contact_id", id!);
       if (tagLinks && tagLinks.length > 0) {
+        const tagIds = tagLinks.map((t: { tag_id: string }) => t.tag_id);
         const { data: tagData } = await supabase
           .from("tags")
           .select("*")
-          .in("id", tagLinks.map((t) => t.tag_id));
+          .in("id", tagIds);
         setTags(tagData ?? []);
       }
 
