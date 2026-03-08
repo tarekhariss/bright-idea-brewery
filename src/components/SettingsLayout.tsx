@@ -39,8 +39,12 @@ const settingsSections: SettingsNavSection[] = [
     title: "Workspace",
     items: [
       { label: "Deliverability Overview", path: "/settings/workspace/deliverability", icon: Inbox },
+      { label: "Deliverability Dashboard", path: "/settings/workspace/deliverability/dashboard", icon: ActivityIcon },
       { label: "Domains", path: "/settings/workspace/deliverability/domains", icon: Globe },
       { label: "Mailboxes", path: "/settings/workspace/deliverability/mailboxes", icon: Mail },
+      { label: "Sending Windows", path: "/settings/workspace/deliverability/sending-windows", icon: Clock },
+      { label: "ESP Routing", path: "/settings/workspace/deliverability/esp-routing", icon: Route },
+      { label: "Suppression Lists", path: "/settings/workspace/deliverability/suppression", icon: ShieldBan },
       { label: "Users & Teams", path: "/settings/workspace/users", icon: Users },
       { label: "Security", path: "/settings/workspace/security", icon: Shield },
     ],
