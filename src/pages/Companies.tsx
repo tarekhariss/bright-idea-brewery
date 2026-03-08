@@ -247,7 +247,7 @@ export default function CompaniesPage() {
       </div>
 
       <TablePagination page={page} totalPages={totalPages} totalRows={count} pageSize={pageSize}
-        onPageChange={setPage} onPageSizeChange={(s) => { setPageSize(s); setPage(0); }} />
+        onPageChange={setPage} onPageSizeChange={(s) => { setPageSize(s); setPage(0); }} selectedCount={selected.size} />
     </div>
   );
 }
