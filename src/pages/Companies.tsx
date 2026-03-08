@@ -71,6 +71,7 @@ export default function CompaniesPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const savedViews = useSavedViews("company");
+  const { canEdit } = useAuth();
 
   const [companies, setCompanies] = useState<Company[]>([]);
   const [count, setCount] = useState(0);
