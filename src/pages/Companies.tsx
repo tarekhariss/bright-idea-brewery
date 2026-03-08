@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Loader2, Search, Plus, Download, Building2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { QualityScoreBadge } from "@/components/data-table/StatusBadge";
 import { SortableHeader } from "@/components/data-table/SortableHeader";
 import { TablePagination } from "@/components/data-table/TablePagination";
@@ -14,6 +15,7 @@ import { SavedViewsDropdown } from "@/components/data-table/SavedViewsDropdown";
 import { useSavedViews, type ViewState } from "@/hooks/use-saved-views";
 import { applyFilters } from "@/lib/filter-utils";
 import { Badge } from "@/components/ui/badge";
+import { CompanyBulkActionsBar } from "@/components/companies/BulkActionsBar";
 import { format } from "date-fns";
 
 const COLUMNS: ColumnDef[] = [
@@ -79,6 +81,7 @@ export default function CompaniesPage() {
   const [loading, setLoading] = useState(true);
   const [filterValues, setFilterValues] = useState<FilterValues>({});
   const [visibleCols, setVisibleCols] = useState<Set<string>>(new Set(DEFAULT_VISIBLE));
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const viewId = searchParams.get("view");
@@ -139,6 +142,12 @@ export default function CompaniesPage() {
     setPage(0);
   };
   const col = (key: string) => visibleCols.has(key);
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
+  };
+  const toggleSelectAll = () => {
+    selected.size === companies.length ? setSelected(new Set()) : setSelected(new Set(companies.map((c) => c.id)));
+  };
   const formatDate = (d: string | null) => {
     if (!d) return "—";
     try { return format(new Date(d), "MMM d, yyyy"); } catch { return "—"; }
@@ -153,6 +162,12 @@ export default function CompaniesPage() {
             <p className="text-sm text-muted-foreground mt-0.5">{count.toLocaleString()} total companies</p>
           </div>
           <div className="flex items-center gap-2">
+            {selected.size > 0 && (
+              <CompanyBulkActionsBar
+                selectedIds={Array.from(selected)}
+                onDone={() => { setSelected(new Set()); fetchCompanies(); }}
+              />
+            )}
             <Button variant="outline" size="sm" className="gap-1.5 text-xs"><Download className="h-3.5 w-3.5" /> Export</Button>
             <Button size="sm" className="gap-1.5 text-xs"><Plus className="h-3.5 w-3.5" /> Add Company</Button>
           </div>
@@ -181,6 +196,9 @@ export default function CompaniesPage() {
         <Table>
           <TableHeader className="sticky top-0 bg-card z-10">
             <TableRow className="hover:bg-transparent">
+              <TableHead className="w-10">
+                <Checkbox checked={companies.length > 0 && selected.size === companies.length} onCheckedChange={toggleSelectAll} />
+              </TableHead>
               {col("name") && <TableHead><SortableHeader label="Company" sortKey="name" currentSort={sortBy} currentDirection={sortDir} onSort={handleSort} /></TableHead>}
               {col("domain") && <TableHead><SortableHeader label="Domain" sortKey="domain" currentSort={sortBy} currentDirection={sortDir} onSort={handleSort} /></TableHead>}
               {col("industry") && <TableHead><SortableHeader label="Industry" sortKey="industry" currentSort={sortBy} currentDirection={sortDir} onSort={handleSort} /></TableHead>}
@@ -209,6 +227,9 @@ export default function CompaniesPage() {
             ) : (
               companies.map((c) => (
                 <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50 h-10" onClick={() => navigate(`/companies/${c.id}`)}>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <Checkbox checked={selected.has(c.id)} onCheckedChange={() => toggleSelect(c.id)} />
+                  </TableCell>
                   {col("name") && <TableCell className="font-medium text-sm">{c.name}</TableCell>}
                   {col("domain") && <TableCell className="text-xs text-muted-foreground">{c.domain ? <span className="text-primary">{c.domain}</span> : "—"}</TableCell>}
                   {col("industry") && <TableCell className="text-xs">{c.industry ?? "—"}</TableCell>}
@@ -226,7 +247,7 @@ export default function CompaniesPage() {
       </div>
 
       <TablePagination page={page} totalPages={totalPages} totalRows={count} pageSize={pageSize}
-        onPageChange={setPage} onPageSizeChange={(s) => { setPageSize(s); setPage(0); }} />
+        onPageChange={setPage} onPageSizeChange={(s) => { setPageSize(s); setPage(0); }} selectedCount={selected.size} />
     </div>
   );
 }
