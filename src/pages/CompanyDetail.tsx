@@ -14,6 +14,8 @@ import { QualityScoreBadge, LifecycleBadge } from "@/components/data-table/Statu
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { IntelligenceTab } from "@/components/intelligence/IntelligenceTab";
+import { AttributionSection } from "@/components/analytics/AttributionSection";
+import { useCompanyAttribution } from "@/hooks/use-analytics";
 import type { Database, LifecycleStatus } from "@/integrations/supabase/db-types";
 
 type Company = Database["public"]["Tables"]["companies"]["Row"];
