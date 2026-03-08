@@ -141,6 +141,13 @@ export default function ContactDetailPage() {
         {canEdit && <Button variant="outline" size="sm" className="text-xs">Edit Contact</Button>}
       </div>
 
+      <Tabs defaultValue="details" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="details" className="text-xs">Details</TabsTrigger>
+          <TabsTrigger value="intelligence" className="text-xs gap-1.5"><Brain className="h-3 w-3" /> Intelligence</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="details">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main info */}
         <div className="lg:col-span-2 space-y-6">
