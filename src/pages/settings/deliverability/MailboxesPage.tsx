@@ -559,6 +559,43 @@ export default function MailboxesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Test Email Dialog */}
+      <Dialog open={!!testDialogOpen} onOpenChange={() => { setTestDialogOpen(null); setTestEmailAddr(""); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base">Send Test Email</DialogTitle>
+            <DialogDescription className="text-sm">Send a test email to verify this mailbox can deliver messages.</DialogDescription>
+          </DialogHeader>
+          <div>
+            <Label className="text-xs">Recipient Email</Label>
+            <Input
+              value={testEmailAddr}
+              onChange={(e) => setTestEmailAddr(e.target.value)}
+              placeholder="you@example.com"
+              className="mt-1 h-9 text-sm"
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => { setTestDialogOpen(null); setTestEmailAddr(""); }}>Cancel</Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                if (testDialogOpen && testEmailAddr.trim()) {
+                  sendTestEmail.mutate({ mailboxId: testDialogOpen, toAddress: testEmailAddr.trim() });
+                  setTestDialogOpen(null);
+                  setTestEmailAddr("");
+                }
+              }}
+              disabled={!testEmailAddr.trim() || sendTestEmail.isPending}
+            >
+              {sendTestEmail.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+              Send Test
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
