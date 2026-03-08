@@ -1,16 +1,19 @@
 import { useEffect, useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Search, Plus, Download } from "lucide-react";
+import { Loader2, Search, Plus, Download, ListPlus } from "lucide-react";
 import { LifecycleBadge, OutreachBadge, QualityScoreBadge, DncBadge } from "@/components/data-table/StatusBadge";
 import { SortableHeader } from "@/components/data-table/SortableHeader";
 import { TablePagination } from "@/components/data-table/TablePagination";
 import { ColumnVisibility, type ColumnDef } from "@/components/data-table/ColumnVisibility";
 import { FilterPanel, ActiveFilters, type FilterConfig, type FilterValues } from "@/components/data-table/FilterPanel";
+import { SavedViewsDropdown } from "@/components/data-table/SavedViewsDropdown";
+import { AddToListDialog } from "@/components/lists/AddToListDialog";
+import { useSavedViews, type ViewState } from "@/hooks/use-saved-views";
 import { applyFilters } from "@/lib/filter-utils";
 import { format } from "date-fns";
 import type { LifecycleStatus, OutreachStatus } from "@/integrations/supabase/db-types";
@@ -30,6 +33,8 @@ const COLUMNS: ColumnDef[] = [
   { key: "last_contacted_at", label: "Last Contacted" },
   { key: "updated_at", label: "Updated", defaultVisible: true },
 ];
+
+const DEFAULT_VISIBLE = new Set(COLUMNS.filter((c) => c.defaultVisible).map((c) => c.key));
 
 const FILTER_CONFIGS: FilterConfig[] = [
   { key: "lifecycle_status", label: "Lifecycle Status", type: "select", options: [
@@ -82,6 +87,9 @@ const SELECT_FIELDS = "id, first_name, last_name, email, secondary_email, job_ti
 
 export default function ContactsPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const savedViews = useSavedViews("contact");
+
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [count, setCount] = useState(0);
   const [page, setPage] = useState(0);
@@ -92,9 +100,40 @@ export default function ContactsPage() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [filterValues, setFilterValues] = useState<FilterValues>({});
-  const [visibleCols, setVisibleCols] = useState<Set<string>>(
-    new Set(COLUMNS.filter((c) => c.defaultVisible).map((c) => c.key))
-  );
+  const [visibleCols, setVisibleCols] = useState<Set<string>>(new Set(DEFAULT_VISIBLE));
+  const [addToListOpen, setAddToListOpen] = useState(false);
+
+  // Load view from URL param on mount
+  useEffect(() => {
+    const viewId = searchParams.get("view");
+    if (viewId && savedViews.views.length > 0) {
+      const view = savedViews.views.find((v) => v.id === viewId);
+      if (view) applyView(view);
+    }
+  }, [savedViews.views, searchParams]);
+
+  const applyView = (view: any) => {
+    const state = savedViews.loadViewState(view);
+    setSearch(state.search);
+    setFilterValues(state.filters);
+    setSortBy(state.sortBy);
+    setSortDir(state.sortDirection);
+    setPageSize(state.pageSize);
+    if (state.visibleColumns.length > 0) {
+      setVisibleCols(new Set(state.visibleColumns));
+    }
+    savedViews.setActiveViewId(view.id);
+    setPage(0);
+  };
+
+  const getCurrentViewState = (): ViewState => ({
+    search,
+    filters: filterValues,
+    visibleColumns: Array.from(visibleCols),
+    sortBy,
+    sortDirection: sortDir,
+    pageSize,
+  });
 
   const fetchContacts = useCallback(async () => {
     setLoading(true);
@@ -122,50 +161,26 @@ export default function ContactsPage() {
   const totalPages = Math.ceil(count / pageSize);
 
   const handleSort = (key: string) => {
-    if (sortBy === key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortBy(key);
-      setSortDir("asc");
-    }
+    if (sortBy === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortBy(key); setSortDir("asc"); }
     setPage(0);
   };
 
   const toggleSelect = (id: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
+    setSelected((prev) => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
   };
-
   const toggleSelectAll = () => {
-    if (selected.size === contacts.length) {
-      setSelected(new Set());
-    } else {
-      setSelected(new Set(contacts.map((c) => c.id)));
-    }
+    selected.size === contacts.length ? setSelected(new Set()) : setSelected(new Set(contacts.map((c) => c.id)));
   };
-
   const toggleColumn = (key: string) => {
-    setVisibleCols((prev) => {
-      const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
-      return next;
-    });
+    setVisibleCols((prev) => { const next = new Set(prev); next.has(key) ? next.delete(key) : next.add(key); return next; });
   };
-
   const handleFilterRemove = (key: string) => {
-    setFilterValues((prev) => {
-      const next = { ...prev };
-      delete next[key];
-      return next;
-    });
+    setFilterValues((prev) => { const next = { ...prev }; delete next[key]; return next; });
     setPage(0);
   };
 
   const col = (key: string) => visibleCols.has(key);
-
   const formatDate = (d: string | null) => {
     if (!d) return "—";
     try { return format(new Date(d), "MMM d, yyyy"); } catch { return "—"; }
@@ -173,7 +188,6 @@ export default function ContactsPage() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
       <div className="px-6 pt-6 pb-4 space-y-3">
         <div className="flex items-center justify-between">
           <div>
@@ -181,6 +195,11 @@ export default function ContactsPage() {
             <p className="text-sm text-muted-foreground mt-0.5">{count.toLocaleString()} total contacts</p>
           </div>
           <div className="flex items-center gap-2">
+            {selected.size > 0 && (
+              <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setAddToListOpen(true)}>
+                <ListPlus className="h-3.5 w-3.5" /> Add to List ({selected.size})
+              </Button>
+            )}
             <Button variant="outline" size="sm" className="gap-1.5 text-xs">
               <Download className="h-3.5 w-3.5" /> Export
             </Button>
@@ -200,6 +219,16 @@ export default function ContactsPage() {
               className="pl-9 h-8 text-xs"
             />
           </div>
+          <SavedViewsDropdown
+            views={savedViews.views}
+            activeViewId={savedViews.activeViewId}
+            onLoad={applyView}
+            onSave={(name) => savedViews.saveView(name, getCurrentViewState())}
+            onUpdate={(id) => savedViews.updateView(id, getCurrentViewState())}
+            onRename={savedViews.renameView}
+            onDelete={savedViews.deleteView}
+            onSetDefault={savedViews.setDefault}
+          />
           <FilterPanel filters={FILTER_CONFIGS} values={filterValues} onChange={(v) => { setFilterValues(v); setPage(0); }} onClear={() => { setFilterValues({}); setPage(0); }} />
           <ColumnVisibility columns={COLUMNS} visibleColumns={visibleCols} onToggle={toggleColumn} />
         </div>
@@ -207,16 +236,12 @@ export default function ContactsPage() {
         <ActiveFilters values={filterValues} filters={FILTER_CONFIGS} onRemove={handleFilterRemove} />
       </div>
 
-      {/* Table */}
       <div className="flex-1 overflow-auto border-t">
         <Table>
           <TableHeader className="sticky top-0 bg-card z-10">
             <TableRow className="hover:bg-transparent">
               <TableHead className="w-10">
-                <Checkbox
-                  checked={contacts.length > 0 && selected.size === contacts.length}
-                  onCheckedChange={toggleSelectAll}
-                />
+                <Checkbox checked={contacts.length > 0 && selected.size === contacts.length} onCheckedChange={toggleSelectAll} />
               </TableHead>
               {col("name") && <TableHead><SortableHeader label="Name" sortKey="last_name" currentSort={sortBy} currentDirection={sortDir} onSort={handleSort} /></TableHead>}
               {col("email") && <TableHead><SortableHeader label="Email" sortKey="email" currentSort={sortBy} currentDirection={sortDir} onSort={handleSort} /></TableHead>}
@@ -253,11 +278,7 @@ export default function ContactsPage() {
               </TableRow>
             ) : (
               contacts.map((c) => (
-                <TableRow
-                  key={c.id}
-                  className="cursor-pointer hover:bg-muted/50 h-10"
-                  onClick={() => navigate(`/contacts/${c.id}`)}
-                >
+                <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50 h-10" onClick={() => navigate(`/contacts/${c.id}`)}>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <Checkbox checked={selected.has(c.id)} onCheckedChange={() => toggleSelect(c.id)} />
                   </TableCell>
@@ -288,15 +309,17 @@ export default function ContactsPage() {
         </Table>
       </div>
 
-      {/* Pagination */}
       <TablePagination
-        page={page}
-        totalPages={totalPages}
-        totalRows={count}
-        pageSize={pageSize}
-        onPageChange={setPage}
-        onPageSizeChange={(s) => { setPageSize(s); setPage(0); }}
+        page={page} totalPages={totalPages} totalRows={count} pageSize={pageSize}
+        onPageChange={setPage} onPageSizeChange={(s) => { setPageSize(s); setPage(0); }}
         selectedCount={selected.size}
+      />
+
+      <AddToListDialog
+        open={addToListOpen}
+        onOpenChange={setAddToListOpen}
+        contactIds={Array.from(selected)}
+        onSuccess={() => setSelected(new Set())}
       />
     </div>
   );
