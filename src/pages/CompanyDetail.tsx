@@ -267,6 +267,35 @@ export default function CompanyDetailPage() {
 
         {/* Sidebar */}
         <div className="space-y-6">
+          {/* Owner */}
+          <Card>
+            <CardHeader className="pb-3"><CardTitle className="text-sm font-medium flex items-center gap-1.5"><UserPlus className="h-3.5 w-3.5" /> Owner</CardTitle></CardHeader>
+            <CardContent>
+              {canEdit ? (
+                <Select
+                  value={company.owner_id || "unassigned"}
+                  onValueChange={async (val) => {
+                    const ownerId = val === "unassigned" ? null : val;
+                    // @ts-ignore
+                    await supabase.from("companies").update({ owner_id: ownerId }).eq("id", company.id);
+                    setCompany({ ...company, owner_id: ownerId });
+                    toast.success("Owner updated");
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                    {profiles.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.full_name || p.email || p.id.slice(0, 8)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p className="text-sm">{getName(company.owner_id)}</p>
+              )}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader className="pb-3"><CardTitle className="text-sm font-medium">Tags</CardTitle></CardHeader>
             <CardContent>
