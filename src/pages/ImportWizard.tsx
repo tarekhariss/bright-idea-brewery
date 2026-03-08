@@ -46,11 +46,18 @@ import {
   autoMapColumns,
   MAPPABLE_FIELDS,
   normalizeRow,
-  checkDuplicatesLocal,
+  checkDuplicatesAdvanced,
+  buildContactIndex,
+  buildCompanyIndex,
+  classifyRowAction,
+  DEFAULT_IMPORT_SETTINGS,
   type ParsedCSV,
   type DuplicateStrategy,
   type DuplicateCheckResult,
   type NormalizationResult,
+  type ImportSettings,
+  type ExistingContact,
+  type ExistingCompany,
 } from "@/lib/csv-utils";
 import type { Json } from "@/integrations/supabase/db-types";
 
@@ -82,6 +89,7 @@ export default function ImportWizardPage() {
   // Step 4 state
   const [dupResult, setDupResult] = useState<DuplicateCheckResult | null>(null);
   const [dupStrategy, setDupStrategy] = useState<DuplicateStrategy>("flag_review");
+  const [importSettings, setImportSettings] = useState<ImportSettings>({ ...DEFAULT_IMPORT_SETTINGS });
   const [dupLoading, setDupLoading] = useState(false);
 
   // ─── Step 1: Upload ───────────────────────────────────────────────────────────
@@ -131,25 +139,22 @@ export default function ImportWizardPage() {
     if (!parsed) return;
     setDupLoading(true);
     try {
-      // Fetch existing emails and linkedin URLs for comparison
+      // Fetch existing contacts for comparison
       const { data: existingContacts } = await supabase
         .from("contacts")
-        .select("email, linkedin_url, external_contact_id")
+        .select("id, email, secondary_email, tertiary_email, linkedin_url, external_contact_id, first_name, last_name, company_name_raw, phone")
         .limit(50000);
 
-      const existingEmails = new Set<string>();
-      const existingLinkedins = new Set<string>();
-      const existingExtIds = new Set<string>();
+      // Fetch existing companies
+      const { data: existingCompanies } = await (supabase.from("companies") as any)
+        .select("id, domain, normalized_name, external_account_id, website")
+        .limit(50000);
 
-      (existingContacts ?? []).forEach((c) => {
-        if (c.email) existingEmails.add(c.email.toLowerCase());
-        if (c.linkedin_url) existingLinkedins.add(c.linkedin_url.toLowerCase());
-        if (c.external_contact_id) existingExtIds.add(c.external_contact_id);
-      });
+      const contactIdx = buildContactIndex((existingContacts ?? []) as ExistingContact[]);
+      const companyIdx = buildCompanyIndex((existingCompanies ?? []) as ExistingCompany[]);
 
-      // Normalize all rows then check
       const normalizedRows = parsed.rows.map((row) => normalizeRow(row, columnMapping).normalized);
-      const result = checkDuplicatesLocal(normalizedRows, existingEmails, existingLinkedins, existingExtIds);
+      const result = checkDuplicatesAdvanced(normalizedRows, contactIdx, companyIdx);
       setDupResult(result);
     } catch (err) {
       toast.error("Failed to check duplicates");
@@ -170,6 +175,7 @@ export default function ImportWizardPage() {
     try {
       // 1. Create import job
       const settings: Record<string, unknown> = {
+        ...importSettings,
         duplicate_strategy: dupStrategy,
         unmapped_columns: unmappedHeaders,
       };
@@ -214,20 +220,11 @@ export default function ImportWizardPage() {
           let actionTaken: string | null = null;
           let reviewRequired = false;
 
-          if (dupDetail?.status === "invalid") {
-            status = "error";
-            duplicateReason = dupDetail.reason;
-          } else if (dupDetail?.status === "duplicate") {
-            if (dupStrategy === "skip") {
-              status = "skipped";
-              actionTaken = "skipped_duplicate";
-            } else if (dupStrategy === "flag_review") {
-              status = "review";
-              reviewRequired = true;
-            } else {
-              status = "pending";
-              actionTaken = "update_missing";
-            }
+          if (dupDetail) {
+            const rowAction = classifyRowAction(dupDetail.classification, importSettings);
+            status = rowAction.status;
+            actionTaken = rowAction.action;
+            reviewRequired = rowAction.reviewRequired;
             duplicateReason = dupDetail.reason;
           }
 
@@ -237,7 +234,7 @@ export default function ImportWizardPage() {
             raw_data: raw as unknown as Json,
             normalized_data: norm.normalized as unknown as Json,
             status: status as "pending" | "success" | "error" | "skipped" | "duplicate" | "review",
-            error_message: dupDetail?.status === "invalid" ? dupDetail.reason : null,
+            error_message: dupDetail?.classification === "invalid" ? dupDetail.reason : null,
             duplicate_match_reason: duplicateReason,
             action_taken: actionTaken,
             review_required: reviewRequired,
@@ -601,8 +598,15 @@ export default function ImportWizardPage() {
                     <Card>
                       <CardContent className="p-4 text-center">
                         <CheckCircle2 className="h-5 w-5 mx-auto mb-1 text-emerald-500" />
-                        <p className="text-2xl font-bold text-emerald-600">{dupResult.likelyNew.toLocaleString()}</p>
-                        <p className="text-xs text-muted-foreground">Likely New</p>
+                        <p className="text-2xl font-bold text-emerald-600">{dupResult.new.toLocaleString()}</p>
+                        <p className="text-xs text-muted-foreground">New</p>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="p-4 text-center">
+                        <XCircle className="h-5 w-5 mx-auto mb-1 text-destructive" />
+                        <p className="text-2xl font-bold text-destructive">{dupResult.exactDuplicate.toLocaleString()}</p>
+                        <p className="text-xs text-muted-foreground">Exact Duplicate</p>
                       </CardContent>
                     </Card>
                     <Card>
@@ -615,14 +619,14 @@ export default function ImportWizardPage() {
                     <Card>
                       <CardContent className="p-4 text-center">
                         <AlertTriangle className="h-5 w-5 mx-auto mb-1 text-primary" />
-                        <p className="text-2xl font-bold text-primary">{dupResult.likelyReview.toLocaleString()}</p>
+                        <p className="text-2xl font-bold text-primary">{dupResult.reviewRequired.toLocaleString()}</p>
                         <p className="text-xs text-muted-foreground">Needs Review</p>
                       </CardContent>
                     </Card>
                     <Card>
                       <CardContent className="p-4 text-center">
-                        <XCircle className="h-5 w-5 mx-auto mb-1 text-destructive" />
-                        <p className="text-2xl font-bold text-destructive">{dupResult.invalid.toLocaleString()}</p>
+                        <XCircle className="h-5 w-5 mx-auto mb-1 text-muted-foreground" />
+                        <p className="text-2xl font-bold text-muted-foreground">{dupResult.invalid.toLocaleString()}</p>
                         <p className="text-xs text-muted-foreground">Invalid</p>
                       </CardContent>
                     </Card>
@@ -631,8 +635,8 @@ export default function ImportWizardPage() {
                   <Separator />
 
                   <div className="space-y-3">
-                    <Label className="text-sm font-semibold">Duplicate Strategy</Label>
-                    <p className="text-xs text-muted-foreground">Choose how to handle rows that match existing records.</p>
+                    <Label className="text-sm font-semibold">Primary Strategy</Label>
+                    <p className="text-xs text-muted-foreground">Choose the main approach for handling duplicates.</p>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       {([
                         { value: "skip", label: "Skip Duplicates", desc: "Ignore rows that match existing records" },
@@ -651,6 +655,37 @@ export default function ImportWizardPage() {
                           <p className="text-sm font-medium">{opt.label}</p>
                           <p className="text-xs text-muted-foreground mt-1">{opt.desc}</p>
                         </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-3">
+                    <Label className="text-sm font-semibold">Advanced Settings</Label>
+                    <div className="space-y-2">
+                      {([
+                        { key: "skip_exact_duplicates" as const, label: "Skip exact duplicates", desc: "Auto-skip rows with 100% confidence match" },
+                        { key: "update_missing_fields" as const, label: "Update missing fields on match", desc: "Fill empty fields from import when linking" },
+                        { key: "review_likely_duplicates" as const, label: "Review likely duplicates", desc: "Flag rows with partial/fuzzy matches for manual review" },
+                        { key: "review_company_conflicts" as const, label: "Review company conflicts", desc: "Flag rows where company data conflicts with existing" },
+                        { key: "create_if_no_strong_match" as const, label: "Create if no strong match", desc: "Automatically create new records when no match found" },
+                      ]).map((opt) => (
+                        <label
+                          key={opt.key}
+                          className="flex items-start gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer transition-colors"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={importSettings[opt.key]}
+                            onChange={(e) => setImportSettings((prev) => ({ ...prev, [opt.key]: e.target.checked }))}
+                            className="mt-0.5 rounded border-input"
+                          />
+                          <div>
+                            <p className="text-sm font-medium">{opt.label}</p>
+                            <p className="text-xs text-muted-foreground">{opt.desc}</p>
+                          </div>
+                        </label>
                       ))}
                     </div>
                   </div>
@@ -699,8 +734,9 @@ export default function ImportWizardPage() {
                     <CardContent className="p-4 space-y-2">
                       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Detection Summary</p>
                       <div className="flex gap-4 text-sm">
-                        <span className="text-emerald-600 font-medium">{dupResult.likelyNew} new</span>
-                        <span className="text-amber-600 font-medium">{dupResult.likelyDuplicate} dups</span>
+                        <span className="text-emerald-600 font-medium">{dupResult.new} new</span>
+                        <span className="text-amber-600 font-medium">{dupResult.exactDuplicate + dupResult.likelyDuplicate} dups</span>
+                        <span className="text-primary font-medium">{dupResult.reviewRequired} review</span>
                         <span className="text-destructive font-medium">{dupResult.invalid} invalid</span>
                       </div>
                     </CardContent>
