@@ -63,6 +63,10 @@ import SuppressionPage from "./pages/settings/deliverability/SuppressionPage";
 import SendingWindowsPage from "./pages/settings/deliverability/SendingWindowsPage";
 import ESPRoutingPage from "./pages/settings/deliverability/ESPRoutingPage";
 
+// Admin pages
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import WorkspaceDetailAdmin from "./pages/admin/WorkspaceDetailAdmin";
+
 // Settings pages
 import SettingsIndex from "./pages/settings/SettingsIndex";
 import ProfileSettings from "./pages/settings/ProfileSettings";
@@ -160,6 +164,10 @@ const App = () => (
             <Route path="/imports/:id" element={<PL><ImportJobDetailPage /></PL>} />
             <Route path="/saved-views" element={<PL><SavedViewsPage /></PL>} />
             <Route path="/data-health" element={<PL><DataHealthPage /></PL>} />
+
+            {/* Admin */}
+            <Route path="/admin" element={<PL><AdminDashboard /></PL>} />
+            <Route path="/admin/workspaces/:id" element={<PL><WorkspaceDetailAdmin /></PL>} />
 
             {/* Settings */}
             <Route path="/settings" element={<SL><SettingsIndex /></SL>} />

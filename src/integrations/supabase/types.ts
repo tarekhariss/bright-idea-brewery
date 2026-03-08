@@ -94,6 +94,325 @@ export type Database = {
           },
         ]
       }
+      admin_activity_feed: {
+        Row: {
+          event_description: string | null
+          event_title: string
+          event_type: string
+          id: string
+          metadata: Json | null
+          occurred_at: string | null
+          workspace_id: string | null
+          workspace_name: string | null
+        }
+        Insert: {
+          event_description?: string | null
+          event_title: string
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          occurred_at?: string | null
+          workspace_id?: string | null
+          workspace_name?: string | null
+        }
+        Update: {
+          event_description?: string | null
+          event_title?: string
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          occurred_at?: string | null
+          workspace_id?: string | null
+          workspace_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_activity_feed_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admin_campaign_summaries: {
+        Row: {
+          attributed_revenue: number | null
+          campaign_id: string
+          campaign_name: string | null
+          deals: number | null
+          emails_sent: number | null
+          id: string
+          meetings: number | null
+          replies: number | null
+          revenue: number | null
+          status: string | null
+          updated_at: string | null
+          workspace_id: string
+          workspace_name: string | null
+        }
+        Insert: {
+          attributed_revenue?: number | null
+          campaign_id: string
+          campaign_name?: string | null
+          deals?: number | null
+          emails_sent?: number | null
+          id?: string
+          meetings?: number | null
+          replies?: number | null
+          revenue?: number | null
+          status?: string | null
+          updated_at?: string | null
+          workspace_id: string
+          workspace_name?: string | null
+        }
+        Update: {
+          attributed_revenue?: number | null
+          campaign_id?: string
+          campaign_name?: string | null
+          deals?: number | null
+          emails_sent?: number | null
+          id?: string
+          meetings?: number | null
+          replies?: number | null
+          revenue?: number | null
+          status?: string | null
+          updated_at?: string | null
+          workspace_id?: string
+          workspace_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_campaign_summaries_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admin_linkedin_summaries: {
+        Row: {
+          account_name: string | null
+          connection_status: string | null
+          connects_sent_today: number | null
+          health_score: number | null
+          id: string
+          last_activity_at: string | null
+          linkedin_account_id: string
+          messages_sent_today: number | null
+          updated_at: string | null
+          workspace_id: string
+          workspace_name: string | null
+        }
+        Insert: {
+          account_name?: string | null
+          connection_status?: string | null
+          connects_sent_today?: number | null
+          health_score?: number | null
+          id?: string
+          last_activity_at?: string | null
+          linkedin_account_id: string
+          messages_sent_today?: number | null
+          updated_at?: string | null
+          workspace_id: string
+          workspace_name?: string | null
+        }
+        Update: {
+          account_name?: string | null
+          connection_status?: string | null
+          connects_sent_today?: number | null
+          health_score?: number | null
+          id?: string
+          last_activity_at?: string | null
+          linkedin_account_id?: string
+          messages_sent_today?: number | null
+          updated_at?: string | null
+          workspace_id?: string
+          workspace_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_linkedin_summaries_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admin_mailbox_summaries: {
+        Row: {
+          bounce_rate: number | null
+          emails_sent_7d: number | null
+          health_score: number | null
+          id: string
+          mailbox_email: string | null
+          mailbox_id: string
+          provider: string | null
+          reply_rate: number | null
+          status: string | null
+          updated_at: string | null
+          workspace_id: string
+          workspace_name: string | null
+        }
+        Insert: {
+          bounce_rate?: number | null
+          emails_sent_7d?: number | null
+          health_score?: number | null
+          id?: string
+          mailbox_email?: string | null
+          mailbox_id: string
+          provider?: string | null
+          reply_rate?: number | null
+          status?: string | null
+          updated_at?: string | null
+          workspace_id: string
+          workspace_name?: string | null
+        }
+        Update: {
+          bounce_rate?: number | null
+          emails_sent_7d?: number | null
+          health_score?: number | null
+          id?: string
+          mailbox_email?: string | null
+          mailbox_id?: string
+          provider?: string | null
+          reply_rate?: number | null
+          status?: string | null
+          updated_at?: string | null
+          workspace_id?: string
+          workspace_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_mailbox_summaries_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admin_platform_kpis: {
+        Row: {
+          active_campaigns: number | null
+          active_workspaces: number | null
+          attributed_revenue: number | null
+          deals_created: number | null
+          emails_sent: number | null
+          id: string
+          meetings_booked: number | null
+          replies_received: number | null
+          revenue_generated: number | null
+          total_campaigns: number | null
+          total_companies: number | null
+          total_contacts: number | null
+          total_workspaces: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          active_campaigns?: number | null
+          active_workspaces?: number | null
+          attributed_revenue?: number | null
+          deals_created?: number | null
+          emails_sent?: number | null
+          id?: string
+          meetings_booked?: number | null
+          replies_received?: number | null
+          revenue_generated?: number | null
+          total_campaigns?: number | null
+          total_companies?: number | null
+          total_contacts?: number | null
+          total_workspaces?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          active_campaigns?: number | null
+          active_workspaces?: number | null
+          attributed_revenue?: number | null
+          deals_created?: number | null
+          emails_sent?: number | null
+          id?: string
+          meetings_booked?: number | null
+          replies_received?: number | null
+          revenue_generated?: number | null
+          total_campaigns?: number | null
+          total_companies?: number | null
+          total_contacts?: number | null
+          total_workspaces?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      admin_workspace_summaries: {
+        Row: {
+          active_campaigns: number | null
+          attributed_revenue: number | null
+          deals_created: number | null
+          emails_sent: number | null
+          id: string
+          last_activity_at: string | null
+          meetings_booked: number | null
+          member_count: number | null
+          owner_email: string | null
+          replies_received: number | null
+          revenue_generated: number | null
+          total_campaigns: number | null
+          total_companies: number | null
+          total_contacts: number | null
+          updated_at: string | null
+          workspace_id: string
+          workspace_name: string
+        }
+        Insert: {
+          active_campaigns?: number | null
+          attributed_revenue?: number | null
+          deals_created?: number | null
+          emails_sent?: number | null
+          id?: string
+          last_activity_at?: string | null
+          meetings_booked?: number | null
+          member_count?: number | null
+          owner_email?: string | null
+          replies_received?: number | null
+          revenue_generated?: number | null
+          total_campaigns?: number | null
+          total_companies?: number | null
+          total_contacts?: number | null
+          updated_at?: string | null
+          workspace_id: string
+          workspace_name: string
+        }
+        Update: {
+          active_campaigns?: number | null
+          attributed_revenue?: number | null
+          deals_created?: number | null
+          emails_sent?: number | null
+          id?: string
+          last_activity_at?: string | null
+          meetings_booked?: number | null
+          member_count?: number | null
+          owner_email?: string | null
+          replies_received?: number | null
+          revenue_generated?: number | null
+          total_campaigns?: number | null
+          total_companies?: number | null
+          total_contacts?: number | null
+          updated_at?: string | null
+          workspace_id?: string
+          workspace_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_workspace_summaries_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: true
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_prompt_templates: {
         Row: {
           created_at: string | null
@@ -4789,6 +5108,7 @@ export type Database = {
         Args: { p_limit: number; p_mailbox_id: string }
         Returns: boolean
       }
+      is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
       is_workspace_member: {
         Args: { _user_id: string; _workspace_id: string }
         Returns: boolean
