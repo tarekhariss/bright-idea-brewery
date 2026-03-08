@@ -54,22 +54,49 @@ AS $$
   LIMIT 1
 $$;
 
--- Workspace RLS policies (uses security definer functions)
-CREATE POLICY "Members can read own workspace"
-  ON public.workspaces FOR SELECT TO authenticated
+-- ============================================================
+-- 2a. WORKSPACES RLS (explicit per-operation)
+-- ============================================================
+CREATE POLICY "ws_select" ON public.workspaces
+  FOR SELECT TO authenticated
   USING (public.is_workspace_member(auth.uid(), id));
 
-CREATE POLICY "Admins can manage workspace"
-  ON public.workspaces FOR ALL TO authenticated
-  USING (public.workspace_role(auth.uid(), id) IN ('admin', 'manager'));
+CREATE POLICY "ws_insert" ON public.workspaces
+  FOR INSERT TO authenticated
+  WITH CHECK (created_by = auth.uid());
 
--- Workspace members RLS
-CREATE POLICY "Members can read workspace members"
-  ON public.workspace_members FOR SELECT TO authenticated
+CREATE POLICY "ws_update" ON public.workspaces
+  FOR UPDATE TO authenticated
+  USING (public.workspace_role(auth.uid(), id) IN ('admin', 'manager'))
+  WITH CHECK (public.workspace_role(auth.uid(), id) IN ('admin', 'manager'));
+
+CREATE POLICY "ws_delete" ON public.workspaces
+  FOR DELETE TO authenticated
+  USING (public.workspace_role(auth.uid(), id) = 'admin');
+
+-- ============================================================
+-- 2b. WORKSPACE MEMBERS RLS (explicit per-operation)
+-- ============================================================
+CREATE POLICY "wm_select" ON public.workspace_members
+  FOR SELECT TO authenticated
   USING (public.is_workspace_member(auth.uid(), workspace_id));
 
-CREATE POLICY "Admins can manage workspace members"
-  ON public.workspace_members FOR ALL TO authenticated
+CREATE POLICY "wm_insert" ON public.workspace_members
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    public.workspace_role(auth.uid(), workspace_id) IN ('admin', 'manager')
+    OR (user_id = auth.uid() AND NOT EXISTS (
+      SELECT 1 FROM public.workspace_members wm WHERE wm.workspace_id = workspace_members.workspace_id
+    ))
+  );
+
+CREATE POLICY "wm_update" ON public.workspace_members
+  FOR UPDATE TO authenticated
+  USING (public.workspace_role(auth.uid(), workspace_id) IN ('admin', 'manager'))
+  WITH CHECK (public.workspace_role(auth.uid(), workspace_id) IN ('admin', 'manager'));
+
+CREATE POLICY "wm_delete" ON public.workspace_members
+  FOR DELETE TO authenticated
   USING (public.workspace_role(auth.uid(), workspace_id) IN ('admin', 'manager'));
 
 -- ============================================================
@@ -104,7 +131,7 @@ DO $$ BEGIN CREATE TYPE public.deal_status AS ENUM ('open', 'won', 'lost', 'aban
 
 CREATE TABLE IF NOT EXISTS public.deals (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    workspace_id uuid REFERENCES public.workspaces(id) ON DELETE CASCADE,
+    workspace_id uuid NOT NULL REFERENCES public.workspaces(id) ON DELETE CASCADE,
     name text NOT NULL,
     description text,
     status public.deal_status NOT NULL DEFAULT 'open',
@@ -132,13 +159,43 @@ CREATE TABLE IF NOT EXISTS public.deals (
 );
 
 ALTER TABLE public.deals ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Members can read deals" ON public.deals FOR SELECT TO authenticated
+
+-- Deals RLS: explicit per-operation
+CREATE POLICY "deals_select" ON public.deals
+  FOR SELECT TO authenticated
   USING (public.is_workspace_member(auth.uid(), workspace_id));
 
-CREATE POLICY "Members can manage deals" ON public.deals FOR ALL TO authenticated
-  USING (public.is_workspace_member(auth.uid(), workspace_id)
-    AND (owner_id = auth.uid() OR created_by = auth.uid()
-         OR public.workspace_role(auth.uid(), workspace_id) IN ('admin', 'manager')));
+CREATE POLICY "deals_insert" ON public.deals
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    public.is_workspace_member(auth.uid(), workspace_id)
+    AND created_by = auth.uid()
+  );
+
+CREATE POLICY "deals_update" ON public.deals
+  FOR UPDATE TO authenticated
+  USING (
+    public.is_workspace_member(auth.uid(), workspace_id)
+    AND (
+      owner_id = auth.uid()
+      OR created_by = auth.uid()
+      OR public.workspace_role(auth.uid(), workspace_id) IN ('admin', 'manager')
+    )
+  )
+  WITH CHECK (
+    public.is_workspace_member(auth.uid(), workspace_id)
+  );
+
+CREATE POLICY "deals_delete" ON public.deals
+  FOR DELETE TO authenticated
+  USING (
+    public.is_workspace_member(auth.uid(), workspace_id)
+    AND (
+      owner_id = auth.uid()
+      OR created_by = auth.uid()
+      OR public.workspace_role(auth.uid(), workspace_id) IN ('admin', 'manager')
+    )
+  );
 
 CREATE INDEX IF NOT EXISTS idx_deals_workspace ON deals (workspace_id);
 CREATE INDEX IF NOT EXISTS idx_deals_status ON deals (status);
@@ -156,7 +213,7 @@ DO $$ BEGIN CREATE TYPE public.meeting_status AS ENUM ('scheduled', 'completed',
 
 CREATE TABLE IF NOT EXISTS public.meetings (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    workspace_id uuid REFERENCES public.workspaces(id) ON DELETE CASCADE,
+    workspace_id uuid NOT NULL REFERENCES public.workspaces(id) ON DELETE CASCADE,
     title text NOT NULL,
     description text,
     meeting_type text DEFAULT 'general' CHECK (meeting_type IN ('general', 'discovery', 'demo', 'follow_up', 'negotiation', 'onboarding')),
@@ -183,13 +240,45 @@ CREATE TABLE IF NOT EXISTS public.meetings (
 );
 
 ALTER TABLE public.meetings ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Members can read meetings" ON public.meetings FOR SELECT TO authenticated
+
+-- Meetings RLS: explicit per-operation
+CREATE POLICY "meetings_select" ON public.meetings
+  FOR SELECT TO authenticated
   USING (public.is_workspace_member(auth.uid(), workspace_id));
 
-CREATE POLICY "Members can manage meetings" ON public.meetings FOR ALL TO authenticated
-  USING (public.is_workspace_member(auth.uid(), workspace_id)
-    AND (owner_id = auth.uid() OR organizer_id = auth.uid() OR created_by = auth.uid()
-         OR public.workspace_role(auth.uid(), workspace_id) IN ('admin', 'manager')));
+CREATE POLICY "meetings_insert" ON public.meetings
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    public.is_workspace_member(auth.uid(), workspace_id)
+    AND created_by = auth.uid()
+  );
+
+CREATE POLICY "meetings_update" ON public.meetings
+  FOR UPDATE TO authenticated
+  USING (
+    public.is_workspace_member(auth.uid(), workspace_id)
+    AND (
+      owner_id = auth.uid()
+      OR organizer_id = auth.uid()
+      OR created_by = auth.uid()
+      OR public.workspace_role(auth.uid(), workspace_id) IN ('admin', 'manager')
+    )
+  )
+  WITH CHECK (
+    public.is_workspace_member(auth.uid(), workspace_id)
+  );
+
+CREATE POLICY "meetings_delete" ON public.meetings
+  FOR DELETE TO authenticated
+  USING (
+    public.is_workspace_member(auth.uid(), workspace_id)
+    AND (
+      owner_id = auth.uid()
+      OR organizer_id = auth.uid()
+      OR created_by = auth.uid()
+      OR public.workspace_role(auth.uid(), workspace_id) IN ('admin', 'manager')
+    )
+  );
 
 CREATE INDEX IF NOT EXISTS idx_meetings_workspace ON meetings (workspace_id);
 CREATE INDEX IF NOT EXISTS idx_meetings_contact ON meetings (contact_id);
@@ -210,19 +299,69 @@ CREATE TABLE IF NOT EXISTS public.deal_contacts (
 );
 
 ALTER TABLE public.deal_contacts ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Members can read deal contacts" ON public.deal_contacts FOR SELECT TO authenticated
-  USING (EXISTS (
-    SELECT 1 FROM public.deals d
-    WHERE d.id = deal_id AND public.is_workspace_member(auth.uid(), d.workspace_id)
-  ));
 
-CREATE POLICY "Members can manage deal contacts" ON public.deal_contacts FOR ALL TO authenticated
-  USING (EXISTS (
-    SELECT 1 FROM public.deals d
-    WHERE d.id = deal_id AND public.is_workspace_member(auth.uid(), d.workspace_id)
-      AND (d.owner_id = auth.uid() OR d.created_by = auth.uid()
-           OR public.workspace_role(auth.uid(), d.workspace_id) IN ('admin', 'manager'))
-  ));
+-- deal_contacts RLS: explicit per-operation (workspace derived via deals join)
+CREATE POLICY "dc_select" ON public.deal_contacts
+  FOR SELECT TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.deals d
+      WHERE d.id = deal_contacts.deal_id
+        AND public.is_workspace_member(auth.uid(), d.workspace_id)
+    )
+  );
+
+CREATE POLICY "dc_insert" ON public.deal_contacts
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.deals d
+      WHERE d.id = deal_contacts.deal_id
+        AND public.is_workspace_member(auth.uid(), d.workspace_id)
+        AND (
+          d.owner_id = auth.uid()
+          OR d.created_by = auth.uid()
+          OR public.workspace_role(auth.uid(), d.workspace_id) IN ('admin', 'manager')
+        )
+    )
+  );
+
+CREATE POLICY "dc_update" ON public.deal_contacts
+  FOR UPDATE TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.deals d
+      WHERE d.id = deal_contacts.deal_id
+        AND public.is_workspace_member(auth.uid(), d.workspace_id)
+        AND (
+          d.owner_id = auth.uid()
+          OR d.created_by = auth.uid()
+          OR public.workspace_role(auth.uid(), d.workspace_id) IN ('admin', 'manager')
+        )
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.deals d
+      WHERE d.id = deal_contacts.deal_id
+        AND public.is_workspace_member(auth.uid(), d.workspace_id)
+    )
+  );
+
+CREATE POLICY "dc_delete" ON public.deal_contacts
+  FOR DELETE TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.deals d
+      WHERE d.id = deal_contacts.deal_id
+        AND public.is_workspace_member(auth.uid(), d.workspace_id)
+        AND (
+          d.owner_id = auth.uid()
+          OR d.created_by = auth.uid()
+          OR public.workspace_role(auth.uid(), d.workspace_id) IN ('admin', 'manager')
+        )
+    )
+  );
 
 -- ============================================================
 -- 7. ENRICHMENT FIELDS (add missing to contacts & companies)
