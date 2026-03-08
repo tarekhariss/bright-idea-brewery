@@ -136,7 +136,7 @@ export default function CompanyDetailPage() {
             {company.revenue_range && <Badge variant="outline" className="text-[11px]">{company.revenue_range}</Badge>}
           </div>
         </div>
-        <Button variant="outline" size="sm" className="text-xs">Edit Company</Button>
+        {canEdit && <Button variant="outline" size="sm" className="text-xs">Edit Company</Button>}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

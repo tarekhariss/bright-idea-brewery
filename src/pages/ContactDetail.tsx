@@ -136,7 +136,7 @@ export default function ContactDetailPage() {
             <QualityScoreBadge score={contact.data_quality_score} />
           </div>
         </div>
-        <Button variant="outline" size="sm" className="text-xs">Edit Contact</Button>
+        {canEdit && <Button variant="outline" size="sm" className="text-xs">Edit Contact</Button>}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
