@@ -24,10 +24,85 @@ export type MailboxProviderType = "google" | "microsoft" | "smtp" | "other";
 export type ConnectionStatus = "active" | "disconnected" | "warming" | "error";
 export type WarmupStatus = "off" | "active" | "paused" | "complete";
 export type SendingHealth = "unknown" | "good" | "warning" | "poor";
+export type DealStatus = "open" | "won" | "lost" | "abandoned";
+export type MeetingStatus = "scheduled" | "completed" | "cancelled" | "no_show";
+export type ActivityType =
+  | "email_sent" | "email_opened" | "email_clicked" | "email_replied" | "email_bounced"
+  | "call_made" | "call_received"
+  | "meeting_scheduled" | "meeting_completed" | "meeting_cancelled"
+  | "task_created" | "task_completed"
+  | "deal_created" | "deal_stage_changed" | "deal_won" | "deal_lost"
+  | "note_added"
+  | "contact_created" | "contact_updated" | "contact_merged"
+  | "company_created" | "company_updated"
+  | "sequence_enrolled" | "sequence_completed" | "sequence_replied"
+  | "list_added" | "list_removed"
+  | "field_changed"
+  | "custom";
+export type StepType = "email" | "call" | "task" | "linkedin" | "delay" | "sms";
+export type LinkedinAction = "connect" | "message" | "view_profile" | "endorse" | "interact";
+export type ForecastCategory = "pipeline" | "best_case" | "commit" | "closed" | "omitted";
 
 export type Database = {
   public: {
     Tables: {
+      // ============================================================
+      // WORKSPACE TABLES
+      // ============================================================
+      workspaces: {
+        Row: {
+          id: string;
+          name: string;
+          slug: string;
+          logo_url: string | null;
+          settings: Json | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          slug: string;
+          logo_url?: string | null;
+          settings?: Json | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          name?: string;
+          slug?: string;
+          logo_url?: string | null;
+          settings?: Json | null;
+          updated_at?: string;
+        };
+      };
+      workspace_members: {
+        Row: {
+          id: string;
+          workspace_id: string;
+          user_id: string;
+          role: AppRole;
+          invited_by: string | null;
+          joined_at: string;
+        };
+        Insert: {
+          id?: string;
+          workspace_id: string;
+          user_id: string;
+          role?: AppRole;
+          invited_by?: string | null;
+          joined_at?: string;
+        };
+        Update: {
+          role?: AppRole;
+          invited_by?: string | null;
+        };
+      };
+      // ============================================================
+      // CORE CRM
+      // ============================================================
       profiles: {
         Row: {
           id: string;
@@ -77,6 +152,7 @@ export type Database = {
       companies: {
         Row: {
           id: string;
+          workspace_id: string | null;
           name: string;
           normalized_name: string;
           domain: string | null;
@@ -116,9 +192,24 @@ export type Database = {
           created_by: string | null;
           created_at: string;
           updated_at: string;
+          // Enrichment fields (migration 1)
+          founded_year: number | null;
+          company_type: string | null;
+          headquarters: string | null;
+          postal_code: string | null;
+          timezone: string | null;
+          stock_ticker: string | null;
+          parent_company_id: string | null;
+          sic_code: string | null;
+          naics_code: string | null;
+          specialties: string[] | null;
+          last_enriched_at: string | null;
+          enrichment_source: string | null;
+          custom_fields: Json | null;
         };
         Insert: {
           id?: string;
+          workspace_id?: string | null;
           name: string;
           domain?: string | null;
           industry?: string | null;
@@ -157,9 +248,23 @@ export type Database = {
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
+          founded_year?: number | null;
+          company_type?: string | null;
+          headquarters?: string | null;
+          postal_code?: string | null;
+          timezone?: string | null;
+          stock_ticker?: string | null;
+          parent_company_id?: string | null;
+          sic_code?: string | null;
+          naics_code?: string | null;
+          specialties?: string[] | null;
+          last_enriched_at?: string | null;
+          enrichment_source?: string | null;
+          custom_fields?: Json | null;
         };
         Update: {
           id?: string;
+          workspace_id?: string | null;
           name?: string;
           domain?: string | null;
           industry?: string | null;
@@ -198,11 +303,25 @@ export type Database = {
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
+          founded_year?: number | null;
+          company_type?: string | null;
+          headquarters?: string | null;
+          postal_code?: string | null;
+          timezone?: string | null;
+          stock_ticker?: string | null;
+          parent_company_id?: string | null;
+          sic_code?: string | null;
+          naics_code?: string | null;
+          specialties?: string[] | null;
+          last_enriched_at?: string | null;
+          enrichment_source?: string | null;
+          custom_fields?: Json | null;
         };
       };
       contacts: {
         Row: {
           id: string;
+          workspace_id: string | null;
           first_name: string | null;
           last_name: string | null;
           email: string | null;
@@ -245,9 +364,28 @@ export type Database = {
           created_by: string | null;
           created_at: string;
           updated_at: string;
+          // Enrichment fields (migration 1)
+          personal_email: string | null;
+          twitter_url: string | null;
+          facebook_url: string | null;
+          github_url: string | null;
+          address: string | null;
+          postal_code: string | null;
+          timezone: string | null;
+          languages: string[] | null;
+          headline: string | null;
+          bio: string | null;
+          photo_url: string | null;
+          years_experience: number | null;
+          education: Json | null;
+          work_history: Json | null;
+          skills: string[] | null;
+          last_enriched_at: string | null;
+          enrichment_source: string | null;
         };
         Insert: {
           id?: string;
+          workspace_id?: string | null;
           first_name?: string | null;
           last_name?: string | null;
           email?: string | null;
@@ -290,9 +428,27 @@ export type Database = {
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
+          personal_email?: string | null;
+          twitter_url?: string | null;
+          facebook_url?: string | null;
+          github_url?: string | null;
+          address?: string | null;
+          postal_code?: string | null;
+          timezone?: string | null;
+          languages?: string[] | null;
+          headline?: string | null;
+          bio?: string | null;
+          photo_url?: string | null;
+          years_experience?: number | null;
+          education?: Json | null;
+          work_history?: Json | null;
+          skills?: string[] | null;
+          last_enriched_at?: string | null;
+          enrichment_source?: string | null;
         };
         Update: {
           id?: string;
+          workspace_id?: string | null;
           first_name?: string | null;
           last_name?: string | null;
           email?: string | null;
@@ -335,11 +491,290 @@ export type Database = {
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
+          personal_email?: string | null;
+          twitter_url?: string | null;
+          facebook_url?: string | null;
+          github_url?: string | null;
+          address?: string | null;
+          postal_code?: string | null;
+          timezone?: string | null;
+          languages?: string[] | null;
+          headline?: string | null;
+          bio?: string | null;
+          photo_url?: string | null;
+          years_experience?: number | null;
+          education?: Json | null;
+          work_history?: Json | null;
+          skills?: string[] | null;
+          last_enriched_at?: string | null;
+          enrichment_source?: string | null;
         };
       };
+      // ============================================================
+      // DEALS
+      // ============================================================
+      deals: {
+        Row: {
+          id: string;
+          workspace_id: string | null;
+          name: string;
+          description: string | null;
+          status: DealStatus;
+          pipeline_id: string | null;
+          stage_id: string | null;
+          amount: number | null;
+          currency: string;
+          probability: number;
+          expected_close_date: string | null;
+          actual_close_date: string | null;
+          weighted_value: number | null;
+          contact_id: string | null;
+          company_id: string | null;
+          owner_id: string | null;
+          forecast_category: ForecastCategory | null;
+          loss_reason: string | null;
+          win_reason: string | null;
+          notes: string | null;
+          custom_fields: Json | null;
+          tags: string[] | null;
+          source: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          workspace_id?: string | null;
+          name: string;
+          description?: string | null;
+          status?: DealStatus;
+          pipeline_id?: string | null;
+          stage_id?: string | null;
+          amount?: number | null;
+          currency?: string;
+          probability?: number;
+          expected_close_date?: string | null;
+          contact_id?: string | null;
+          company_id?: string | null;
+          owner_id?: string | null;
+          forecast_category?: ForecastCategory | null;
+          loss_reason?: string | null;
+          win_reason?: string | null;
+          notes?: string | null;
+          custom_fields?: Json | null;
+          tags?: string[] | null;
+          source?: string | null;
+          created_by?: string | null;
+        };
+        Update: {
+          name?: string;
+          description?: string | null;
+          status?: DealStatus;
+          pipeline_id?: string | null;
+          stage_id?: string | null;
+          amount?: number | null;
+          currency?: string;
+          probability?: number;
+          expected_close_date?: string | null;
+          actual_close_date?: string | null;
+          contact_id?: string | null;
+          company_id?: string | null;
+          owner_id?: string | null;
+          forecast_category?: ForecastCategory | null;
+          loss_reason?: string | null;
+          win_reason?: string | null;
+          notes?: string | null;
+          custom_fields?: Json | null;
+          tags?: string[] | null;
+          source?: string | null;
+          updated_at?: string;
+        };
+      };
+      deal_contacts: {
+        Row: { deal_id: string; contact_id: string; role: string; created_at: string };
+        Insert: { deal_id: string; contact_id: string; role?: string; created_at?: string };
+        Update: { role?: string };
+      };
+      deal_stage_history: {
+        Row: {
+          id: string;
+          deal_id: string;
+          from_stage_id: string | null;
+          to_stage_id: string;
+          changed_by: string | null;
+          changed_at: string;
+          duration_in_prev_stage: string | null;
+        };
+        Insert: {
+          id?: string;
+          deal_id: string;
+          from_stage_id?: string | null;
+          to_stage_id: string;
+          changed_by?: string | null;
+          duration_in_prev_stage?: string | null;
+        };
+        Update: {};
+      };
+      // ============================================================
+      // MEETINGS
+      // ============================================================
+      meetings: {
+        Row: {
+          id: string;
+          workspace_id: string | null;
+          title: string;
+          description: string | null;
+          meeting_type: string;
+          status: MeetingStatus;
+          location: string | null;
+          meeting_url: string | null;
+          start_time: string;
+          end_time: string;
+          duration_minutes: number | null;
+          contact_id: string | null;
+          company_id: string | null;
+          deal_id: string | null;
+          organizer_id: string | null;
+          attendee_ids: string[] | null;
+          external_attendees: Json | null;
+          agenda: string | null;
+          notes: string | null;
+          outcome: string | null;
+          next_steps: string | null;
+          owner_id: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          workspace_id?: string | null;
+          title: string;
+          description?: string | null;
+          meeting_type?: string;
+          status?: MeetingStatus;
+          location?: string | null;
+          meeting_url?: string | null;
+          start_time: string;
+          end_time: string;
+          contact_id?: string | null;
+          company_id?: string | null;
+          deal_id?: string | null;
+          organizer_id?: string | null;
+          attendee_ids?: string[] | null;
+          external_attendees?: Json | null;
+          agenda?: string | null;
+          notes?: string | null;
+          outcome?: string | null;
+          next_steps?: string | null;
+          owner_id?: string | null;
+          created_by?: string | null;
+        };
+        Update: {
+          title?: string;
+          description?: string | null;
+          meeting_type?: string;
+          status?: MeetingStatus;
+          location?: string | null;
+          meeting_url?: string | null;
+          start_time?: string;
+          end_time?: string;
+          contact_id?: string | null;
+          company_id?: string | null;
+          deal_id?: string | null;
+          organizer_id?: string | null;
+          attendee_ids?: string[] | null;
+          external_attendees?: Json | null;
+          agenda?: string | null;
+          notes?: string | null;
+          outcome?: string | null;
+          next_steps?: string | null;
+          owner_id?: string | null;
+          updated_at?: string;
+        };
+      };
+      // ============================================================
+      // PIPELINES
+      // ============================================================
+      pipelines: {
+        Row: {
+          id: string;
+          workspace_id: string | null;
+          entity_type: "contact" | "company" | "deal";
+          name: string;
+          description: string | null;
+          is_default: boolean;
+          is_active: boolean;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          workspace_id?: string | null;
+          entity_type: "contact" | "company" | "deal";
+          name: string;
+          description?: string | null;
+          is_default?: boolean;
+          is_active?: boolean;
+          created_by?: string | null;
+        };
+        Update: {
+          name?: string;
+          description?: string | null;
+          is_default?: boolean;
+          is_active?: boolean;
+          updated_at?: string;
+        };
+      };
+      // ============================================================
+      // ACTIVITIES (unified timeline)
+      // ============================================================
+      activities: {
+        Row: {
+          id: string;
+          workspace_id: string | null;
+          activity_type: ActivityType;
+          contact_id: string | null;
+          company_id: string | null;
+          deal_id: string | null;
+          source_type: string | null;
+          source_id: string | null;
+          title: string;
+          description: string | null;
+          metadata: Json | null;
+          performed_by: string | null;
+          occurred_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          workspace_id?: string | null;
+          activity_type: ActivityType;
+          contact_id?: string | null;
+          company_id?: string | null;
+          deal_id?: string | null;
+          source_type?: string | null;
+          source_id?: string | null;
+          title: string;
+          description?: string | null;
+          metadata?: Json | null;
+          performed_by?: string | null;
+          occurred_at?: string;
+        };
+        Update: {
+          title?: string;
+          description?: string | null;
+          metadata?: Json | null;
+        };
+      };
+      // ============================================================
+      // EXISTING TABLES (preserved with additions)
+      // ============================================================
       tags: {
         Row: {
           id: string;
+          workspace_id: string | null;
           name: string;
           color: string | null;
           created_by: string | null;
@@ -347,6 +782,7 @@ export type Database = {
         };
         Insert: {
           id?: string;
+          workspace_id?: string | null;
           name: string;
           color?: string | null;
           created_by?: string | null;
@@ -354,6 +790,7 @@ export type Database = {
         };
         Update: {
           id?: string;
+          workspace_id?: string | null;
           name?: string;
           color?: string | null;
           created_by?: string | null;
@@ -373,6 +810,7 @@ export type Database = {
       lists: {
         Row: {
           id: string;
+          workspace_id: string | null;
           name: string;
           description: string | null;
           is_dynamic: boolean;
@@ -383,6 +821,7 @@ export type Database = {
         };
         Insert: {
           id?: string;
+          workspace_id?: string | null;
           name: string;
           description?: string | null;
           is_dynamic?: boolean;
@@ -393,6 +832,7 @@ export type Database = {
         };
         Update: {
           id?: string;
+          workspace_id?: string | null;
           name?: string;
           description?: string | null;
           is_dynamic?: boolean;
@@ -410,6 +850,7 @@ export type Database = {
       import_jobs: {
         Row: {
           id: string;
+          workspace_id: string | null;
           file_name: string;
           file_url: string | null;
           status: ImportStatus;
@@ -429,6 +870,7 @@ export type Database = {
         };
         Insert: {
           id?: string;
+          workspace_id?: string | null;
           file_name: string;
           file_url?: string | null;
           status?: ImportStatus;
@@ -448,6 +890,7 @@ export type Database = {
         };
         Update: {
           id?: string;
+          workspace_id?: string | null;
           file_name?: string;
           file_url?: string | null;
           status?: ImportStatus;
@@ -516,6 +959,7 @@ export type Database = {
       saved_views: {
         Row: {
           id: string;
+          workspace_id: string | null;
           name: string;
           entity_type: "contact" | "company";
           filters: Json;
@@ -529,6 +973,7 @@ export type Database = {
         };
         Insert: {
           id?: string;
+          workspace_id?: string | null;
           name: string;
           entity_type: "contact" | "company";
           filters?: Json;
@@ -542,6 +987,7 @@ export type Database = {
         };
         Update: {
           id?: string;
+          workspace_id?: string | null;
           name?: string;
           entity_type?: "contact" | "company";
           filters?: Json;
@@ -609,6 +1055,7 @@ export type Database = {
       custom_fields: {
         Row: {
           id: string;
+          workspace_id: string | null;
           entity_type: "contact" | "company" | "deal";
           field_name: string;
           field_label: string;
@@ -625,6 +1072,7 @@ export type Database = {
         };
         Insert: {
           id?: string;
+          workspace_id?: string | null;
           entity_type: "contact" | "company" | "deal";
           field_name: string;
           field_label: string;
@@ -651,6 +1099,8 @@ export type Database = {
       pipeline_stages: {
         Row: {
           id: string;
+          workspace_id: string | null;
+          pipeline_id: string | null;
           entity_type: "contact" | "company" | "deal";
           pipeline_name: string;
           stage_name: string;
@@ -661,12 +1111,17 @@ export type Database = {
           is_active: boolean;
           is_closed: boolean;
           is_won: boolean;
+          default_probability: number;
+          forecast_category: ForecastCategory | null;
+          rotting_days: number | null;
           created_by: string | null;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id?: string;
+          workspace_id?: string | null;
+          pipeline_id?: string | null;
           entity_type: "contact" | "company" | "deal";
           pipeline_name?: string;
           stage_name: string;
@@ -677,6 +1132,9 @@ export type Database = {
           is_active?: boolean;
           is_closed?: boolean;
           is_won?: boolean;
+          default_probability?: number;
+          forecast_category?: ForecastCategory | null;
+          rotting_days?: number | null;
           created_by?: string | null;
         };
         Update: {
@@ -687,11 +1145,15 @@ export type Database = {
           is_active?: boolean;
           is_closed?: boolean;
           is_won?: boolean;
+          default_probability?: number;
+          forecast_category?: ForecastCategory | null;
+          rotting_days?: number | null;
         };
       };
       global_picklists: {
         Row: {
           id: string;
+          workspace_id: string | null;
           name: string;
           description: string | null;
           is_active: boolean;
@@ -701,6 +1163,7 @@ export type Database = {
         };
         Insert: {
           id?: string;
+          workspace_id?: string | null;
           name: string;
           description?: string | null;
           is_active?: boolean;
@@ -743,6 +1206,7 @@ export type Database = {
       goals: {
         Row: {
           id: string;
+          workspace_id: string | null;
           name: string;
           description: string | null;
           goal_type: "contacts_created" | "emails_sent" | "calls_made" | "meetings_booked" | "deals_won" | "revenue" | "custom";
@@ -760,6 +1224,7 @@ export type Database = {
         };
         Insert: {
           id?: string;
+          workspace_id?: string | null;
           name: string;
           description?: string | null;
           goal_type: "contacts_created" | "emails_sent" | "calls_made" | "meetings_booked" | "deals_won" | "revenue" | "custom";
@@ -831,27 +1296,38 @@ export type Database = {
           updated_at?: string;
         };
       };
+      // ============================================================
+      // ENGAGE MODULE
+      // ============================================================
       sequences: {
         Row: {
           id: string;
+          workspace_id: string | null;
           name: string;
           description: string | null;
           status: SequenceStatus;
           owner_id: string | null;
           schedule_config: Json | null;
           max_enrollments: number | null;
+          exit_conditions: Json | null;
+          tags: string[] | null;
+          shared_with: string[] | null;
           created_by: string | null;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id?: string;
+          workspace_id?: string | null;
           name: string;
           description?: string | null;
           status?: SequenceStatus;
           owner_id?: string | null;
           schedule_config?: Json | null;
           max_enrollments?: number | null;
+          exit_conditions?: Json | null;
+          tags?: string[] | null;
+          shared_with?: string[] | null;
           created_by?: string | null;
         };
         Update: {
@@ -861,6 +1337,9 @@ export type Database = {
           owner_id?: string | null;
           schedule_config?: Json | null;
           max_enrollments?: number | null;
+          exit_conditions?: Json | null;
+          tags?: string[] | null;
+          shared_with?: string[] | null;
           updated_at?: string;
         };
       };
@@ -869,7 +1348,7 @@ export type Database = {
           id: string;
           sequence_id: string;
           step_order: number;
-          step_type: string;
+          step_type: StepType;
           label: string;
           delay_days: number;
           delay_hours: number;
@@ -877,6 +1356,12 @@ export type Database = {
           email_body: string | null;
           task_instructions: string | null;
           call_instructions: string | null;
+          linkedin_action: LinkedinAction | null;
+          linkedin_message: string | null;
+          sms_body: string | null;
+          variable_template: Json | null;
+          conditions: Json | null;
+          ab_variant: "A" | "B" | "C" | null;
           is_active: boolean;
           created_at: string;
           updated_at: string;
@@ -885,7 +1370,7 @@ export type Database = {
           id?: string;
           sequence_id: string;
           step_order: number;
-          step_type: string;
+          step_type: StepType;
           label?: string;
           delay_days?: number;
           delay_hours?: number;
@@ -893,11 +1378,17 @@ export type Database = {
           email_body?: string | null;
           task_instructions?: string | null;
           call_instructions?: string | null;
+          linkedin_action?: LinkedinAction | null;
+          linkedin_message?: string | null;
+          sms_body?: string | null;
+          variable_template?: Json | null;
+          conditions?: Json | null;
+          ab_variant?: "A" | "B" | "C" | null;
           is_active?: boolean;
         };
         Update: {
           step_order?: number;
-          step_type?: string;
+          step_type?: StepType;
           label?: string;
           delay_days?: number;
           delay_hours?: number;
@@ -905,6 +1396,12 @@ export type Database = {
           email_body?: string | null;
           task_instructions?: string | null;
           call_instructions?: string | null;
+          linkedin_action?: LinkedinAction | null;
+          linkedin_message?: string | null;
+          sms_body?: string | null;
+          variable_template?: Json | null;
+          conditions?: Json | null;
+          ab_variant?: "A" | "B" | "C" | null;
           is_active?: boolean;
         };
       };
@@ -920,6 +1417,9 @@ export type Database = {
           enrolled_at: string;
           completed_at: string | null;
           paused_at: string | null;
+          exit_reason: string | null;
+          last_activity_at: string | null;
+          metadata: Json | null;
           updated_at: string;
         };
         Insert: {
@@ -930,6 +1430,8 @@ export type Database = {
           current_step_order?: number;
           next_step_at?: string | null;
           enrolled_by?: string | null;
+          exit_reason?: string | null;
+          metadata?: Json | null;
         };
         Update: {
           status?: EnrollmentStatus;
@@ -937,6 +1439,9 @@ export type Database = {
           next_step_at?: string | null;
           completed_at?: string | null;
           paused_at?: string | null;
+          exit_reason?: string | null;
+          last_activity_at?: string | null;
+          metadata?: Json | null;
           updated_at?: string;
         };
       };
@@ -1125,6 +1630,7 @@ export type Database = {
           reference_type: string | null;
           sequence_id: string | null;
           enrollment_id: string | null;
+          mailbox_id: string | null;
           scheduled_for: string;
           started_at: string | null;
           completed_at: string | null;
@@ -1143,6 +1649,7 @@ export type Database = {
           reference_type?: string | null;
           sequence_id?: string | null;
           enrollment_id?: string | null;
+          mailbox_id?: string | null;
           scheduled_for?: string;
         };
         Update: {
@@ -1153,6 +1660,9 @@ export type Database = {
           last_error?: string | null;
         };
       };
+      // ============================================================
+      // DELIVERABILITY
+      // ============================================================
       sending_domains: {
         Row: {
           id: string;
@@ -1282,6 +1792,24 @@ export type Database = {
           updated_at?: string;
         };
       };
+      sending_daily_counts: {
+        Row: {
+          id: string;
+          mailbox_id: string;
+          send_date: string;
+          count: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          mailbox_id: string;
+          send_date?: string;
+          count?: number;
+        };
+        Update: {
+          count?: number;
+        };
+      };
     };
     Views: {};
     Functions: {
@@ -1292,6 +1820,38 @@ export type Database = {
       has_any_role: {
         Args: { _user_id: string; _roles: AppRole[] };
         Returns: boolean;
+      };
+      is_workspace_member: {
+        Args: { _user_id: string; _workspace_id: string };
+        Returns: boolean;
+      };
+      workspace_role: {
+        Args: { _user_id: string; _workspace_id: string };
+        Returns: AppRole;
+      };
+      log_activity: {
+        Args: {
+          p_workspace_id: string;
+          p_activity_type: ActivityType;
+          p_title: string;
+          p_contact_id?: string;
+          p_company_id?: string;
+          p_deal_id?: string;
+          p_source_type?: string;
+          p_source_id?: string;
+          p_description?: string;
+          p_metadata?: Json;
+          p_performed_by?: string;
+        };
+        Returns: string;
+      };
+      increment_daily_send_count: {
+        Args: { p_mailbox_id: string; p_limit: number };
+        Returns: boolean;
+      };
+      check_mailbox_readiness: {
+        Args: { p_mailbox_id: string };
+        Returns: Json;
       };
     };
     Enums: {
@@ -1313,6 +1873,9 @@ export type Database = {
       connection_status: ConnectionStatus;
       warmup_status: WarmupStatus;
       sending_health: SendingHealth;
+      deal_status: DealStatus;
+      meeting_status: MeetingStatus;
+      activity_type: ActivityType;
     };
   };
 };
