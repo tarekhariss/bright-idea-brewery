@@ -88,20 +88,20 @@ export default function ImportJobDetailPage() {
   const { data: rowsData, isLoading: rowsLoading } = useQuery({
     queryKey: ["import-job-rows", id, rowStatusFilter, reviewFilter, page],
     queryFn: async () => {
-      let query = supabase
-        .from("import_job_rows")
+      let query = (supabase
+        .from("import_job_rows") as any)
         .select("*", { count: "exact" })
         .eq("import_job_id", id!)
         .order("row_number", { ascending: true })
         .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
-      if (rowStatusFilter !== "all") query = query.eq("status", rowStatusFilter as ImportRowStatus);
+      if (rowStatusFilter !== "all") query = query.eq("status", rowStatusFilter);
       if (reviewFilter === "yes") query = query.eq("review_required", true);
       if (reviewFilter === "no") query = query.eq("review_required", false);
 
       const { data, count, error } = await query;
       if (error) throw error;
-      return { rows: data ?? [], total: count ?? 0 };
+      return { rows: (data ?? []) as any[], total: (count ?? 0) as number };
     },
     enabled: !!id,
   });
