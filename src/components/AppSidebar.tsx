@@ -167,7 +167,7 @@ function CollapsibleNavGroup({ group, collapsed }: { group: NavGroup; collapsed:
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const { user, signOut } = useAuth();
+  const { user, signOut, isAdmin } = useAuth();
 
   return (
     <Sidebar collapsible="icon" className="sidebar-gradient border-r-0">
