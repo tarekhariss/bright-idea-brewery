@@ -465,7 +465,7 @@ function RowTable({
 }
 
 function RowDetailSheet({ row, open, onOpenChange }: { row: any; open: boolean; onOpenChange: (open: boolean) => void }) {
-  const { Sheet, SheetContent, SheetHeader, SheetTitle } = require("@/components/ui/sheet");
+  // Using Sheet components already imported at top level
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
