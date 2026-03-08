@@ -17,6 +17,7 @@ import ContactDetailPage from "./pages/ContactDetail";
 import CompaniesPage from "./pages/Companies";
 import CompanyDetailPage from "./pages/CompanyDetail";
 import ListsPage from "./pages/Lists";
+import ListDetailPage from "./pages/ListDetail";
 import ImportsPage from "./pages/Imports";
 import SavedViewsPage from "./pages/SavedViews";
 import DataHealthPage from "./pages/DataHealth";
@@ -41,19 +42,18 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <Routes>
-            {/* Public routes */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-            {/* Protected routes */}
             <Route path="/" element={<ProtectedLayout><DashboardPage /></ProtectedLayout>} />
             <Route path="/contacts" element={<ProtectedLayout><ContactsPage /></ProtectedLayout>} />
             <Route path="/contacts/:id" element={<ProtectedLayout><ContactDetailPage /></ProtectedLayout>} />
             <Route path="/companies" element={<ProtectedLayout><CompaniesPage /></ProtectedLayout>} />
             <Route path="/companies/:id" element={<ProtectedLayout><CompanyDetailPage /></ProtectedLayout>} />
             <Route path="/lists" element={<ProtectedLayout><ListsPage /></ProtectedLayout>} />
+            <Route path="/lists/:id" element={<ProtectedLayout><ListDetailPage /></ProtectedLayout>} />
             <Route path="/imports" element={<ProtectedLayout><ImportsPage /></ProtectedLayout>} />
             <Route path="/saved-views" element={<ProtectedLayout><SavedViewsPage /></ProtectedLayout>} />
             <Route path="/data-health" element={<ProtectedLayout><DataHealthPage /></ProtectedLayout>} />
