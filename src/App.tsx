@@ -42,6 +42,7 @@ import CampaignsPage from "./pages/engage/CampaignsPage";
 import CampaignDetailPage from "./pages/engage/CampaignDetailPage";
 import EmailTemplatesPage from "./pages/engage/EmailTemplatesPage";
 import InboxPage from "./pages/engage/InboxPage";
+import LinkedInAccountsPage from "./pages/engage/LinkedInAccountsPage";
 
 // Deals pages
 import MeetingsPage from "./pages/deals/Meetings";
