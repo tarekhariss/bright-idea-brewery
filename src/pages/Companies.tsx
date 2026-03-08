@@ -162,6 +162,12 @@ export default function CompaniesPage() {
             <p className="text-sm text-muted-foreground mt-0.5">{count.toLocaleString()} total companies</p>
           </div>
           <div className="flex items-center gap-2">
+            {selected.size > 0 && (
+              <CompanyBulkActionsBar
+                selectedIds={Array.from(selected)}
+                onDone={() => { setSelected(new Set()); fetchCompanies(); }}
+              />
+            )}
             <Button variant="outline" size="sm" className="gap-1.5 text-xs"><Download className="h-3.5 w-3.5" /> Export</Button>
             <Button size="sm" className="gap-1.5 text-xs"><Plus className="h-3.5 w-3.5" /> Add Company</Button>
           </div>
