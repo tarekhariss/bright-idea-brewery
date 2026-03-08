@@ -42,6 +42,7 @@ import CampaignsPage from "./pages/engage/CampaignsPage";
 import CampaignDetailPage from "./pages/engage/CampaignDetailPage";
 import EmailTemplatesPage from "./pages/engage/EmailTemplatesPage";
 import InboxPage from "./pages/engage/InboxPage";
+import LinkedInAccountsPage from "./pages/engage/LinkedInAccountsPage";
 
 // Deals pages
 import MeetingsPage from "./pages/deals/Meetings";
@@ -127,6 +128,7 @@ const App = () => (
             <Route path="/engage/campaigns/:id" element={<PL><CampaignDetailPage /></PL>} />
             <Route path="/engage/templates" element={<PL><EmailTemplatesPage /></PL>} />
             <Route path="/engage/inbox" element={<PL><InboxPage /></PL>} />
+            <Route path="/engage/linkedin" element={<PL><LinkedInAccountsPage /></PL>} />
 
             {/* Deals */}
             <Route path="/deals" element={<PL><MeetingsPage /></PL>} />

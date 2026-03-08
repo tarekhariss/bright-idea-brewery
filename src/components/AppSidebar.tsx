@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Search, Users, Building2, List, Sparkles,
-  Send, Mail, Phone, CheckSquare, Megaphone, FileText, Inbox,
+  Send, Mail, Phone, CheckSquare, Megaphone, FileText, Inbox, Linkedin,
   Handshake, MessageSquare, CalendarCheck, DollarSign,
   Wrench, GitBranch, BarChart3,
   Database, Settings, LogOut, ChevronRight,
@@ -62,6 +62,7 @@ const navGroups: NavGroup[] = [
     items: [
       { title: "Sequences", url: "/engage/sequences", icon: GitBranch },
       { title: "Campaigns", url: "/engage/campaigns", icon: Megaphone },
+      { title: "LinkedIn", url: "/engage/linkedin", icon: Linkedin },
       { title: "Templates", url: "/engage/templates", icon: FileText },
       { title: "Emails", url: "/engage/emails", icon: Mail },
       { title: "Calls", url: "/engage/calls", icon: Phone },
