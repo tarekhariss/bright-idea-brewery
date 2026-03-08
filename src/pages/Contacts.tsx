@@ -332,8 +332,8 @@ export default function ContactsPage() {
                   {col("last_contacted_at") && <TableCell className="text-xs text-muted-foreground">{formatDate(c.last_contacted_at)}</TableCell>}
                   {col("updated_at") && <TableCell className="text-xs text-muted-foreground">{formatDate(c.updated_at)}</TableCell>}
                 </TableRow>
-              ))
-            )}
+              )}
+            />
           )}
         </Table>
       </div>
