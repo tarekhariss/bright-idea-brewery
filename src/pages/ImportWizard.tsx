@@ -703,8 +703,9 @@ export default function ImportWizardPage() {
                     <CardContent className="p-4 space-y-2">
                       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Detection Summary</p>
                       <div className="flex gap-4 text-sm">
-                        <span className="text-emerald-600 font-medium">{dupResult.likelyNew} new</span>
-                        <span className="text-amber-600 font-medium">{dupResult.likelyDuplicate} dups</span>
+                        <span className="text-emerald-600 font-medium">{dupResult.new} new</span>
+                        <span className="text-amber-600 font-medium">{dupResult.exactDuplicate + dupResult.likelyDuplicate} dups</span>
+                        <span className="text-primary font-medium">{dupResult.reviewRequired} review</span>
                         <span className="text-destructive font-medium">{dupResult.invalid} invalid</span>
                       </div>
                     </CardContent>
