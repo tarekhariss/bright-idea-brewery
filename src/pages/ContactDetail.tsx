@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, ArrowLeft, Mail, Phone, Linkedin, MapPin, Building2, Calendar, Shield, ExternalLink, User, UserPlus, Brain } from "lucide-react";
+import { Loader2, ArrowLeft, Mail, Phone, Linkedin, MapPin, Building2, Calendar, Shield, ExternalLink, User, UserPlus, Brain, TrendingUp } from "lucide-react";
 import { LifecycleBadge, OutreachBadge, EmailValidityBadge, QualityScoreBadge, DncBadge } from "@/components/data-table/StatusBadge";
 import { format } from "date-fns";
 import { toast } from "sonner";
