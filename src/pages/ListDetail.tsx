@@ -73,7 +73,7 @@ export default function ListDetailPage() {
       if (criteria) {
         Object.entries(criteria).forEach(([key, value]) => {
           if (value && value !== "all" && value !== "") {
-            query = query.eq(key, value);
+            query = query.eq(key as any, value) as any;
           }
         });
       }
