@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
-  Search, Users, Building2, List, Sparkles,
+  Search, Users, Building2, List, Sparkles, Brain,
   Send, Mail, Phone, CheckSquare, Megaphone, FileText, Inbox, Linkedin,
   Handshake, MessageSquare, CalendarCheck, DollarSign,
   Wrench, GitBranch, BarChart3,

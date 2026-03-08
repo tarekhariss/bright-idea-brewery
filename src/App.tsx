@@ -118,6 +118,7 @@ const App = () => (
             <Route path="/search/companies" element={<PL><CompaniesPage /></PL>} />
             <Route path="/search/lists" element={<PL><ListsPage /></PL>} />
             <Route path="/search/data-enrichment" element={<PL><DataEnrichmentPage /></PL>} />
+            <Route path="/search/intelligence" element={<PL><ProspectIntelligencePage /></PL>} />
 
             {/* Engage */}
             <Route path="/engage" element={<PL><SequencesListPage /></PL>} />
