@@ -38,6 +38,9 @@ import SequencesListPage from "./pages/engage/SequencesPage";
 import EmailsPage from "./pages/engage/Emails";
 import CallsPage from "./pages/engage/Calls";
 import TasksPage from "./pages/engage/Tasks";
+import CampaignsPage from "./pages/engage/CampaignsPage";
+import EmailTemplatesPage from "./pages/engage/EmailTemplatesPage";
+import InboxPage from "./pages/engage/InboxPage";
 
 // Deals pages
 import MeetingsPage from "./pages/deals/Meetings";
