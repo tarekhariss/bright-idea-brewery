@@ -90,6 +90,7 @@ export default function ImportWizardPage() {
   const [dupResult, setDupResult] = useState<DuplicateCheckResult | null>(null);
   const [dupStrategy, setDupStrategy] = useState<DuplicateStrategy>("flag_review");
   const [importSettings, setImportSettings] = useState<ImportSettings>({ ...DEFAULT_IMPORT_SETTINGS });
+  const [dupLoading, setDupLoading] = useState(false);
 
   // ─── Step 1: Upload ───────────────────────────────────────────────────────────
 
