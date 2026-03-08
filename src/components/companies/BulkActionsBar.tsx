@@ -36,7 +36,8 @@ export function CompanyBulkActionsBar({ selectedIds, onDone }: Props) {
 
   async function applyUpdate(field: string, val: string, actType: string) {
     setBusy(true);
-    const { error } = await (supabase.from("companies").update({ [field]: val } as any) as any).in("id", selectedIds);
+    // @ts-ignore – dynamic field update
+    const { error } = await supabase.from("companies").update({ [field]: val }).in("id", selectedIds);
     if (error) toast.error("Update failed");
     else {
       await logActivity(selectedIds, actType, { field, value: val });

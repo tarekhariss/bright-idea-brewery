@@ -68,7 +68,8 @@ export function BulkActionsBar({ selectedIds, onDone, onOpenAddToList }: BulkAct
 
   async function handleDnc(on: boolean) {
     setBusy(true);
-    const { error } = await (supabase.from("contacts").update({ do_not_contact: on } as any) as any).in("id", selectedIds);
+    // @ts-ignore – typed update
+    const { error } = await supabase.from("contacts").update({ do_not_contact: on }).in("id", selectedIds);
     if (error) toast.error("Update failed");
     else {
       await logActivity(selectedIds, on ? "marked_dnc" : "cleared_dnc", {});
