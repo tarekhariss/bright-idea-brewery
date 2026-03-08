@@ -598,8 +598,15 @@ export default function ImportWizardPage() {
                     <Card>
                       <CardContent className="p-4 text-center">
                         <CheckCircle2 className="h-5 w-5 mx-auto mb-1 text-emerald-500" />
-                        <p className="text-2xl font-bold text-emerald-600">{dupResult.likelyNew.toLocaleString()}</p>
-                        <p className="text-xs text-muted-foreground">Likely New</p>
+                        <p className="text-2xl font-bold text-emerald-600">{dupResult.new.toLocaleString()}</p>
+                        <p className="text-xs text-muted-foreground">New</p>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="p-4 text-center">
+                        <XCircle className="h-5 w-5 mx-auto mb-1 text-destructive" />
+                        <p className="text-2xl font-bold text-destructive">{dupResult.exactDuplicate.toLocaleString()}</p>
+                        <p className="text-xs text-muted-foreground">Exact Duplicate</p>
                       </CardContent>
                     </Card>
                     <Card>
@@ -612,14 +619,14 @@ export default function ImportWizardPage() {
                     <Card>
                       <CardContent className="p-4 text-center">
                         <AlertTriangle className="h-5 w-5 mx-auto mb-1 text-primary" />
-                        <p className="text-2xl font-bold text-primary">{dupResult.likelyReview.toLocaleString()}</p>
+                        <p className="text-2xl font-bold text-primary">{dupResult.reviewRequired.toLocaleString()}</p>
                         <p className="text-xs text-muted-foreground">Needs Review</p>
                       </CardContent>
                     </Card>
                     <Card>
                       <CardContent className="p-4 text-center">
-                        <XCircle className="h-5 w-5 mx-auto mb-1 text-destructive" />
-                        <p className="text-2xl font-bold text-destructive">{dupResult.invalid.toLocaleString()}</p>
+                        <XCircle className="h-5 w-5 mx-auto mb-1 text-muted-foreground" />
+                        <p className="text-2xl font-bold text-muted-foreground">{dupResult.invalid.toLocaleString()}</p>
                         <p className="text-xs text-muted-foreground">Invalid</p>
                       </CardContent>
                     </Card>
