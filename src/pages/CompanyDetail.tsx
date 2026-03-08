@@ -342,6 +342,12 @@ export default function CompanyDetailPage() {
           )}
         </div>
       </div>
+        </TabsContent>
+
+        <TabsContent value="intelligence">
+          <IntelligenceTab companyId={id} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
