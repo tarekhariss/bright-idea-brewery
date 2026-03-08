@@ -1,13 +1,17 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useProfiles, useOwnerName } from "@/hooks/use-profiles";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, ArrowLeft, Mail, Phone, Linkedin, MapPin, Building2, Calendar, Shield, ExternalLink, User } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, ArrowLeft, Mail, Phone, Linkedin, MapPin, Building2, Calendar, Shield, ExternalLink, User, UserPlus } from "lucide-react";
 import { LifecycleBadge, OutreachBadge, EmailValidityBadge, QualityScoreBadge, DncBadge } from "@/components/data-table/StatusBadge";
 import { format } from "date-fns";
+import { toast } from "sonner";
 import type { Database } from "@/integrations/supabase/db-types";
 
 type Contact = Database["public"]["Tables"]["contacts"]["Row"];
