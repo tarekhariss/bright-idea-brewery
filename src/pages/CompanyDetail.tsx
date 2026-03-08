@@ -30,6 +30,8 @@ interface LinkedContact {
 export default function CompanyDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { canEdit } = useAuth();
+  const { profiles, getName } = useProfiles();
   const [company, setCompany] = useState<Company | null>(null);
   const [contacts, setContacts] = useState<LinkedContact[]>([]);
   const [contactCount, setContactCount] = useState(0);
