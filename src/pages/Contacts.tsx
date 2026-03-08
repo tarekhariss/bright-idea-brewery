@@ -1,162 +1,303 @@
 import { useEffect, useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Search, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Loader2, Search, Plus, Download } from "lucide-react";
+import { LifecycleBadge, OutreachBadge, QualityScoreBadge, DncBadge } from "@/components/data-table/StatusBadge";
+import { SortableHeader } from "@/components/data-table/SortableHeader";
+import { TablePagination } from "@/components/data-table/TablePagination";
+import { ColumnVisibility, type ColumnDef } from "@/components/data-table/ColumnVisibility";
+import { FilterPanel, ActiveFilters, type FilterConfig, type FilterValues } from "@/components/data-table/FilterPanel";
+import { applyFilters } from "@/lib/filter-utils";
+import { format } from "date-fns";
 import type { LifecycleStatus, OutreachStatus } from "@/integrations/supabase/db-types";
 
-const PAGE_SIZE = 25;
+const COLUMNS: ColumnDef[] = [
+  { key: "name", label: "Name", defaultVisible: true },
+  { key: "email", label: "Email", defaultVisible: true },
+  { key: "secondary_email", label: "Secondary Email" },
+  { key: "job_title", label: "Job Title", defaultVisible: true },
+  { key: "seniority_level", label: "Seniority" },
+  { key: "department", label: "Department" },
+  { key: "company_name_raw", label: "Company", defaultVisible: true },
+  { key: "country", label: "Country", defaultVisible: true },
+  { key: "lifecycle_status", label: "Lifecycle", defaultVisible: true },
+  { key: "outreach_status", label: "Outreach", defaultVisible: true },
+  { key: "data_quality_score", label: "Quality", defaultVisible: true },
+  { key: "last_contacted_at", label: "Last Contacted" },
+  { key: "updated_at", label: "Updated", defaultVisible: true },
+];
+
+const FILTER_CONFIGS: FilterConfig[] = [
+  { key: "lifecycle_status", label: "Lifecycle Status", type: "select", options: [
+    { value: "new", label: "New" }, { value: "researching", label: "Researching" },
+    { value: "qualified", label: "Qualified" }, { value: "nurturing", label: "Nurturing" },
+    { value: "engaged", label: "Engaged" }, { value: "converted", label: "Converted" },
+    { value: "churned", label: "Churned" }, { value: "archived", label: "Archived" },
+  ]},
+  { key: "outreach_status", label: "Outreach Status", type: "select", options: [
+    { value: "not_contacted", label: "Not Contacted" }, { value: "queued", label: "Queued" },
+    { value: "contacted", label: "Contacted" }, { value: "replied", label: "Replied" },
+    { value: "bounced", label: "Bounced" }, { value: "opted_out", label: "Opted Out" },
+    { value: "unresponsive", label: "Unresponsive" },
+  ]},
+  { key: "email_validity_status", label: "Email Validity", type: "select", options: [
+    { value: "unknown", label: "Unknown" }, { value: "valid", label: "Valid" },
+    { value: "invalid", label: "Invalid" }, { value: "catch_all", label: "Catch-all" },
+    { value: "disposable", label: "Disposable" }, { value: "role_based", label: "Role-based" },
+  ]},
+  { key: "country", label: "Country", type: "text" },
+  { key: "department", label: "Department", type: "text" },
+  { key: "seniority_level", label: "Seniority Level", type: "text" },
+  { key: "source", label: "Source", type: "text" },
+  { key: "do_not_contact", label: "Do Not Contact", type: "boolean" },
+  { key: "data_quality_score", label: "Quality Score", type: "range" },
+  { key: "created_at", label: "Created", type: "date_range" },
+  { key: "updated_at", label: "Updated", type: "date_range" },
+];
 
 interface Contact {
   id: string;
   first_name: string | null;
   last_name: string | null;
   email: string | null;
+  secondary_email: string | null;
   job_title: string | null;
+  seniority_level: string | null;
+  department: string | null;
   company_name_raw: string | null;
   country: string | null;
   lifecycle_status: LifecycleStatus;
   outreach_status: OutreachStatus;
+  do_not_contact: boolean;
+  data_quality_score: number | null;
+  last_contacted_at: string | null;
+  updated_at: string;
 }
 
-const lifecycleBadgeVariant = (s: LifecycleStatus): "default" | "secondary" | "destructive" | "outline" => {
-  switch (s) {
-    case "qualified":
-    case "engaged":
-    case "converted":
-      return "default";
-    case "churned":
-    case "archived":
-      return "destructive";
-    default:
-      return "secondary";
-  }
-};
+const SELECT_FIELDS = "id, first_name, last_name, email, secondary_email, job_title, seniority_level, department, company_name_raw, country, lifecycle_status, outreach_status, do_not_contact, data_quality_score, last_contacted_at, updated_at";
 
 export default function ContactsPage() {
+  const navigate = useNavigate();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [count, setCount] = useState(0);
   const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(25);
   const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<string>("updated_at");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [filterValues, setFilterValues] = useState<FilterValues>({});
+  const [visibleCols, setVisibleCols] = useState<Set<string>>(
+    new Set(COLUMNS.filter((c) => c.defaultVisible).map((c) => c.key))
+  );
 
   const fetchContacts = useCallback(async () => {
     setLoading(true);
     let query = supabase
       .from("contacts")
-      .select("id, first_name, last_name, email, job_title, company_name_raw, country, lifecycle_status, outreach_status", { count: "exact" })
-      .order("updated_at", { ascending: false })
-      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+      .select(SELECT_FIELDS, { count: "exact" })
+      .order(sortBy, { ascending: sortDir === "asc" })
+      .range(page * pageSize, (page + 1) * pageSize - 1);
 
     if (search.trim()) {
-      query = query.or(`email.ilike.%${search}%,first_name.ilike.%${search}%,last_name.ilike.%${search}%,company_name_raw.ilike.%${search}%`);
+      query = query.or(`email.ilike.%${search}%,first_name.ilike.%${search}%,last_name.ilike.%${search}%,company_name_raw.ilike.%${search}%,job_title.ilike.%${search}%`);
     }
 
+    query = applyFilters(query, filterValues, FILTER_CONFIGS);
     const { data, count: total, error } = await query;
     if (!error) {
       setContacts(data ?? []);
       setCount(total ?? 0);
     }
     setLoading(false);
-  }, [page, search]);
+  }, [page, pageSize, search, sortBy, sortDir, filterValues]);
 
-  useEffect(() => {
-    fetchContacts();
-  }, [fetchContacts]);
+  useEffect(() => { fetchContacts(); }, [fetchContacts]);
 
-  const totalPages = Math.ceil(count / PAGE_SIZE);
+  const totalPages = Math.ceil(count / pageSize);
+
+  const handleSort = (key: string) => {
+    if (sortBy === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(key);
+      setSortDir("asc");
+    }
+    setPage(0);
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selected.size === contacts.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(contacts.map((c) => c.id)));
+    }
+  };
+
+  const toggleColumn = (key: string) => {
+    setVisibleCols((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  };
+
+  const handleFilterRemove = (key: string) => {
+    setFilterValues((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+    setPage(0);
+  };
+
+  const col = (key: string) => visibleCols.has(key);
+
+  const formatDate = (d: string | null) => {
+    if (!d) return "—";
+    try { return format(new Date(d), "MMM d, yyyy"); } catch { return "—"; }
+  };
 
   return (
-    <div className="p-6 space-y-4 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Contacts</h1>
-          <p className="text-sm text-muted-foreground">{count.toLocaleString()} total contacts</p>
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="px-6 pt-6 pb-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Contacts</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">{count.toLocaleString()} total contacts</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+              <Download className="h-3.5 w-3.5" /> Export
+            </Button>
+            <Button size="sm" className="gap-1.5 text-xs">
+              <Plus className="h-3.5 w-3.5" /> Add Contact
+            </Button>
+          </div>
         </div>
+
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Search contacts by name, email, company, title..."
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+              className="pl-9 h-8 text-xs"
+            />
+          </div>
+          <FilterPanel filters={FILTER_CONFIGS} values={filterValues} onChange={(v) => { setFilterValues(v); setPage(0); }} onClear={() => { setFilterValues({}); setPage(0); }} />
+          <ColumnVisibility columns={COLUMNS} visibleColumns={visibleCols} onToggle={toggleColumn} />
+        </div>
+
+        <ActiveFilters values={filterValues} filters={FILTER_CONFIGS} onRemove={handleFilterRemove} />
       </div>
 
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by name, email, or company..."
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(0); }}
-            className="pl-9"
-          />
-        </div>
-      </div>
-
-      <div className="rounded-lg border bg-card">
+      {/* Table */}
+      <div className="flex-1 overflow-auto border-t">
         <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Job Title</TableHead>
-              <TableHead>Company</TableHead>
-              <TableHead>Country</TableHead>
-              <TableHead>Lifecycle</TableHead>
-              <TableHead>Outreach</TableHead>
+          <TableHeader className="sticky top-0 bg-card z-10">
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="w-10">
+                <Checkbox
+                  checked={contacts.length > 0 && selected.size === contacts.length}
+                  onCheckedChange={toggleSelectAll}
+                />
+              </TableHead>
+              {col("name") && <TableHead><SortableHeader label="Name" sortKey="last_name" currentSort={sortBy} currentDirection={sortDir} onSort={handleSort} /></TableHead>}
+              {col("email") && <TableHead><SortableHeader label="Email" sortKey="email" currentSort={sortBy} currentDirection={sortDir} onSort={handleSort} /></TableHead>}
+              {col("secondary_email") && <TableHead className="text-xs font-medium text-muted-foreground">Secondary Email</TableHead>}
+              {col("job_title") && <TableHead><SortableHeader label="Job Title" sortKey="job_title" currentSort={sortBy} currentDirection={sortDir} onSort={handleSort} /></TableHead>}
+              {col("seniority_level") && <TableHead className="text-xs font-medium text-muted-foreground">Seniority</TableHead>}
+              {col("department") && <TableHead className="text-xs font-medium text-muted-foreground">Department</TableHead>}
+              {col("company_name_raw") && <TableHead><SortableHeader label="Company" sortKey="company_name_raw" currentSort={sortBy} currentDirection={sortDir} onSort={handleSort} /></TableHead>}
+              {col("country") && <TableHead><SortableHeader label="Country" sortKey="country" currentSort={sortBy} currentDirection={sortDir} onSort={handleSort} /></TableHead>}
+              {col("lifecycle_status") && <TableHead className="text-xs font-medium text-muted-foreground">Lifecycle</TableHead>}
+              {col("outreach_status") && <TableHead className="text-xs font-medium text-muted-foreground">Outreach</TableHead>}
+              {col("data_quality_score") && <TableHead><SortableHeader label="Quality" sortKey="data_quality_score" currentSort={sortBy} currentDirection={sortDir} onSort={handleSort} /></TableHead>}
+              {col("last_contacted_at") && <TableHead><SortableHeader label="Last Contacted" sortKey="last_contacted_at" currentSort={sortBy} currentDirection={sortDir} onSort={handleSort} /></TableHead>}
+              {col("updated_at") && <TableHead><SortableHeader label="Updated" sortKey="updated_at" currentSort={sortBy} currentDirection={sortDir} onSort={handleSort} /></TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} className="h-32 text-center">
+                <TableCell colSpan={20} className="h-48 text-center">
                   <Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" />
+                  <p className="mt-2 text-xs text-muted-foreground">Loading contacts...</p>
                 </TableCell>
               </TableRow>
             ) : contacts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
-                  No contacts found
+                <TableCell colSpan={20} className="h-48 text-center">
+                  <div className="flex flex-col items-center gap-2">
+                    <Search className="h-8 w-8 text-muted-foreground/40" />
+                    <p className="text-sm font-medium text-muted-foreground">No contacts found</p>
+                    <p className="text-xs text-muted-foreground/70">Try adjusting your search or filters</p>
+                  </div>
                 </TableCell>
               </TableRow>
             ) : (
               contacts.map((c) => (
-                <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50">
-                  <TableCell className="font-medium">
-                    {[c.first_name, c.last_name].filter(Boolean).join(" ") || "—"}
+                <TableRow
+                  key={c.id}
+                  className="cursor-pointer hover:bg-muted/50 h-10"
+                  onClick={() => navigate(`/contacts/${c.id}`)}
+                >
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <Checkbox checked={selected.has(c.id)} onCheckedChange={() => toggleSelect(c.id)} />
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{c.email ?? "—"}</TableCell>
-                  <TableCell>{c.job_title ?? "—"}</TableCell>
-                  <TableCell>{c.company_name_raw ?? "—"}</TableCell>
-                  <TableCell>{c.country ?? "—"}</TableCell>
-                  <TableCell>
-                    <Badge variant={lifecycleBadgeVariant(c.lifecycle_status)} className="text-xs capitalize">
-                      {c.lifecycle_status.replace("_", " ")}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="text-xs capitalize">
-                      {c.outreach_status.replace(/_/g, " ")}
-                    </Badge>
-                  </TableCell>
+                  {col("name") && (
+                    <TableCell className="font-medium text-sm">
+                      <div className="flex items-center gap-1.5">
+                        {[c.first_name, c.last_name].filter(Boolean).join(" ") || "—"}
+                        <DncBadge dnc={c.do_not_contact} />
+                      </div>
+                    </TableCell>
+                  )}
+                  {col("email") && <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">{c.email ?? "—"}</TableCell>}
+                  {col("secondary_email") && <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">{c.secondary_email ?? "—"}</TableCell>}
+                  {col("job_title") && <TableCell className="text-xs max-w-[180px] truncate">{c.job_title ?? "—"}</TableCell>}
+                  {col("seniority_level") && <TableCell className="text-xs">{c.seniority_level ?? "—"}</TableCell>}
+                  {col("department") && <TableCell className="text-xs">{c.department ?? "—"}</TableCell>}
+                  {col("company_name_raw") && <TableCell className="text-xs max-w-[180px] truncate">{c.company_name_raw ?? "—"}</TableCell>}
+                  {col("country") && <TableCell className="text-xs">{c.country ?? "—"}</TableCell>}
+                  {col("lifecycle_status") && <TableCell><LifecycleBadge status={c.lifecycle_status} /></TableCell>}
+                  {col("outreach_status") && <TableCell><OutreachBadge status={c.outreach_status} /></TableCell>}
+                  {col("data_quality_score") && <TableCell><QualityScoreBadge score={c.data_quality_score} /></TableCell>}
+                  {col("last_contacted_at") && <TableCell className="text-xs text-muted-foreground">{formatDate(c.last_contacted_at)}</TableCell>}
+                  {col("updated_at") && <TableCell className="text-xs text-muted-foreground">{formatDate(c.updated_at)}</TableCell>}
                 </TableRow>
               ))
             )}
           </TableBody>
         </Table>
-
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between border-t px-4 py-3">
-            <p className="text-sm text-muted-foreground">
-              Page {page + 1} of {totalPages}
-            </p>
-            <div className="flex gap-1">
-              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* Pagination */}
+      <TablePagination
+        page={page}
+        totalPages={totalPages}
+        totalRows={count}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={(s) => { setPageSize(s); setPage(0); }}
+        selectedCount={selected.size}
+      />
     </div>
   );
 }
