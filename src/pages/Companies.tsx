@@ -247,13 +247,10 @@ export default function CompaniesPage() {
               {col("updated_at") && <TableHead><SortableHeader label="Updated" sortKey="updated_at" currentSort={sortBy} currentDirection={sortDir} onSort={handleSort} /></TableHead>}
             </TableRow>
           </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={20} className="h-48 text-center">
-                <Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" />
-                <p className="mt-2 text-xs text-muted-foreground">Loading companies...</p>
-              </TableCell></TableRow>
-            ) : companies.length === 0 ? (
+          {loading ? (
+            <tbody><TableSkeleton rows={pageSize > 50 ? 15 : 10} columns={visibleCols.size + 1} /></tbody>
+          ) : companies.length === 0 ? (
+            <tbody>
               <TableRow><TableCell colSpan={20} className="h-48 text-center">
                 <div className="flex flex-col items-center gap-2">
                   <Building2 className="h-8 w-8 text-muted-foreground/40" />
@@ -263,8 +260,12 @@ export default function CompaniesPage() {
                   </p>
                 </div>
               </TableCell></TableRow>
-            ) : (
-              companies.map((c) => (
+            </tbody>
+          ) : (
+            <VirtualizedTableBody
+              items={companies}
+              estimateSize={40}
+              renderRow={(c) => (
                 <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50 h-10" onClick={() => navigate(`/companies/${c.id}`)}>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <Checkbox checked={selected.has(c.id)} onCheckedChange={() => toggleSelect(c.id)} />
@@ -281,9 +282,9 @@ export default function CompaniesPage() {
                   {col("data_quality_score") && <TableCell><QualityScoreBadge score={c.data_quality_score} /></TableCell>}
                   {col("updated_at") && <TableCell className="text-xs text-muted-foreground">{formatDate(c.updated_at)}</TableCell>}
                 </TableRow>
-              ))
-            )}
-          </TableBody>
+              )}
+            />
+          )}
         </Table>
       </div>
 

@@ -25,26 +25,28 @@ export default function AnalyticsPage() {
   const { data } = useQuery({
     queryKey: ["analytics-overview"],
     queryFn: async () => {
+      // Use head:true count queries instead of fetching all rows
       const [
         contactsRes, companiesRes, importsRes,
-        lifecycleRes, outreachRes, countryRes,
-        industryRes, qualityRes, ownerRes,
-        noEmailRes, noPhoneRes, noLinkedinRes,
-        reviewRes,
+        noEmailRes, noPhoneRes, noLinkedinRes, reviewRes,
       ] = await Promise.all([
         supabase.from("contacts").select("id", { count: "exact", head: true }),
         supabase.from("companies").select("id", { count: "exact", head: true }),
         supabase.from("import_jobs").select("id", { count: "exact", head: true }),
-        supabase.from("contacts").select("lifecycle_status"),
-        supabase.from("contacts").select("outreach_status"),
-        supabase.from("contacts").select("country"),
-        supabase.from("companies").select("industry"),
-        supabase.from("contacts").select("data_quality_score"),
-        supabase.from("contacts").select("owner_id"),
         supabase.from("contacts").select("id", { count: "exact", head: true }).is("email", null),
         supabase.from("contacts").select("id", { count: "exact", head: true }).is("phone", null),
         supabase.from("contacts").select("id", { count: "exact", head: true }).is("linkedin_url", null),
         supabase.from("import_job_rows").select("id", { count: "exact", head: true }).eq("status", "review"),
+      ]);
+
+      // Fetch only needed columns with limits for aggregation
+      const [lifecycleRes, outreachRes, countryRes, industryRes, qualityRes, ownerRes] = await Promise.all([
+        supabase.from("contacts").select("lifecycle_status").limit(50000),
+        supabase.from("contacts").select("outreach_status").limit(50000),
+        supabase.from("contacts").select("country").not("country", "is", null).limit(50000),
+        supabase.from("companies").select("industry").not("industry", "is", null).limit(50000),
+        supabase.from("contacts").select("data_quality_score").not("data_quality_score", "is", null).limit(50000),
+        supabase.from("contacts").select("owner_id").limit(50000),
       ]);
 
       const countBy = (arr: any[], key: string) => {
@@ -82,6 +84,7 @@ export default function AnalyticsPage() {
         ownerUnassigned: owners.length - assigned,
       };
     },
+    staleTime: 60_000, // Cache for 1 minute
   });
 
   const d = data;
