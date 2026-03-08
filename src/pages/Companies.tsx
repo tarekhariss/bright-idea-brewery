@@ -81,6 +81,7 @@ export default function CompaniesPage() {
   const [loading, setLoading] = useState(true);
   const [filterValues, setFilterValues] = useState<FilterValues>({});
   const [visibleCols, setVisibleCols] = useState<Set<string>>(new Set(DEFAULT_VISIBLE));
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const viewId = searchParams.get("view");
