@@ -15,6 +15,7 @@ import { SavedViewsDropdown } from "@/components/data-table/SavedViewsDropdown";
 import { useSavedViews, type ViewState } from "@/hooks/use-saved-views";
 import { applyFilters } from "@/lib/filter-utils";
 import { Badge } from "@/components/ui/badge";
+import { CompanyBulkActionsBar } from "@/components/companies/BulkActionsBar";
 import { format } from "date-fns";
 
 const COLUMNS: ColumnDef[] = [
