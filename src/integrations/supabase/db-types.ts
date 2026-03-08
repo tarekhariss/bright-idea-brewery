@@ -1175,6 +1175,12 @@ export type Database = {
       task_status: TaskStatus;
       call_outcome: CallOutcome;
       queue_item_status: QueueItemStatus;
+      domain_status: DomainStatus;
+      dns_record_status: DnsRecordStatus;
+      mailbox_provider_type: MailboxProviderType;
+      connection_status: ConnectionStatus;
+      warmup_status: WarmupStatus;
+      sending_health: SendingHealth;
     };
   };
 };
