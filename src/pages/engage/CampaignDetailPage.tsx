@@ -22,6 +22,10 @@ import {
   useCampaignSteps, useAddCampaignStep, useUpdateCampaignStep, useDeleteCampaignStep,
   useCampaignEnrollments, useEnrollContacts, useUpdateEnrollment, useEmailTemplatesList,
 } from "@/hooks/use-campaign-workflow";
+import {
+  useLinkedinMessageTemplates, useCampaignLinkedinAccounts,
+  useLinkLinkedinAccount, useUnlinkLinkedinAccount, useLinkedinAccounts,
+} from "@/hooks/use-linkedin";
 import { toast } from "sonner";
 
 const stepTypeConfig: Record<string, { icon: any; label: string; color: string }> = {
