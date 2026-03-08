@@ -49,6 +49,7 @@ const navGroups: NavGroup[] = [
     basePath: "/search",
     items: [
       { title: "Prospect & Enrich", url: "/search", icon: Sparkles, end: true },
+      { title: "Intelligence", url: "/search/intelligence", icon: Brain },
       { title: "People", url: "/search/people", icon: Users },
       { title: "Companies", url: "/search/companies", icon: Building2 },
       { title: "Lists", url: "/search/lists", icon: List },
