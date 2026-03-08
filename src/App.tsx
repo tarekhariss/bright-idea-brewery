@@ -13,7 +13,9 @@ import ForgotPasswordPage from "./pages/ForgotPassword";
 import ResetPasswordPage from "./pages/ResetPassword";
 import DashboardPage from "./pages/Dashboard";
 import ContactsPage from "./pages/Contacts";
+import ContactDetailPage from "./pages/ContactDetail";
 import CompaniesPage from "./pages/Companies";
+import CompanyDetailPage from "./pages/CompanyDetail";
 import ListsPage from "./pages/Lists";
 import ImportsPage from "./pages/Imports";
 import SavedViewsPage from "./pages/SavedViews";
@@ -48,7 +50,9 @@ const App = () => (
             {/* Protected routes */}
             <Route path="/" element={<ProtectedLayout><DashboardPage /></ProtectedLayout>} />
             <Route path="/contacts" element={<ProtectedLayout><ContactsPage /></ProtectedLayout>} />
+            <Route path="/contacts/:id" element={<ProtectedLayout><ContactDetailPage /></ProtectedLayout>} />
             <Route path="/companies" element={<ProtectedLayout><CompaniesPage /></ProtectedLayout>} />
+            <Route path="/companies/:id" element={<ProtectedLayout><CompanyDetailPage /></ProtectedLayout>} />
             <Route path="/lists" element={<ProtectedLayout><ListsPage /></ProtectedLayout>} />
             <Route path="/imports" element={<ProtectedLayout><ImportsPage /></ProtectedLayout>} />
             <Route path="/saved-views" element={<ProtectedLayout><SavedViewsPage /></ProtectedLayout>} />

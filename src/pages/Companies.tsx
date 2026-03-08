@@ -1,149 +1,252 @@
 import { useEffect, useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Loader2, Search, Plus, Download, Building2 } from "lucide-react";
+import { QualityScoreBadge } from "@/components/data-table/StatusBadge";
+import { SortableHeader } from "@/components/data-table/SortableHeader";
+import { TablePagination } from "@/components/data-table/TablePagination";
+import { ColumnVisibility, type ColumnDef } from "@/components/data-table/ColumnVisibility";
+import { FilterPanel, ActiveFilters, type FilterConfig, type FilterValues } from "@/components/data-table/FilterPanel";
+import { applyFilters } from "@/lib/filter-utils";
 import { Badge } from "@/components/ui/badge";
-import { Search, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { format } from "date-fns";
 
-const PAGE_SIZE = 25;
+const COLUMNS: ColumnDef[] = [
+  { key: "name", label: "Company", defaultVisible: true },
+  { key: "domain", label: "Domain", defaultVisible: true },
+  { key: "industry", label: "Industry", defaultVisible: true },
+  { key: "employee_count", label: "Employees" },
+  { key: "employee_range", label: "Size", defaultVisible: true },
+  { key: "revenue_range", label: "Revenue", defaultVisible: true },
+  { key: "country", label: "Country", defaultVisible: true },
+  { key: "data_quality_score", label: "Quality", defaultVisible: true },
+  { key: "updated_at", label: "Updated", defaultVisible: true },
+];
+
+const FILTER_CONFIGS: FilterConfig[] = [
+  { key: "industry", label: "Industry", type: "text" },
+  { key: "country", label: "Country", type: "text" },
+  { key: "employee_range", label: "Employee Range", type: "select", options: [
+    { value: "1-10", label: "1-10" }, { value: "11-50", label: "11-50" },
+    { value: "51-200", label: "51-200" }, { value: "201-500", label: "201-500" },
+    { value: "501-1000", label: "501-1000" }, { value: "1001-5000", label: "1001-5000" },
+    { value: "5001-10000", label: "5001-10000" }, { value: "10001+", label: "10001+" },
+  ]},
+  { key: "revenue_range", label: "Revenue Range", type: "select", options: [
+    { value: "<$1M", label: "< $1M" }, { value: "$1M-$10M", label: "$1M-$10M" },
+    { value: "$10M-$50M", label: "$10M-$50M" }, { value: "$50M-$100M", label: "$50M-$100M" },
+    { value: "$100M-$500M", label: "$100M-$500M" }, { value: "$500M+", label: "$500M+" },
+  ]},
+  { key: "data_quality_score", label: "Quality Score", type: "range" },
+  { key: "created_at", label: "Created", type: "date_range" },
+  { key: "updated_at", label: "Updated", type: "date_range" },
+];
 
 interface Company {
   id: string;
   name: string;
   domain: string | null;
   industry: string | null;
-  country: string | null;
-  employee_range: string | null;
   employee_count: number | null;
+  employee_range: string | null;
+  revenue_range: string | null;
+  country: string | null;
   data_quality_score: number | null;
+  updated_at: string;
 }
 
+const SELECT_FIELDS = "id, name, domain, industry, employee_count, employee_range, revenue_range, country, data_quality_score, updated_at";
+
 export default function CompaniesPage() {
+  const navigate = useNavigate();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [count, setCount] = useState(0);
   const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(25);
   const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<string>("updated_at");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [loading, setLoading] = useState(true);
+  const [filterValues, setFilterValues] = useState<FilterValues>({});
+  const [visibleCols, setVisibleCols] = useState<Set<string>>(
+    new Set(COLUMNS.filter((c) => c.defaultVisible).map((c) => c.key))
+  );
 
   const fetchCompanies = useCallback(async () => {
     setLoading(true);
     let query = supabase
       .from("companies")
-      .select("id, name, domain, industry, country, employee_range, employee_count, data_quality_score", { count: "exact" })
-      .order("updated_at", { ascending: false })
-      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+      .select(SELECT_FIELDS, { count: "exact" })
+      .order(sortBy, { ascending: sortDir === "asc" })
+      .range(page * pageSize, (page + 1) * pageSize - 1);
 
     if (search.trim()) {
       query = query.or(`name.ilike.%${search}%,domain.ilike.%${search}%,industry.ilike.%${search}%`);
     }
 
+    query = applyFilters(query, filterValues, FILTER_CONFIGS);
     const { data, count: total, error } = await query;
     if (!error) {
       setCompanies(data ?? []);
       setCount(total ?? 0);
     }
     setLoading(false);
-  }, [page, search]);
+  }, [page, pageSize, search, sortBy, sortDir, filterValues]);
 
-  useEffect(() => {
-    fetchCompanies();
-  }, [fetchCompanies]);
+  useEffect(() => { fetchCompanies(); }, [fetchCompanies]);
 
-  const totalPages = Math.ceil(count / PAGE_SIZE);
+  const totalPages = Math.ceil(count / pageSize);
 
-  const qualityColor = (score: number | null) => {
-    if (score === null) return "text-muted-foreground";
-    if (score >= 70) return "text-green-600";
-    if (score >= 40) return "text-yellow-600";
-    return "text-red-600";
+  const handleSort = (key: string) => {
+    if (sortBy === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(key);
+      setSortDir("asc");
+    }
+    setPage(0);
+  };
+
+  const toggleColumn = (key: string) => {
+    setVisibleCols((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  };
+
+  const handleFilterRemove = (key: string) => {
+    setFilterValues((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+    setPage(0);
+  };
+
+  const col = (key: string) => visibleCols.has(key);
+
+  const formatDate = (d: string | null) => {
+    if (!d) return "—";
+    try { return format(new Date(d), "MMM d, yyyy"); } catch { return "—"; }
   };
 
   return (
-    <div className="p-6 space-y-4 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Companies</h1>
-          <p className="text-sm text-muted-foreground">{count.toLocaleString()} total companies</p>
+    <div className="flex flex-col h-full">
+      <div className="px-6 pt-6 pb-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Companies</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">{count.toLocaleString()} total companies</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+              <Download className="h-3.5 w-3.5" /> Export
+            </Button>
+            <Button size="sm" className="gap-1.5 text-xs">
+              <Plus className="h-3.5 w-3.5" /> Add Company
+            </Button>
+          </div>
         </div>
+
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Search companies by name, domain, or industry..."
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+              className="pl-9 h-8 text-xs"
+            />
+          </div>
+          <FilterPanel filters={FILTER_CONFIGS} values={filterValues} onChange={(v) => { setFilterValues(v); setPage(0); }} onClear={() => { setFilterValues({}); setPage(0); }} />
+          <ColumnVisibility columns={COLUMNS} visibleColumns={visibleCols} onToggle={toggleColumn} />
+        </div>
+
+        <ActiveFilters values={filterValues} filters={FILTER_CONFIGS} onRemove={handleFilterRemove} />
       </div>
 
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by name, domain, or industry..."
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(0); }}
-            className="pl-9"
-          />
-        </div>
-      </div>
-
-      <div className="rounded-lg border bg-card">
+      <div className="flex-1 overflow-auto border-t">
         <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Company</TableHead>
-              <TableHead>Domain</TableHead>
-              <TableHead>Industry</TableHead>
-              <TableHead>Country</TableHead>
-              <TableHead>Size</TableHead>
-              <TableHead className="text-right">Quality</TableHead>
+          <TableHeader className="sticky top-0 bg-card z-10">
+            <TableRow className="hover:bg-transparent">
+              {col("name") && <TableHead><SortableHeader label="Company" sortKey="name" currentSort={sortBy} currentDirection={sortDir} onSort={handleSort} /></TableHead>}
+              {col("domain") && <TableHead><SortableHeader label="Domain" sortKey="domain" currentSort={sortBy} currentDirection={sortDir} onSort={handleSort} /></TableHead>}
+              {col("industry") && <TableHead><SortableHeader label="Industry" sortKey="industry" currentSort={sortBy} currentDirection={sortDir} onSort={handleSort} /></TableHead>}
+              {col("employee_count") && <TableHead><SortableHeader label="Employees" sortKey="employee_count" currentSort={sortBy} currentDirection={sortDir} onSort={handleSort} /></TableHead>}
+              {col("employee_range") && <TableHead className="text-xs font-medium text-muted-foreground">Size</TableHead>}
+              {col("revenue_range") && <TableHead className="text-xs font-medium text-muted-foreground">Revenue</TableHead>}
+              {col("country") && <TableHead><SortableHeader label="Country" sortKey="country" currentSort={sortBy} currentDirection={sortDir} onSort={handleSort} /></TableHead>}
+              {col("data_quality_score") && <TableHead><SortableHeader label="Quality" sortKey="data_quality_score" currentSort={sortBy} currentDirection={sortDir} onSort={handleSort} /></TableHead>}
+              {col("updated_at") && <TableHead><SortableHeader label="Updated" sortKey="updated_at" currentSort={sortBy} currentDirection={sortDir} onSort={handleSort} /></TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={6} className="h-32 text-center">
+                <TableCell colSpan={20} className="h-48 text-center">
                   <Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" />
+                  <p className="mt-2 text-xs text-muted-foreground">Loading companies...</p>
                 </TableCell>
               </TableRow>
             ) : companies.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
-                  No companies found
+                <TableCell colSpan={20} className="h-48 text-center">
+                  <div className="flex flex-col items-center gap-2">
+                    <Building2 className="h-8 w-8 text-muted-foreground/40" />
+                    <p className="text-sm font-medium text-muted-foreground">No companies found</p>
+                    <p className="text-xs text-muted-foreground/70">Try adjusting your search or filters</p>
+                  </div>
                 </TableCell>
               </TableRow>
             ) : (
               companies.map((c) => (
-                <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50">
-                  <TableCell className="font-medium">{c.name}</TableCell>
-                  <TableCell className="text-muted-foreground">{c.domain ?? "—"}</TableCell>
-                  <TableCell>{c.industry ?? "—"}</TableCell>
-                  <TableCell>{c.country ?? "—"}</TableCell>
-                  <TableCell>
-                    {c.employee_range ? (
-                      <Badge variant="outline" className="text-xs">{c.employee_range}</Badge>
-                    ) : c.employee_count ? (
-                      c.employee_count.toLocaleString()
-                    ) : "—"}
-                  </TableCell>
-                  <TableCell className={`text-right font-medium ${qualityColor(c.data_quality_score)}`}>
-                    {c.data_quality_score !== null ? `${c.data_quality_score}%` : "—"}
-                  </TableCell>
+                <TableRow
+                  key={c.id}
+                  className="cursor-pointer hover:bg-muted/50 h-10"
+                  onClick={() => navigate(`/companies/${c.id}`)}
+                >
+                  {col("name") && <TableCell className="font-medium text-sm">{c.name}</TableCell>}
+                  {col("domain") && (
+                    <TableCell className="text-xs text-muted-foreground">
+                      {c.domain ? (
+                        <span className="text-primary">{c.domain}</span>
+                      ) : "—"}
+                    </TableCell>
+                  )}
+                  {col("industry") && <TableCell className="text-xs">{c.industry ?? "—"}</TableCell>}
+                  {col("employee_count") && <TableCell className="text-xs tabular-nums">{c.employee_count?.toLocaleString() ?? "—"}</TableCell>}
+                  {col("employee_range") && (
+                    <TableCell>
+                      {c.employee_range ? <Badge variant="outline" className="text-[11px]">{c.employee_range}</Badge> : <span className="text-xs text-muted-foreground">—</span>}
+                    </TableCell>
+                  )}
+                  {col("revenue_range") && (
+                    <TableCell>
+                      {c.revenue_range ? <Badge variant="outline" className="text-[11px]">{c.revenue_range}</Badge> : <span className="text-xs text-muted-foreground">—</span>}
+                    </TableCell>
+                  )}
+                  {col("country") && <TableCell className="text-xs">{c.country ?? "—"}</TableCell>}
+                  {col("data_quality_score") && <TableCell><QualityScoreBadge score={c.data_quality_score} /></TableCell>}
+                  {col("updated_at") && <TableCell className="text-xs text-muted-foreground">{formatDate(c.updated_at)}</TableCell>}
                 </TableRow>
               ))
             )}
           </TableBody>
         </Table>
-
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between border-t px-4 py-3">
-            <p className="text-sm text-muted-foreground">
-              Page {page + 1} of {totalPages}
-            </p>
-            <div className="flex gap-1">
-              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        )}
       </div>
+
+      <TablePagination
+        page={page}
+        totalPages={totalPages}
+        totalRows={count}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={(s) => { setPageSize(s); setPage(0); }}
+      />
     </div>
   );
 }
