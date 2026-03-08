@@ -71,6 +71,7 @@ export default function CampaignDetailPage() {
   const [newDelayHours, setNewDelayHours] = useState(0);
   const [newTemplateId, setNewTemplateId] = useState("");
   const [newTaskDesc, setNewTaskDesc] = useState("");
+  const [newLinkedinTemplateId, setNewLinkedinTemplateId] = useState("");
 
   const [enrollOpen, setEnrollOpen] = useState(false);
   const [enrollContactIds, setEnrollContactIds] = useState("");
