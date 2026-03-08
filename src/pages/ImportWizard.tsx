@@ -111,7 +111,7 @@ export default function ImportWizardPage() {
     setFile(f);
     try {
       const text = await f.text();
-      const result = parseCSVText(text);
+      const result = parseCSVText(text, 500); // preview only
       if (result.headers.length === 0) {
         setParseError("Could not detect columns in this file.");
         return;
@@ -173,6 +173,24 @@ export default function ImportWizardPage() {
     setSubmitting(true);
 
     try {
+      // Re-parse the full file (no row limit) for import processing
+      const fullText = await file.text();
+      const fullParsed = parseCSVText(fullText);
+      const allRows = fullParsed.rows;
+
+      // Run duplicate check on all rows
+      const { data: existingContacts } = await supabase
+        .from("contacts")
+        .select("id, email, secondary_email, tertiary_email, linkedin_url, external_contact_id, first_name, last_name, company_name_raw, phone")
+        .limit(50000);
+      const { data: existingCompanies } = await (supabase.from("companies") as any)
+        .select("id, domain, normalized_name, external_account_id, website")
+        .limit(50000);
+      const contactIdx = buildContactIndex((existingContacts ?? []) as ExistingContact[]);
+      const companyIdx = buildCompanyIndex((existingCompanies ?? []) as ExistingCompany[]);
+      const normalizedRows = allRows.map((row) => normalizeRow(row, columnMapping).normalized);
+      const fullDupResult = checkDuplicatesAdvanced(normalizedRows, contactIdx, companyIdx);
+
       // 1. Create import job
       const settings: Record<string, unknown> = {
         ...importSettings,
@@ -185,7 +203,7 @@ export default function ImportWizardPage() {
         .insert({
           file_name: file.name,
           status: "processing" as const,
-          total_rows: parsed.totalRows,
+          total_rows: allRows.length,
           processed_rows: 0,
           success_rows: 0,
           error_rows: 0,
@@ -201,23 +219,26 @@ export default function ImportWizardPage() {
 
       if (jobErr || !job) throw jobErr;
 
-      // 2. Create import job rows in batches
+      // 2. Create import job rows in batches — every row gets a terminal status
       const BATCH_SIZE = 200;
       let successCount = 0;
       let errorCount = 0;
       let dupCount = 0;
       let reviewCount = 0;
+      let skippedCount = 0;
+      let insertErrors = 0;
 
-      for (let i = 0; i < parsed.rows.length; i += BATCH_SIZE) {
-        const batch = parsed.rows.slice(i, i + BATCH_SIZE);
+      for (let i = 0; i < allRows.length; i += BATCH_SIZE) {
+        const batch = allRows.slice(i, i + BATCH_SIZE);
         const rows = batch.map((raw, idx) => {
           const rowIndex = i + idx;
           const norm = normalizeRow(raw, columnMapping);
-          const dupDetail = dupResult?.details[rowIndex];
+          const dupDetail = fullDupResult.details[rowIndex];
 
-          let status: string = "pending";
+          // Default for rows with no duplicate info: they are new → success
+          let status: string = "success";
           let duplicateReason: string | null = null;
-          let actionTaken: string | null = null;
+          let actionTaken: string | null = "create_new";
           let reviewRequired = false;
 
           if (dupDetail) {
@@ -243,32 +264,45 @@ export default function ImportWizardPage() {
 
         const { error: rowErr } = await (supabase.from("import_job_rows") as any).insert(rows);
         if (rowErr) {
+          insertErrors += batch.length;
           errorCount += batch.length;
         } else {
           rows.forEach((r) => {
-            if (r.status === "error") errorCount++;
-            else if (r.status === "skipped" || r.status === "duplicate") dupCount++;
-            else if (r.status === "review") reviewCount++;
-            else successCount++;
+            switch (r.status) {
+              case "error": errorCount++; break;
+              case "skipped": skippedCount++; break;
+              case "duplicate": dupCount++; break;
+              case "review": reviewCount++; break;
+              case "success":
+              default: successCount++; break;
+            }
           });
         }
       }
 
-      // 3. Update job summary
+      // 3. Calculate actual totals and determine job status
+      const totalProcessed = successCount + errorCount + dupCount + reviewCount + skippedCount;
+      const hasUnprocessed = totalProcessed < allRows.length;
+      const jobStatus = hasUnprocessed ? "processing" : "completed";
+
       await (supabase
         .from("import_jobs") as any)
         .update({
-          status: "completed" as const,
-          processed_rows: parsed.rows.length,
+          status: jobStatus,
+          processed_rows: totalProcessed,
           success_rows: successCount,
           error_rows: errorCount,
-          duplicate_rows: dupCount,
+          duplicate_rows: dupCount + skippedCount,
           review_rows: reviewCount,
-          completed_at: new Date().toISOString(),
+          completed_at: jobStatus === "completed" ? new Date().toISOString() : null,
         })
         .eq("id", job.id);
 
-      toast.success(`Import created: ${parsed.rows.length} rows processed`);
+      if (hasUnprocessed) {
+        toast.warning(`Import partially processed: ${totalProcessed} of ${allRows.length} rows. ${insertErrors} batch insert failures.`);
+      } else {
+        toast.success(`Import complete: ${allRows.length} rows processed`);
+      }
       navigate(`/imports/${job.id}`);
     } catch (err) {
       toast.error("Failed to create import job");
@@ -276,7 +310,7 @@ export default function ImportWizardPage() {
     } finally {
       setSubmitting(false);
     }
-  }, [parsed, file, user, columnMapping, dupResult, dupStrategy, unmappedHeaders, navigate]);
+  }, [parsed, file, user, columnMapping, dupStrategy, importSettings, unmappedHeaders, navigate]);
 
   // ─── Step transitions ─────────────────────────────────────────────────────────
 

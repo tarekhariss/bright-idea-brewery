@@ -12,7 +12,7 @@ export interface ParsedCSV {
   errors: string[];
 }
 
-export function parseCSVText(text: string, maxPreviewRows = 500): ParsedCSV {
+export function parseCSVText(text: string, maxRows?: number): ParsedCSV {
   const errors: string[] = [];
   const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
   if (lines.length === 0) return { headers: [], rows: [], totalRows: 0, errors: ["File is empty"] };
@@ -21,8 +21,9 @@ export function parseCSVText(text: string, maxPreviewRows = 500): ParsedCSV {
   if (headers.length === 0) return { headers: [], rows: [], totalRows: 0, errors: ["No headers detected"] };
 
   const totalRows = lines.length - 1;
+  const limit = maxRows != null ? Math.min(maxRows, totalRows) : totalRows;
   const rows: Record<string, string>[] = [];
-  for (let i = 1; i < lines.length && i <= maxPreviewRows; i++) {
+  for (let i = 1; i <= limit; i++) {
     const values = parseCSVLine(lines[i]);
     if (values.length !== headers.length) {
       errors.push(`Row ${i}: expected ${headers.length} columns, got ${values.length}`);
@@ -601,12 +602,12 @@ export function classifyRowAction(
 
     case "exact_duplicate":
       if (settings.skip_exact_duplicates) return { status: "skipped", action: "skipped_exact_duplicate", reviewRequired: false };
-      if (settings.update_missing_fields) return { status: "pending", action: "update_missing_fields", reviewRequired: false };
+      if (settings.update_missing_fields) return { status: "success", action: "update_missing_fields", reviewRequired: false };
       return { status: "review", action: "exact_duplicate_flagged", reviewRequired: true };
 
     case "likely_duplicate":
       if (settings.review_likely_duplicates) return { status: "review", action: "likely_duplicate_flagged", reviewRequired: true };
-      if (settings.update_missing_fields) return { status: "pending", action: "update_missing_fields", reviewRequired: false };
+      if (settings.update_missing_fields) return { status: "success", action: "update_missing_fields", reviewRequired: false };
       return { status: "review", action: "likely_duplicate_flagged", reviewRequired: true };
 
     case "review_required":
@@ -614,7 +615,7 @@ export function classifyRowAction(
 
     case "new":
     default:
-      return { status: "pending", action: "create_new", reviewRequired: false };
+      return { status: "success", action: "create_new", reviewRequired: false };
   }
 }
 
