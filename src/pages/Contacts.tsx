@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, Search, Plus, Download, ListPlus } from "lucide-react";
 import { LifecycleBadge, OutreachBadge, QualityScoreBadge, DncBadge } from "@/components/data-table/StatusBadge";
+import { BulkActionsBar } from "@/components/contacts/BulkActionsBar";
 import { SortableHeader } from "@/components/data-table/SortableHeader";
 import { TablePagination } from "@/components/data-table/TablePagination";
 import { ColumnVisibility, type ColumnDef } from "@/components/data-table/ColumnVisibility";
