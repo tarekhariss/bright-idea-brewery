@@ -132,9 +132,13 @@ CREATE TABLE IF NOT EXISTS public.deals (
 );
 
 ALTER TABLE public.deals ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Authenticated users can read deals" ON public.deals FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Users can manage deals" ON public.deals FOR ALL TO authenticated
-  USING (owner_id = auth.uid() OR created_by = auth.uid() OR public.has_any_role(auth.uid(), ARRAY['admin','manager']::app_role[]));
+CREATE POLICY "Members can read deals" ON public.deals FOR SELECT TO authenticated
+  USING (public.is_workspace_member(auth.uid(), workspace_id));
+
+CREATE POLICY "Members can manage deals" ON public.deals FOR ALL TO authenticated
+  USING (public.is_workspace_member(auth.uid(), workspace_id)
+    AND (owner_id = auth.uid() OR created_by = auth.uid()
+         OR public.workspace_role(auth.uid(), workspace_id) IN ('admin', 'manager')));
 
 CREATE INDEX IF NOT EXISTS idx_deals_workspace ON deals (workspace_id);
 CREATE INDEX IF NOT EXISTS idx_deals_status ON deals (status);
@@ -179,9 +183,13 @@ CREATE TABLE IF NOT EXISTS public.meetings (
 );
 
 ALTER TABLE public.meetings ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Authenticated users can read meetings" ON public.meetings FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Users can manage meetings" ON public.meetings FOR ALL TO authenticated
-  USING (owner_id = auth.uid() OR organizer_id = auth.uid() OR created_by = auth.uid() OR public.has_any_role(auth.uid(), ARRAY['admin','manager']::app_role[]));
+CREATE POLICY "Members can read meetings" ON public.meetings FOR SELECT TO authenticated
+  USING (public.is_workspace_member(auth.uid(), workspace_id));
+
+CREATE POLICY "Members can manage meetings" ON public.meetings FOR ALL TO authenticated
+  USING (public.is_workspace_member(auth.uid(), workspace_id)
+    AND (owner_id = auth.uid() OR organizer_id = auth.uid() OR created_by = auth.uid()
+         OR public.workspace_role(auth.uid(), workspace_id) IN ('admin', 'manager')));
 
 CREATE INDEX IF NOT EXISTS idx_meetings_workspace ON meetings (workspace_id);
 CREATE INDEX IF NOT EXISTS idx_meetings_contact ON meetings (contact_id);
@@ -202,8 +210,19 @@ CREATE TABLE IF NOT EXISTS public.deal_contacts (
 );
 
 ALTER TABLE public.deal_contacts ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Authenticated users can read deal contacts" ON public.deal_contacts FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Users can manage deal contacts" ON public.deal_contacts FOR ALL TO authenticated USING (true);
+CREATE POLICY "Members can read deal contacts" ON public.deal_contacts FOR SELECT TO authenticated
+  USING (EXISTS (
+    SELECT 1 FROM public.deals d
+    WHERE d.id = deal_id AND public.is_workspace_member(auth.uid(), d.workspace_id)
+  ));
+
+CREATE POLICY "Members can manage deal contacts" ON public.deal_contacts FOR ALL TO authenticated
+  USING (EXISTS (
+    SELECT 1 FROM public.deals d
+    WHERE d.id = deal_id AND public.is_workspace_member(auth.uid(), d.workspace_id)
+      AND (d.owner_id = auth.uid() OR d.created_by = auth.uid()
+           OR public.workspace_role(auth.uid(), d.workspace_id) IN ('admin', 'manager'))
+  ));
 
 -- ============================================================
 -- 7. ENRICHMENT FIELDS (add missing to contacts & companies)
