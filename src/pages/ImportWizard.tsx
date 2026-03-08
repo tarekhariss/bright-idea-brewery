@@ -139,25 +139,22 @@ export default function ImportWizardPage() {
     if (!parsed) return;
     setDupLoading(true);
     try {
-      // Fetch existing emails and linkedin URLs for comparison
+      // Fetch existing contacts for comparison
       const { data: existingContacts } = await supabase
         .from("contacts")
-        .select("email, linkedin_url, external_contact_id")
+        .select("id, email, secondary_email, tertiary_email, linkedin_url, external_contact_id, first_name, last_name, company_name_raw, phone")
         .limit(50000);
 
-      const existingEmails = new Set<string>();
-      const existingLinkedins = new Set<string>();
-      const existingExtIds = new Set<string>();
+      // Fetch existing companies
+      const { data: existingCompanies } = await (supabase.from("companies") as any)
+        .select("id, domain, normalized_name, external_account_id, website")
+        .limit(50000);
 
-      (existingContacts ?? []).forEach((c) => {
-        if (c.email) existingEmails.add(c.email.toLowerCase());
-        if (c.linkedin_url) existingLinkedins.add(c.linkedin_url.toLowerCase());
-        if (c.external_contact_id) existingExtIds.add(c.external_contact_id);
-      });
+      const contactIdx = buildContactIndex((existingContacts ?? []) as ExistingContact[]);
+      const companyIdx = buildCompanyIndex((existingCompanies ?? []) as ExistingCompany[]);
 
-      // Normalize all rows then check
       const normalizedRows = parsed.rows.map((row) => normalizeRow(row, columnMapping).normalized);
-      const result = checkDuplicatesLocal(normalizedRows, existingEmails, existingLinkedins, existingExtIds);
+      const result = checkDuplicatesAdvanced(normalizedRows, contactIdx, companyIdx);
       setDupResult(result);
     } catch (err) {
       toast.error("Failed to check duplicates");
