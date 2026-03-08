@@ -133,9 +133,7 @@ export function TrackersSettings() {
 export function ScorecardsSettings() {
   return <GenericSettings icon={ClipboardList} title="Scorecards" description="Create call and meeting scorecards for team coaching." />;
 }
-export function FieldMappingsSettings() {
-  return <GenericSettings icon={Map} title="Field Mappings" description="Map fields between TLBG and connected CRM systems." />;
-}
+export { default as FieldMappingsSettings } from "./FieldMappingsPage";
 export function TeamMeetingsSettings() {
   return <GenericSettings icon={CalendarDays} title="Team Meetings" description="Configure meeting scheduling, reminders, and defaults." />;
 }
@@ -170,6 +168,4 @@ export function DealFieldsSettings() {
 export function GlobalPicklistsSettings() {
   return <GenericSettings icon={ListChecks} title="Global Picklists" description="Manage shared dropdown values used across objects." />;
 }
-export function ImportsExportsSettings() {
-  return <GenericSettings icon={Download} title="Imports & Exports" description="Manage data import templates and export configurations." />;
-}
+export { default as ImportsExportsSettings } from "./ImportsExportsPage";
