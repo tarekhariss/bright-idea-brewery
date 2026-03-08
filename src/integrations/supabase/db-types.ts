@@ -1163,6 +1163,12 @@ export type Database = {
       lifecycle_status: LifecycleStatus;
       outreach_status: OutreachStatus;
       email_validity: EmailValidity;
+      sequence_status: SequenceStatus;
+      enrollment_status: EnrollmentStatus;
+      email_status: EmailStatus;
+      task_status: TaskStatus;
+      call_outcome: CallOutcome;
+      queue_item_status: QueueItemStatus;
     };
   };
 };
