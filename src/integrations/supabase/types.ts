@@ -1,0 +1,3033 @@
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
+export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.1"
+  }
+  public: {
+    Tables: {
+      activities: {
+        Row: {
+          activity_type: Database["public"]["Enums"]["activity_type"]
+          company_id: string | null
+          contact_id: string | null
+          created_at: string | null
+          deal_id: string | null
+          description: string | null
+          id: string
+          metadata: Json | null
+          occurred_at: string
+          performed_by: string | null
+          source_id: string | null
+          source_type: string | null
+          title: string
+          workspace_id: string | null
+        }
+        Insert: {
+          activity_type: Database["public"]["Enums"]["activity_type"]
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          deal_id?: string | null
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          occurred_at?: string
+          performed_by?: string | null
+          source_id?: string | null
+          source_type?: string | null
+          title: string
+          workspace_id?: string | null
+        }
+        Update: {
+          activity_type?: Database["public"]["Enums"]["activity_type"]
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          deal_id?: string | null
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          occurred_at?: string
+          performed_by?: string | null
+          source_id?: string | null
+          source_type?: string | null
+          title?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activities_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activities_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activities_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activities_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calls: {
+        Row: {
+          company_id: string | null
+          contact_id: string | null
+          created_at: string | null
+          created_by: string | null
+          direction: string
+          duration_seconds: number | null
+          ended_at: string | null
+          enrollment_id: string | null
+          id: string
+          notes: string | null
+          outcome: Database["public"]["Enums"]["call_outcome"] | null
+          owner_id: string | null
+          phone_number: string | null
+          scheduled_at: string | null
+          sequence_id: string | null
+          sequence_step_id: string | null
+          started_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          direction?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          enrollment_id?: string | null
+          id?: string
+          notes?: string | null
+          outcome?: Database["public"]["Enums"]["call_outcome"] | null
+          owner_id?: string | null
+          phone_number?: string | null
+          scheduled_at?: string | null
+          sequence_id?: string | null
+          sequence_step_id?: string | null
+          started_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          direction?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          enrollment_id?: string | null
+          id?: string
+          notes?: string | null
+          outcome?: Database["public"]["Enums"]["call_outcome"] | null
+          owner_id?: string | null
+          phone_number?: string | null
+          scheduled_at?: string | null
+          sequence_id?: string | null
+          sequence_step_id?: string | null
+          started_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calls_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calls_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calls_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "sequence_enrollments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calls_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "sequences"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calls_sequence_step_id_fkey"
+            columns: ["sequence_step_id"]
+            isOneToOne: false
+            referencedRelation: "sequence_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      companies: {
+        Row: {
+          annual_revenue: number | null
+          city: string | null
+          company_address: string | null
+          company_city: string | null
+          company_country: string | null
+          company_linkedin_url: string | null
+          company_name_for_emails: string | null
+          company_phone: string | null
+          company_state: string | null
+          company_type: string | null
+          country: string | null
+          created_at: string | null
+          created_by: string | null
+          custom_fields: Json | null
+          data_quality_score: number | null
+          description: string | null
+          domain: string | null
+          employee_count: number | null
+          employee_range: string | null
+          enrichment_data: Json | null
+          enrichment_source: string | null
+          external_account_id: string | null
+          facebook_url: string | null
+          founded_year: number | null
+          headquarters: string | null
+          id: string
+          industry: string | null
+          keywords: string[] | null
+          last_enriched_at: string | null
+          last_raised_at: string | null
+          last_verified_at: string | null
+          latest_funding: string | null
+          latest_funding_amount: number | null
+          linkedin_url: string | null
+          logo_url: string | null
+          naics_code: string | null
+          name: string
+          normalized_name: string | null
+          notes: string | null
+          owner_id: string | null
+          parent_company_id: string | null
+          postal_code: string | null
+          revenue_range: string | null
+          sic_code: string | null
+          specialties: string[] | null
+          state: string | null
+          stock_ticker: string | null
+          technologies: string[] | null
+          timezone: string | null
+          total_funding: number | null
+          twitter_url: string | null
+          updated_at: string | null
+          website: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          annual_revenue?: number | null
+          city?: string | null
+          company_address?: string | null
+          company_city?: string | null
+          company_country?: string | null
+          company_linkedin_url?: string | null
+          company_name_for_emails?: string | null
+          company_phone?: string | null
+          company_state?: string | null
+          company_type?: string | null
+          country?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          custom_fields?: Json | null
+          data_quality_score?: number | null
+          description?: string | null
+          domain?: string | null
+          employee_count?: number | null
+          employee_range?: string | null
+          enrichment_data?: Json | null
+          enrichment_source?: string | null
+          external_account_id?: string | null
+          facebook_url?: string | null
+          founded_year?: number | null
+          headquarters?: string | null
+          id?: string
+          industry?: string | null
+          keywords?: string[] | null
+          last_enriched_at?: string | null
+          last_raised_at?: string | null
+          last_verified_at?: string | null
+          latest_funding?: string | null
+          latest_funding_amount?: number | null
+          linkedin_url?: string | null
+          logo_url?: string | null
+          naics_code?: string | null
+          name: string
+          normalized_name?: string | null
+          notes?: string | null
+          owner_id?: string | null
+          parent_company_id?: string | null
+          postal_code?: string | null
+          revenue_range?: string | null
+          sic_code?: string | null
+          specialties?: string[] | null
+          state?: string | null
+          stock_ticker?: string | null
+          technologies?: string[] | null
+          timezone?: string | null
+          total_funding?: number | null
+          twitter_url?: string | null
+          updated_at?: string | null
+          website?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          annual_revenue?: number | null
+          city?: string | null
+          company_address?: string | null
+          company_city?: string | null
+          company_country?: string | null
+          company_linkedin_url?: string | null
+          company_name_for_emails?: string | null
+          company_phone?: string | null
+          company_state?: string | null
+          company_type?: string | null
+          country?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          custom_fields?: Json | null
+          data_quality_score?: number | null
+          description?: string | null
+          domain?: string | null
+          employee_count?: number | null
+          employee_range?: string | null
+          enrichment_data?: Json | null
+          enrichment_source?: string | null
+          external_account_id?: string | null
+          facebook_url?: string | null
+          founded_year?: number | null
+          headquarters?: string | null
+          id?: string
+          industry?: string | null
+          keywords?: string[] | null
+          last_enriched_at?: string | null
+          last_raised_at?: string | null
+          last_verified_at?: string | null
+          latest_funding?: string | null
+          latest_funding_amount?: number | null
+          linkedin_url?: string | null
+          logo_url?: string | null
+          naics_code?: string | null
+          name?: string
+          normalized_name?: string | null
+          notes?: string | null
+          owner_id?: string | null
+          parent_company_id?: string | null
+          postal_code?: string | null
+          revenue_range?: string | null
+          sic_code?: string | null
+          specialties?: string[] | null
+          state?: string | null
+          stock_ticker?: string | null
+          technologies?: string[] | null
+          timezone?: string | null
+          total_funding?: number | null
+          twitter_url?: string | null
+          updated_at?: string | null
+          website?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "companies_parent_company_id_fkey"
+            columns: ["parent_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "companies_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      company_activity_log: {
+        Row: {
+          action: string
+          company_id: string
+          created_at: string | null
+          details: Json | null
+          id: string
+          performed_by: string | null
+        }
+        Insert: {
+          action: string
+          company_id: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          performed_by?: string | null
+        }
+        Update: {
+          action?: string
+          company_id?: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          performed_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_activity_log_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      company_tags: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          tag_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          tag_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_tags_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contact_activity_log: {
+        Row: {
+          action: string
+          contact_id: string
+          created_at: string | null
+          details: Json | null
+          id: string
+          performed_by: string | null
+        }
+        Insert: {
+          action: string
+          contact_id: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          performed_by?: string | null
+        }
+        Update: {
+          action?: string
+          contact_id?: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          performed_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_activity_log_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contact_tags: {
+        Row: {
+          contact_id: string
+          created_at: string | null
+          tag_id: string
+        }
+        Insert: {
+          contact_id: string
+          created_at?: string | null
+          tag_id: string
+        }
+        Update: {
+          contact_id?: string
+          created_at?: string | null
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_tags_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contacts: {
+        Row: {
+          address: string | null
+          bio: string | null
+          city: string | null
+          company_id: string | null
+          company_name_raw: string | null
+          corporate_phone: string | null
+          country: string | null
+          created_at: string | null
+          created_by: string | null
+          custom_fields: Json | null
+          data_quality_score: number | null
+          department: string | null
+          do_not_contact: boolean
+          education: Json | null
+          email: string | null
+          email_confidence: number | null
+          email_validity_status: Database["public"]["Enums"]["email_validity"]
+          enrichment_data: Json | null
+          enrichment_source: string | null
+          external_contact_id: string | null
+          external_source: string | null
+          facebook_url: string | null
+          first_name: string | null
+          github_url: string | null
+          headline: string | null
+          home_phone: string | null
+          id: string
+          job_title: string | null
+          languages: string[] | null
+          last_contacted_at: string | null
+          last_enriched_at: string | null
+          last_name: string | null
+          last_verified_at: string | null
+          lifecycle_status: Database["public"]["Enums"]["lifecycle_status"]
+          linkedin_url: string | null
+          mobile_phone: string | null
+          notes: string | null
+          other_phone: string | null
+          outreach_status: Database["public"]["Enums"]["outreach_status"]
+          owner_id: string | null
+          personal_email: string | null
+          phone: string | null
+          photo_url: string | null
+          postal_code: string | null
+          primary_email_source: string | null
+          secondary_email: string | null
+          secondary_email_source: string | null
+          seniority_level: string | null
+          skills: string[] | null
+          source: string | null
+          source_file: string | null
+          state: string | null
+          tertiary_email: string | null
+          tertiary_email_source: string | null
+          timezone: string | null
+          twitter_url: string | null
+          updated_at: string | null
+          work_direct_phone: string | null
+          work_history: Json | null
+          workspace_id: string | null
+          years_experience: number | null
+        }
+        Insert: {
+          address?: string | null
+          bio?: string | null
+          city?: string | null
+          company_id?: string | null
+          company_name_raw?: string | null
+          corporate_phone?: string | null
+          country?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          custom_fields?: Json | null
+          data_quality_score?: number | null
+          department?: string | null
+          do_not_contact?: boolean
+          education?: Json | null
+          email?: string | null
+          email_confidence?: number | null
+          email_validity_status?: Database["public"]["Enums"]["email_validity"]
+          enrichment_data?: Json | null
+          enrichment_source?: string | null
+          external_contact_id?: string | null
+          external_source?: string | null
+          facebook_url?: string | null
+          first_name?: string | null
+          github_url?: string | null
+          headline?: string | null
+          home_phone?: string | null
+          id?: string
+          job_title?: string | null
+          languages?: string[] | null
+          last_contacted_at?: string | null
+          last_enriched_at?: string | null
+          last_name?: string | null
+          last_verified_at?: string | null
+          lifecycle_status?: Database["public"]["Enums"]["lifecycle_status"]
+          linkedin_url?: string | null
+          mobile_phone?: string | null
+          notes?: string | null
+          other_phone?: string | null
+          outreach_status?: Database["public"]["Enums"]["outreach_status"]
+          owner_id?: string | null
+          personal_email?: string | null
+          phone?: string | null
+          photo_url?: string | null
+          postal_code?: string | null
+          primary_email_source?: string | null
+          secondary_email?: string | null
+          secondary_email_source?: string | null
+          seniority_level?: string | null
+          skills?: string[] | null
+          source?: string | null
+          source_file?: string | null
+          state?: string | null
+          tertiary_email?: string | null
+          tertiary_email_source?: string | null
+          timezone?: string | null
+          twitter_url?: string | null
+          updated_at?: string | null
+          work_direct_phone?: string | null
+          work_history?: Json | null
+          workspace_id?: string | null
+          years_experience?: number | null
+        }
+        Update: {
+          address?: string | null
+          bio?: string | null
+          city?: string | null
+          company_id?: string | null
+          company_name_raw?: string | null
+          corporate_phone?: string | null
+          country?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          custom_fields?: Json | null
+          data_quality_score?: number | null
+          department?: string | null
+          do_not_contact?: boolean
+          education?: Json | null
+          email?: string | null
+          email_confidence?: number | null
+          email_validity_status?: Database["public"]["Enums"]["email_validity"]
+          enrichment_data?: Json | null
+          enrichment_source?: string | null
+          external_contact_id?: string | null
+          external_source?: string | null
+          facebook_url?: string | null
+          first_name?: string | null
+          github_url?: string | null
+          headline?: string | null
+          home_phone?: string | null
+          id?: string
+          job_title?: string | null
+          languages?: string[] | null
+          last_contacted_at?: string | null
+          last_enriched_at?: string | null
+          last_name?: string | null
+          last_verified_at?: string | null
+          lifecycle_status?: Database["public"]["Enums"]["lifecycle_status"]
+          linkedin_url?: string | null
+          mobile_phone?: string | null
+          notes?: string | null
+          other_phone?: string | null
+          outreach_status?: Database["public"]["Enums"]["outreach_status"]
+          owner_id?: string | null
+          personal_email?: string | null
+          phone?: string | null
+          photo_url?: string | null
+          postal_code?: string | null
+          primary_email_source?: string | null
+          secondary_email?: string | null
+          secondary_email_source?: string | null
+          seniority_level?: string | null
+          skills?: string[] | null
+          source?: string | null
+          source_file?: string | null
+          state?: string | null
+          tertiary_email?: string | null
+          tertiary_email_source?: string | null
+          timezone?: string | null
+          twitter_url?: string | null
+          updated_at?: string | null
+          work_direct_phone?: string | null
+          work_history?: Json | null
+          workspace_id?: string | null
+          years_experience?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contacts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contacts_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      custom_fields: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          default_value: string | null
+          description: string | null
+          display_order: number | null
+          entity_type: string
+          field_label: string
+          field_name: string
+          field_type: string
+          id: string
+          is_active: boolean | null
+          is_required: boolean | null
+          picklist_id: string | null
+          updated_at: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          default_value?: string | null
+          description?: string | null
+          display_order?: number | null
+          entity_type: string
+          field_label: string
+          field_name: string
+          field_type: string
+          id?: string
+          is_active?: boolean | null
+          is_required?: boolean | null
+          picklist_id?: string | null
+          updated_at?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          default_value?: string | null
+          description?: string | null
+          display_order?: number | null
+          entity_type?: string
+          field_label?: string
+          field_name?: string
+          field_type?: string
+          id?: string
+          is_active?: boolean | null
+          is_required?: boolean | null
+          picklist_id?: string | null
+          updated_at?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_fields_picklist_id_fkey"
+            columns: ["picklist_id"]
+            isOneToOne: false
+            referencedRelation: "global_picklists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custom_fields_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deal_contacts: {
+        Row: {
+          contact_id: string
+          created_at: string | null
+          deal_id: string
+          role: string | null
+        }
+        Insert: {
+          contact_id: string
+          created_at?: string | null
+          deal_id: string
+          role?: string | null
+        }
+        Update: {
+          contact_id?: string
+          created_at?: string | null
+          deal_id?: string
+          role?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_contacts_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_contacts_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deal_stage_history: {
+        Row: {
+          changed_at: string | null
+          changed_by: string | null
+          deal_id: string
+          duration_in_prev_stage: string | null
+          from_stage_id: string | null
+          id: string
+          to_stage_id: string
+        }
+        Insert: {
+          changed_at?: string | null
+          changed_by?: string | null
+          deal_id: string
+          duration_in_prev_stage?: string | null
+          from_stage_id?: string | null
+          id?: string
+          to_stage_id: string
+        }
+        Update: {
+          changed_at?: string | null
+          changed_by?: string | null
+          deal_id?: string
+          duration_in_prev_stage?: string | null
+          from_stage_id?: string | null
+          id?: string
+          to_stage_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_stage_history_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_stage_history_from_stage_id_fkey"
+            columns: ["from_stage_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_stage_history_to_stage_id_fkey"
+            columns: ["to_stage_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deals: {
+        Row: {
+          actual_close_date: string | null
+          amount: number | null
+          company_id: string | null
+          contact_id: string | null
+          created_at: string | null
+          created_by: string | null
+          currency: string | null
+          custom_fields: Json | null
+          description: string | null
+          expected_close_date: string | null
+          forecast_category: string | null
+          id: string
+          loss_reason: string | null
+          name: string
+          notes: string | null
+          owner_id: string | null
+          pipeline_id: string | null
+          probability: number | null
+          source: string | null
+          stage_id: string | null
+          status: Database["public"]["Enums"]["deal_status"]
+          tags: string[] | null
+          updated_at: string | null
+          weighted_value: number | null
+          win_reason: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          actual_close_date?: string | null
+          amount?: number | null
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          currency?: string | null
+          custom_fields?: Json | null
+          description?: string | null
+          expected_close_date?: string | null
+          forecast_category?: string | null
+          id?: string
+          loss_reason?: string | null
+          name: string
+          notes?: string | null
+          owner_id?: string | null
+          pipeline_id?: string | null
+          probability?: number | null
+          source?: string | null
+          stage_id?: string | null
+          status?: Database["public"]["Enums"]["deal_status"]
+          tags?: string[] | null
+          updated_at?: string | null
+          weighted_value?: number | null
+          win_reason?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          actual_close_date?: string | null
+          amount?: number | null
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          currency?: string | null
+          custom_fields?: Json | null
+          description?: string | null
+          expected_close_date?: string | null
+          forecast_category?: string | null
+          id?: string
+          loss_reason?: string | null
+          name?: string
+          notes?: string | null
+          owner_id?: string | null
+          pipeline_id?: string | null
+          probability?: number | null
+          source?: string | null
+          stage_id?: string | null
+          status?: Database["public"]["Enums"]["deal_status"]
+          tags?: string[] | null
+          updated_at?: string | null
+          weighted_value?: number | null
+          win_reason?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deals_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_pipeline_id_fkey"
+            columns: ["pipeline_id"]
+            isOneToOne: false
+            referencedRelation: "pipelines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_events: {
+        Row: {
+          created_at: string | null
+          details: Json | null
+          email_id: string
+          event_type: string
+          id: string
+        }
+        Insert: {
+          created_at?: string | null
+          details?: Json | null
+          email_id: string
+          event_type: string
+          id?: string
+        }
+        Update: {
+          created_at?: string | null
+          details?: Json | null
+          email_id?: string
+          event_type?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_events_email_id_fkey"
+            columns: ["email_id"]
+            isOneToOne: false
+            referencedRelation: "emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      emails: {
+        Row: {
+          bcc: string | null
+          body_html: string | null
+          body_text: string | null
+          bounced_at: string | null
+          cc: string | null
+          clicked_at: string | null
+          company_id: string | null
+          contact_id: string | null
+          created_at: string | null
+          enrollment_id: string | null
+          error_message: string | null
+          from_address: string | null
+          id: string
+          mailbox_id: string | null
+          metadata: Json | null
+          opened_at: string | null
+          owner_id: string | null
+          replied_at: string | null
+          scheduled_at: string | null
+          sent_at: string | null
+          sequence_id: string | null
+          sequence_step_id: string | null
+          status: Database["public"]["Enums"]["email_status"]
+          subject: string
+          to_address: string
+          updated_at: string | null
+        }
+        Insert: {
+          bcc?: string | null
+          body_html?: string | null
+          body_text?: string | null
+          bounced_at?: string | null
+          cc?: string | null
+          clicked_at?: string | null
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          enrollment_id?: string | null
+          error_message?: string | null
+          from_address?: string | null
+          id?: string
+          mailbox_id?: string | null
+          metadata?: Json | null
+          opened_at?: string | null
+          owner_id?: string | null
+          replied_at?: string | null
+          scheduled_at?: string | null
+          sent_at?: string | null
+          sequence_id?: string | null
+          sequence_step_id?: string | null
+          status?: Database["public"]["Enums"]["email_status"]
+          subject?: string
+          to_address: string
+          updated_at?: string | null
+        }
+        Update: {
+          bcc?: string | null
+          body_html?: string | null
+          body_text?: string | null
+          bounced_at?: string | null
+          cc?: string | null
+          clicked_at?: string | null
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          enrollment_id?: string | null
+          error_message?: string | null
+          from_address?: string | null
+          id?: string
+          mailbox_id?: string | null
+          metadata?: Json | null
+          opened_at?: string | null
+          owner_id?: string | null
+          replied_at?: string | null
+          scheduled_at?: string | null
+          sent_at?: string | null
+          sequence_id?: string | null
+          sequence_step_id?: string | null
+          status?: Database["public"]["Enums"]["email_status"]
+          subject?: string
+          to_address?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emails_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emails_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emails_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "sequence_enrollments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emails_mailbox_id_fkey"
+            columns: ["mailbox_id"]
+            isOneToOne: false
+            referencedRelation: "mailboxes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emails_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "sequences"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emails_sequence_step_id_fkey"
+            columns: ["sequence_step_id"]
+            isOneToOne: false
+            referencedRelation: "sequence_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      global_picklist_options: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          display_order: number | null
+          id: string
+          is_active: boolean | null
+          label: string
+          picklist_id: string
+          value: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          label: string
+          picklist_id: string
+          value: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          label?: string
+          picklist_id?: string
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "global_picklist_options_picklist_id_fkey"
+            columns: ["picklist_id"]
+            isOneToOne: false
+            referencedRelation: "global_picklists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      global_picklists: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          updated_at: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          updated_at?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          updated_at?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "global_picklists_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      goals: {
+        Row: {
+          assigned_to: string | null
+          created_at: string | null
+          created_by: string | null
+          current_value: number
+          description: string | null
+          end_date: string
+          goal_type: string
+          id: string
+          is_active: boolean | null
+          name: string
+          period: string
+          start_date: string
+          target_value: number
+          team_goal: boolean | null
+          updated_at: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          current_value?: number
+          description?: string | null
+          end_date: string
+          goal_type: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          period: string
+          start_date: string
+          target_value?: number
+          team_goal?: boolean | null
+          updated_at?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          current_value?: number
+          description?: string | null
+          end_date?: string
+          goal_type?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          period?: string
+          start_date?: string
+          target_value?: number
+          team_goal?: boolean | null
+          updated_at?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goals_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_job_rows: {
+        Row: {
+          action_taken: string | null
+          company_id: string | null
+          contact_id: string | null
+          created_at: string | null
+          duplicate_match_reason: string | null
+          error_message: string | null
+          id: string
+          import_job_id: string
+          normalized_data: Json | null
+          raw_data: Json
+          review_required: boolean
+          row_number: number
+          status: Database["public"]["Enums"]["import_row_status"]
+        }
+        Insert: {
+          action_taken?: string | null
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          duplicate_match_reason?: string | null
+          error_message?: string | null
+          id?: string
+          import_job_id: string
+          normalized_data?: Json | null
+          raw_data: Json
+          review_required?: boolean
+          row_number: number
+          status?: Database["public"]["Enums"]["import_row_status"]
+        }
+        Update: {
+          action_taken?: string | null
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          duplicate_match_reason?: string | null
+          error_message?: string | null
+          id?: string
+          import_job_id?: string
+          normalized_data?: Json | null
+          raw_data?: Json
+          review_required?: boolean
+          row_number?: number
+          status?: Database["public"]["Enums"]["import_row_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_job_rows_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_job_rows_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_job_rows_import_job_id_fkey"
+            columns: ["import_job_id"]
+            isOneToOne: false
+            referencedRelation: "import_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_jobs: {
+        Row: {
+          column_mapping: Json | null
+          completed_at: string | null
+          created_at: string | null
+          created_by: string
+          duplicate_rows: number
+          error_rows: number
+          error_summary: Json | null
+          file_name: string
+          file_url: string | null
+          id: string
+          processed_rows: number
+          review_rows: number
+          settings: Json | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["import_status"]
+          success_rows: number
+          total_rows: number
+          workspace_id: string | null
+        }
+        Insert: {
+          column_mapping?: Json | null
+          completed_at?: string | null
+          created_at?: string | null
+          created_by: string
+          duplicate_rows?: number
+          error_rows?: number
+          error_summary?: Json | null
+          file_name: string
+          file_url?: string | null
+          id?: string
+          processed_rows?: number
+          review_rows?: number
+          settings?: Json | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["import_status"]
+          success_rows?: number
+          total_rows?: number
+          workspace_id?: string | null
+        }
+        Update: {
+          column_mapping?: Json | null
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string
+          duplicate_rows?: number
+          error_rows?: number
+          error_summary?: Json | null
+          file_name?: string
+          file_url?: string | null
+          id?: string
+          processed_rows?: number
+          review_rows?: number
+          settings?: Json | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["import_status"]
+          success_rows?: number
+          total_rows?: number
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_jobs_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      list_contacts: {
+        Row: {
+          added_at: string | null
+          added_by: string | null
+          contact_id: string
+          list_id: string
+        }
+        Insert: {
+          added_at?: string | null
+          added_by?: string | null
+          contact_id: string
+          list_id: string
+        }
+        Update: {
+          added_at?: string | null
+          added_by?: string | null
+          contact_id?: string
+          list_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "list_contacts_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "list_contacts_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "lists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lists: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          filter_criteria: Json | null
+          id: string
+          is_dynamic: boolean
+          name: string
+          updated_at: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          filter_criteria?: Json | null
+          id?: string
+          is_dynamic?: boolean
+          name: string
+          updated_at?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          filter_criteria?: Json | null
+          id?: string
+          is_dynamic?: boolean
+          name?: string
+          updated_at?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lists_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mailboxes: {
+        Row: {
+          connection_status:
+            | Database["public"]["Enums"]["connection_status"]
+            | null
+          created_at: string | null
+          created_by: string | null
+          daily_sending_limit: number | null
+          display_name: string | null
+          domain_id: string | null
+          email: string
+          emails_sent_today: number | null
+          id: string
+          imap_host: string | null
+          imap_port: number | null
+          imap_secure: boolean | null
+          imap_username: string | null
+          last_checked_at: string | null
+          notes: string | null
+          owner_id: string | null
+          provider_type:
+            | Database["public"]["Enums"]["mailbox_provider_type"]
+            | null
+          sending_health: Database["public"]["Enums"]["sending_health"] | null
+          smtp_host: string | null
+          smtp_port: number | null
+          smtp_secure: boolean | null
+          smtp_username: string | null
+          updated_at: string | null
+          warmup_enabled: boolean | null
+          warmup_progress: number | null
+        }
+        Insert: {
+          connection_status?:
+            | Database["public"]["Enums"]["connection_status"]
+            | null
+          created_at?: string | null
+          created_by?: string | null
+          daily_sending_limit?: number | null
+          display_name?: string | null
+          domain_id?: string | null
+          email: string
+          emails_sent_today?: number | null
+          id?: string
+          imap_host?: string | null
+          imap_port?: number | null
+          imap_secure?: boolean | null
+          imap_username?: string | null
+          last_checked_at?: string | null
+          notes?: string | null
+          owner_id?: string | null
+          provider_type?:
+            | Database["public"]["Enums"]["mailbox_provider_type"]
+            | null
+          sending_health?: Database["public"]["Enums"]["sending_health"] | null
+          smtp_host?: string | null
+          smtp_port?: number | null
+          smtp_secure?: boolean | null
+          smtp_username?: string | null
+          updated_at?: string | null
+          warmup_enabled?: boolean | null
+          warmup_progress?: number | null
+        }
+        Update: {
+          connection_status?:
+            | Database["public"]["Enums"]["connection_status"]
+            | null
+          created_at?: string | null
+          created_by?: string | null
+          daily_sending_limit?: number | null
+          display_name?: string | null
+          domain_id?: string | null
+          email?: string
+          emails_sent_today?: number | null
+          id?: string
+          imap_host?: string | null
+          imap_port?: number | null
+          imap_secure?: boolean | null
+          imap_username?: string | null
+          last_checked_at?: string | null
+          notes?: string | null
+          owner_id?: string | null
+          provider_type?:
+            | Database["public"]["Enums"]["mailbox_provider_type"]
+            | null
+          sending_health?: Database["public"]["Enums"]["sending_health"] | null
+          smtp_host?: string | null
+          smtp_port?: number | null
+          smtp_secure?: boolean | null
+          smtp_username?: string | null
+          updated_at?: string | null
+          warmup_enabled?: boolean | null
+          warmup_progress?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mailboxes_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "sending_domains"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meetings: {
+        Row: {
+          agenda: string | null
+          attendee_ids: string[] | null
+          company_id: string | null
+          contact_id: string | null
+          created_at: string | null
+          created_by: string | null
+          deal_id: string | null
+          description: string | null
+          duration_minutes: number | null
+          end_time: string
+          external_attendees: Json | null
+          id: string
+          location: string | null
+          meeting_type: string | null
+          meeting_url: string | null
+          next_steps: string | null
+          notes: string | null
+          organizer_id: string | null
+          outcome: string | null
+          owner_id: string | null
+          start_time: string
+          status: Database["public"]["Enums"]["meeting_status"]
+          title: string
+          updated_at: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          agenda?: string | null
+          attendee_ids?: string[] | null
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          deal_id?: string | null
+          description?: string | null
+          duration_minutes?: number | null
+          end_time: string
+          external_attendees?: Json | null
+          id?: string
+          location?: string | null
+          meeting_type?: string | null
+          meeting_url?: string | null
+          next_steps?: string | null
+          notes?: string | null
+          organizer_id?: string | null
+          outcome?: string | null
+          owner_id?: string | null
+          start_time: string
+          status?: Database["public"]["Enums"]["meeting_status"]
+          title: string
+          updated_at?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          agenda?: string | null
+          attendee_ids?: string[] | null
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          deal_id?: string | null
+          description?: string | null
+          duration_minutes?: number | null
+          end_time?: string
+          external_attendees?: Json | null
+          id?: string
+          location?: string | null
+          meeting_type?: string | null
+          meeting_url?: string | null
+          next_steps?: string | null
+          notes?: string | null
+          organizer_id?: string | null
+          outcome?: string | null
+          owner_id?: string | null
+          start_time?: string
+          status?: Database["public"]["Enums"]["meeting_status"]
+          title?: string
+          updated_at?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meetings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meetings_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meetings_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meetings_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      message_queue: {
+        Row: {
+          attempts: number
+          completed_at: string | null
+          created_at: string | null
+          enrollment_id: string | null
+          id: string
+          last_error: string | null
+          mailbox_id: string | null
+          max_attempts: number
+          payload: Json
+          priority: number
+          queue_type: string
+          reference_id: string | null
+          reference_type: string | null
+          scheduled_for: string
+          sequence_id: string | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["queue_item_status"]
+        }
+        Insert: {
+          attempts?: number
+          completed_at?: string | null
+          created_at?: string | null
+          enrollment_id?: string | null
+          id?: string
+          last_error?: string | null
+          mailbox_id?: string | null
+          max_attempts?: number
+          payload: Json
+          priority?: number
+          queue_type: string
+          reference_id?: string | null
+          reference_type?: string | null
+          scheduled_for?: string
+          sequence_id?: string | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["queue_item_status"]
+        }
+        Update: {
+          attempts?: number
+          completed_at?: string | null
+          created_at?: string | null
+          enrollment_id?: string | null
+          id?: string
+          last_error?: string | null
+          mailbox_id?: string | null
+          max_attempts?: number
+          payload?: Json
+          priority?: number
+          queue_type?: string
+          reference_id?: string | null
+          reference_type?: string | null
+          scheduled_for?: string
+          sequence_id?: string | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["queue_item_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_queue_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "sequence_enrollments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_queue_mailbox_id_fkey"
+            columns: ["mailbox_id"]
+            isOneToOne: false
+            referencedRelation: "mailboxes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_queue_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "sequences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pipeline_stages: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          created_by: string | null
+          default_probability: number | null
+          description: string | null
+          display_order: number | null
+          entity_type: string
+          forecast_category: string | null
+          id: string
+          is_active: boolean | null
+          is_closed: boolean | null
+          is_won: boolean | null
+          pipeline_id: string | null
+          pipeline_name: string
+          rotting_days: number | null
+          stage_key: string
+          stage_name: string
+          updated_at: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          default_probability?: number | null
+          description?: string | null
+          display_order?: number | null
+          entity_type: string
+          forecast_category?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_closed?: boolean | null
+          is_won?: boolean | null
+          pipeline_id?: string | null
+          pipeline_name?: string
+          rotting_days?: number | null
+          stage_key: string
+          stage_name: string
+          updated_at?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          color?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          default_probability?: number | null
+          description?: string | null
+          display_order?: number | null
+          entity_type?: string
+          forecast_category?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_closed?: boolean | null
+          is_won?: boolean | null
+          pipeline_id?: string | null
+          pipeline_name?: string
+          rotting_days?: number | null
+          stage_key?: string
+          stage_name?: string
+          updated_at?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pipeline_stages_pipeline_id_fkey"
+            columns: ["pipeline_id"]
+            isOneToOne: false
+            referencedRelation: "pipelines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pipeline_stages_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pipelines: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          entity_type: string
+          id: string
+          is_active: boolean | null
+          is_default: boolean | null
+          name: string
+          updated_at: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          entity_type: string
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          name: string
+          updated_at?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          entity_type?: string
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          name?: string
+          updated_at?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pipelines_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      platform_settings: {
+        Row: {
+          id: string
+          key: string
+          updated_at: string | null
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          id?: string
+          key: string
+          updated_at?: string | null
+          updated_by?: string | null
+          value: Json
+        }
+        Update: {
+          id?: string
+          key?: string
+          updated_at?: string | null
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          email: string | null
+          full_name: string | null
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      saved_views: {
+        Row: {
+          columns: Json | null
+          created_at: string | null
+          created_by: string | null
+          entity_type: string
+          filters: Json
+          id: string
+          is_default: boolean
+          name: string
+          sort_by: string | null
+          sort_direction: string
+          updated_at: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          columns?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          entity_type: string
+          filters?: Json
+          id?: string
+          is_default?: boolean
+          name: string
+          sort_by?: string | null
+          sort_direction?: string
+          updated_at?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          columns?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          entity_type?: string
+          filters?: Json
+          id?: string
+          is_default?: boolean
+          name?: string
+          sort_by?: string | null
+          sort_direction?: string
+          updated_at?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_views_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sending_daily_counts: {
+        Row: {
+          count: number
+          created_at: string | null
+          id: string
+          mailbox_id: string
+          send_date: string
+        }
+        Insert: {
+          count?: number
+          created_at?: string | null
+          id?: string
+          mailbox_id: string
+          send_date?: string
+        }
+        Update: {
+          count?: number
+          created_at?: string | null
+          id?: string
+          mailbox_id?: string
+          send_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sending_daily_counts_mailbox_id_fkey"
+            columns: ["mailbox_id"]
+            isOneToOne: false
+            referencedRelation: "mailboxes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sending_domains: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          daily_sending_limit: number | null
+          dkim_status: Database["public"]["Enums"]["dns_record_status"]
+          dmarc_status: Database["public"]["Enums"]["dns_record_status"]
+          domain_name: string
+          id: string
+          notes: string | null
+          owner_id: string | null
+          sending_health: Database["public"]["Enums"]["sending_health"] | null
+          spf_status: Database["public"]["Enums"]["dns_record_status"]
+          status: Database["public"]["Enums"]["domain_status"]
+          updated_at: string | null
+          verification_details: Json | null
+          warmup_enabled: boolean | null
+          warmup_progress: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          daily_sending_limit?: number | null
+          dkim_status?: Database["public"]["Enums"]["dns_record_status"]
+          dmarc_status?: Database["public"]["Enums"]["dns_record_status"]
+          domain_name: string
+          id?: string
+          notes?: string | null
+          owner_id?: string | null
+          sending_health?: Database["public"]["Enums"]["sending_health"] | null
+          spf_status?: Database["public"]["Enums"]["dns_record_status"]
+          status?: Database["public"]["Enums"]["domain_status"]
+          updated_at?: string | null
+          verification_details?: Json | null
+          warmup_enabled?: boolean | null
+          warmup_progress?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          daily_sending_limit?: number | null
+          dkim_status?: Database["public"]["Enums"]["dns_record_status"]
+          dmarc_status?: Database["public"]["Enums"]["dns_record_status"]
+          domain_name?: string
+          id?: string
+          notes?: string | null
+          owner_id?: string | null
+          sending_health?: Database["public"]["Enums"]["sending_health"] | null
+          spf_status?: Database["public"]["Enums"]["dns_record_status"]
+          status?: Database["public"]["Enums"]["domain_status"]
+          updated_at?: string | null
+          verification_details?: Json | null
+          warmup_enabled?: boolean | null
+          warmup_progress?: number | null
+        }
+        Relationships: []
+      }
+      sequence_enrollments: {
+        Row: {
+          completed_at: string | null
+          contact_id: string
+          current_step_order: number
+          enrolled_at: string | null
+          enrolled_by: string | null
+          exit_reason: string | null
+          id: string
+          last_activity_at: string | null
+          metadata: Json | null
+          next_step_at: string | null
+          paused_at: string | null
+          sequence_id: string
+          status: Database["public"]["Enums"]["enrollment_status"]
+          updated_at: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          contact_id: string
+          current_step_order?: number
+          enrolled_at?: string | null
+          enrolled_by?: string | null
+          exit_reason?: string | null
+          id?: string
+          last_activity_at?: string | null
+          metadata?: Json | null
+          next_step_at?: string | null
+          paused_at?: string | null
+          sequence_id: string
+          status?: Database["public"]["Enums"]["enrollment_status"]
+          updated_at?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          contact_id?: string
+          current_step_order?: number
+          enrolled_at?: string | null
+          enrolled_by?: string | null
+          exit_reason?: string | null
+          id?: string
+          last_activity_at?: string | null
+          metadata?: Json | null
+          next_step_at?: string | null
+          paused_at?: string | null
+          sequence_id?: string
+          status?: Database["public"]["Enums"]["enrollment_status"]
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sequence_enrollments_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sequence_enrollments_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "sequences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sequence_steps: {
+        Row: {
+          ab_variant: string | null
+          call_instructions: string | null
+          conditions: Json | null
+          created_at: string | null
+          delay_days: number
+          delay_hours: number
+          email_body: string | null
+          email_subject: string | null
+          id: string
+          is_active: boolean | null
+          label: string
+          linkedin_action: string | null
+          linkedin_message: string | null
+          sequence_id: string
+          sms_body: string | null
+          step_order: number
+          step_type: string
+          task_instructions: string | null
+          updated_at: string | null
+          variable_template: Json | null
+        }
+        Insert: {
+          ab_variant?: string | null
+          call_instructions?: string | null
+          conditions?: Json | null
+          created_at?: string | null
+          delay_days?: number
+          delay_hours?: number
+          email_body?: string | null
+          email_subject?: string | null
+          id?: string
+          is_active?: boolean | null
+          label?: string
+          linkedin_action?: string | null
+          linkedin_message?: string | null
+          sequence_id: string
+          sms_body?: string | null
+          step_order: number
+          step_type: string
+          task_instructions?: string | null
+          updated_at?: string | null
+          variable_template?: Json | null
+        }
+        Update: {
+          ab_variant?: string | null
+          call_instructions?: string | null
+          conditions?: Json | null
+          created_at?: string | null
+          delay_days?: number
+          delay_hours?: number
+          email_body?: string | null
+          email_subject?: string | null
+          id?: string
+          is_active?: boolean | null
+          label?: string
+          linkedin_action?: string | null
+          linkedin_message?: string | null
+          sequence_id?: string
+          sms_body?: string | null
+          step_order?: number
+          step_type?: string
+          task_instructions?: string | null
+          updated_at?: string | null
+          variable_template?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sequence_steps_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "sequences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sequences: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          exit_conditions: Json | null
+          id: string
+          max_enrollments: number | null
+          name: string
+          owner_id: string | null
+          schedule_config: Json | null
+          shared_with: string[] | null
+          status: Database["public"]["Enums"]["sequence_status"]
+          tags: string[] | null
+          updated_at: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          exit_conditions?: Json | null
+          id?: string
+          max_enrollments?: number | null
+          name: string
+          owner_id?: string | null
+          schedule_config?: Json | null
+          shared_with?: string[] | null
+          status?: Database["public"]["Enums"]["sequence_status"]
+          tags?: string[] | null
+          updated_at?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          exit_conditions?: Json | null
+          id?: string
+          max_enrollments?: number | null
+          name?: string
+          owner_id?: string | null
+          schedule_config?: Json | null
+          shared_with?: string[] | null
+          status?: Database["public"]["Enums"]["sequence_status"]
+          tags?: string[] | null
+          updated_at?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sequences_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      system_activity_log: {
+        Row: {
+          action: string
+          created_at: string | null
+          details: Json | null
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          ip_address: string | null
+          performed_by: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          details?: Json | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          ip_address?: string | null
+          performed_by?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          details?: Json | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          ip_address?: string | null
+          performed_by?: string | null
+        }
+        Relationships: []
+      }
+      tags: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          name: string
+          workspace_id: string | null
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          name: string
+          workspace_id?: string | null
+        }
+        Update: {
+          color?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          name?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tags_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasks: {
+        Row: {
+          assigned_to: string | null
+          company_id: string | null
+          completed_at: string | null
+          contact_id: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          due_date: string | null
+          enrollment_id: string | null
+          id: string
+          owner_id: string | null
+          priority: string
+          sequence_id: string | null
+          sequence_step_id: string | null
+          status: Database["public"]["Enums"]["task_status"]
+          task_type: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          company_id?: string | null
+          completed_at?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          enrollment_id?: string | null
+          id?: string
+          owner_id?: string | null
+          priority?: string
+          sequence_id?: string | null
+          sequence_step_id?: string | null
+          status?: Database["public"]["Enums"]["task_status"]
+          task_type?: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          company_id?: string | null
+          completed_at?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          enrollment_id?: string | null
+          id?: string
+          owner_id?: string | null
+          priority?: string
+          sequence_id?: string | null
+          sequence_step_id?: string | null
+          status?: Database["public"]["Enums"]["task_status"]
+          task_type?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "sequence_enrollments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "sequences"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_sequence_step_id_fkey"
+            columns: ["sequence_step_id"]
+            isOneToOne: false
+            referencedRelation: "sequence_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      workspace_members: {
+        Row: {
+          id: string
+          invited_by: string | null
+          joined_at: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          id?: string
+          invited_by?: string | null
+          joined_at?: string | null
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          id?: string
+          invited_by?: string | null
+          joined_at?: string | null
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_members_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspaces: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          logo_url: string | null
+          name: string
+          settings: Json | null
+          slug: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          logo_url?: string | null
+          name: string
+          settings?: Json | null
+          slug: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          logo_url?: string | null
+          name?: string
+          settings?: Json | null
+          slug?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      check_mailbox_readiness: { Args: { p_mailbox_id: string }; Returns: Json }
+      has_any_role: {
+        Args: {
+          _roles: Database["public"]["Enums"]["app_role"][]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      increment_daily_send_count: {
+        Args: { p_limit: number; p_mailbox_id: string }
+        Returns: boolean
+      }
+      is_workspace_member: {
+        Args: { _user_id: string; _workspace_id: string }
+        Returns: boolean
+      }
+      log_activity: {
+        Args: {
+          p_activity_type: Database["public"]["Enums"]["activity_type"]
+          p_company_id?: string
+          p_contact_id?: string
+          p_deal_id?: string
+          p_description?: string
+          p_metadata?: Json
+          p_performed_by?: string
+          p_source_id?: string
+          p_source_type?: string
+          p_title: string
+          p_workspace_id: string
+        }
+        Returns: string
+      }
+      workspace_role: {
+        Args: { _user_id: string; _workspace_id: string }
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
+    }
+    Enums: {
+      activity_type:
+        | "email_sent"
+        | "email_opened"
+        | "email_clicked"
+        | "email_replied"
+        | "email_bounced"
+        | "call_made"
+        | "call_received"
+        | "meeting_scheduled"
+        | "meeting_completed"
+        | "meeting_cancelled"
+        | "task_created"
+        | "task_completed"
+        | "deal_created"
+        | "deal_stage_changed"
+        | "deal_won"
+        | "deal_lost"
+        | "note_added"
+        | "contact_created"
+        | "contact_updated"
+        | "contact_merged"
+        | "company_created"
+        | "company_updated"
+        | "sequence_enrolled"
+        | "sequence_completed"
+        | "sequence_replied"
+        | "list_added"
+        | "list_removed"
+        | "field_changed"
+        | "custom"
+      app_role: "admin" | "manager" | "operator" | "viewer"
+      call_outcome:
+        | "no_answer"
+        | "voicemail"
+        | "connected"
+        | "interested"
+        | "not_interested"
+        | "callback"
+        | "wrong_number"
+      connection_status: "active" | "disconnected" | "warming" | "error"
+      deal_status: "open" | "won" | "lost" | "abandoned"
+      dns_record_status: "pending" | "pass" | "fail"
+      domain_status: "pending" | "verified" | "failed"
+      email_status:
+        | "draft"
+        | "queued"
+        | "processing"
+        | "sent_mock"
+        | "sent"
+        | "failed"
+        | "bounced"
+      email_validity:
+        | "unknown"
+        | "valid"
+        | "invalid"
+        | "catch_all"
+        | "disposable"
+        | "role_based"
+      enrollment_status:
+        | "active"
+        | "paused"
+        | "completed"
+        | "bounced"
+        | "replied"
+        | "opted_out"
+        | "failed"
+      import_row_status:
+        | "pending"
+        | "success"
+        | "error"
+        | "skipped"
+        | "duplicate"
+        | "review"
+      import_status:
+        | "pending"
+        | "mapping"
+        | "validating"
+        | "processing"
+        | "completed"
+        | "failed"
+        | "cancelled"
+      lifecycle_status:
+        | "new"
+        | "researching"
+        | "qualified"
+        | "nurturing"
+        | "engaged"
+        | "converted"
+        | "churned"
+        | "archived"
+      mailbox_provider_type: "google" | "microsoft" | "smtp" | "other"
+      meeting_status: "scheduled" | "completed" | "cancelled" | "no_show"
+      outreach_status:
+        | "not_contacted"
+        | "queued"
+        | "contacted"
+        | "replied"
+        | "bounced"
+        | "opted_out"
+        | "unresponsive"
+      queue_item_status:
+        | "pending"
+        | "processing"
+        | "completed"
+        | "failed"
+        | "cancelled"
+      sending_health: "unknown" | "good" | "warning" | "poor"
+      sequence_status: "draft" | "active" | "paused" | "archived"
+      task_status:
+        | "pending"
+        | "in_progress"
+        | "completed"
+        | "skipped"
+        | "cancelled"
+      warmup_status: "off" | "active" | "paused" | "complete"
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+}
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {
+      activity_type: [
+        "email_sent",
+        "email_opened",
+        "email_clicked",
+        "email_replied",
+        "email_bounced",
+        "call_made",
+        "call_received",
+        "meeting_scheduled",
+        "meeting_completed",
+        "meeting_cancelled",
+        "task_created",
+        "task_completed",
+        "deal_created",
+        "deal_stage_changed",
+        "deal_won",
+        "deal_lost",
+        "note_added",
+        "contact_created",
+        "contact_updated",
+        "contact_merged",
+        "company_created",
+        "company_updated",
+        "sequence_enrolled",
+        "sequence_completed",
+        "sequence_replied",
+        "list_added",
+        "list_removed",
+        "field_changed",
+        "custom",
+      ],
+      app_role: ["admin", "manager", "operator", "viewer"],
+      call_outcome: [
+        "no_answer",
+        "voicemail",
+        "connected",
+        "interested",
+        "not_interested",
+        "callback",
+        "wrong_number",
+      ],
+      connection_status: ["active", "disconnected", "warming", "error"],
+      deal_status: ["open", "won", "lost", "abandoned"],
+      dns_record_status: ["pending", "pass", "fail"],
+      domain_status: ["pending", "verified", "failed"],
+      email_status: [
+        "draft",
+        "queued",
+        "processing",
+        "sent_mock",
+        "sent",
+        "failed",
+        "bounced",
+      ],
+      email_validity: [
+        "unknown",
+        "valid",
+        "invalid",
+        "catch_all",
+        "disposable",
+        "role_based",
+      ],
+      enrollment_status: [
+        "active",
+        "paused",
+        "completed",
+        "bounced",
+        "replied",
+        "opted_out",
+        "failed",
+      ],
+      import_row_status: [
+        "pending",
+        "success",
+        "error",
+        "skipped",
+        "duplicate",
+        "review",
+      ],
+      import_status: [
+        "pending",
+        "mapping",
+        "validating",
+        "processing",
+        "completed",
+        "failed",
+        "cancelled",
+      ],
+      lifecycle_status: [
+        "new",
+        "researching",
+        "qualified",
+        "nurturing",
+        "engaged",
+        "converted",
+        "churned",
+        "archived",
+      ],
+      mailbox_provider_type: ["google", "microsoft", "smtp", "other"],
+      meeting_status: ["scheduled", "completed", "cancelled", "no_show"],
+      outreach_status: [
+        "not_contacted",
+        "queued",
+        "contacted",
+        "replied",
+        "bounced",
+        "opted_out",
+        "unresponsive",
+      ],
+      queue_item_status: [
+        "pending",
+        "processing",
+        "completed",
+        "failed",
+        "cancelled",
+      ],
+      sending_health: ["unknown", "good", "warning", "poor"],
+      sequence_status: ["draft", "active", "paused", "archived"],
+      task_status: [
+        "pending",
+        "in_progress",
+        "completed",
+        "skipped",
+        "cancelled",
+      ],
+      warmup_status: ["off", "active", "paused", "complete"],
+    },
+  },
+} as const

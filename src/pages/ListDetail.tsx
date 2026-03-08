@@ -63,7 +63,7 @@ export default function ListDetailPage() {
 
     if (list.is_dynamic) {
       // For dynamic lists, query contacts with filter_criteria
-      let query = supabase.from("contacts")
+      let query: any = supabase.from("contacts")
         .select("id, first_name, last_name, email, job_title, company_name_raw, lifecycle_status", { count: "exact" })
         .order("updated_at", { ascending: false })
         .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
