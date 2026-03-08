@@ -142,6 +142,12 @@ export default function CompaniesPage() {
     setPage(0);
   };
   const col = (key: string) => visibleCols.has(key);
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
+  };
+  const toggleSelectAll = () => {
+    selected.size === companies.length ? setSelected(new Set()) : setSelected(new Set(companies.map((c) => c.id)));
+  };
   const formatDate = (d: string | null) => {
     if (!d) return "—";
     try { return format(new Date(d), "MMM d, yyyy"); } catch { return "—"; }
