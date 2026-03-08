@@ -44,6 +44,7 @@ export default function SequencesListPage() {
   const deleteSeq = useDeleteSequence();
   const addStep = useAddStep();
   const deleteStep = useDeleteStep();
+  const updateStep = useUpdateStep();
 
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState("");
