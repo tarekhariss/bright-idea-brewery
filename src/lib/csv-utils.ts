@@ -12,7 +12,7 @@ export interface ParsedCSV {
   errors: string[];
 }
 
-export function parseCSVText(text: string, maxPreviewRows = 500): ParsedCSV {
+export function parseCSVText(text: string, maxRows?: number): ParsedCSV {
   const errors: string[] = [];
   const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
   if (lines.length === 0) return { headers: [], rows: [], totalRows: 0, errors: ["File is empty"] };
@@ -21,8 +21,9 @@ export function parseCSVText(text: string, maxPreviewRows = 500): ParsedCSV {
   if (headers.length === 0) return { headers: [], rows: [], totalRows: 0, errors: ["No headers detected"] };
 
   const totalRows = lines.length - 1;
+  const limit = maxRows != null ? Math.min(maxRows, totalRows) : totalRows;
   const rows: Record<string, string>[] = [];
-  for (let i = 1; i < lines.length && i <= maxPreviewRows; i++) {
+  for (let i = 1; i <= limit; i++) {
     const values = parseCSVLine(lines[i]);
     if (values.length !== headers.length) {
       errors.push(`Row ${i}: expected ${headers.length} columns, got ${values.length}`);
