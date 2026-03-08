@@ -90,6 +90,7 @@ export default function ContactsPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const savedViews = useSavedViews("contact");
+  const { canEdit } = useAuth();
 
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [count, setCount] = useState(0);
