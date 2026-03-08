@@ -44,7 +44,7 @@ export default function WorkspaceDetailAdmin() {
   }
 
   return (
-    <PageShell title={ws.workspace_name} subtitle={`Owner: ${ws.owner_email ?? "Unknown"}`}>
+    <PageShell title={ws.workspace_name} description={`Owner: ${ws.owner_email ?? "Unknown"}`}>
       <div className="flex items-center gap-2 mb-6">
         <Badge variant="outline">{ws.member_count ?? 0} members</Badge>
         <Badge variant="secondary">{ws.active_campaigns ?? 0} active campaigns</Badge>

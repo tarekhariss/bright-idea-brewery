@@ -57,7 +57,7 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <PageShell title="Platform Admin" subtitle="Global overview across all workspaces">
+    <PageShell title="Platform Admin" description="Global overview across all workspaces">
       <div className="flex items-center gap-2 mb-6">
         <Shield className="h-5 w-5 text-primary" />
         <Badge variant="outline" className="text-xs">Admin Only</Badge>

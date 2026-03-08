@@ -165,6 +165,10 @@ const App = () => (
             <Route path="/saved-views" element={<PL><SavedViewsPage /></PL>} />
             <Route path="/data-health" element={<PL><DataHealthPage /></PL>} />
 
+            {/* Admin */}
+            <Route path="/admin" element={<PL><AdminDashboard /></PL>} />
+            <Route path="/admin/workspaces/:id" element={<PL><WorkspaceDetailAdmin /></PL>} />
+
             {/* Settings */}
             <Route path="/settings" element={<SL><SettingsIndex /></SL>} />
             <Route path="/settings/search/profile" element={<SL><ProfileSettings /></SL>} />
