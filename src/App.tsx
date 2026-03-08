@@ -110,8 +110,8 @@ const App = () => (
             <Route path="/search/data-enrichment" element={<PL><DataEnrichmentPage /></PL>} />
 
             {/* Engage */}
-            <Route path="/engage" element={<PL><SequencesPage /></PL>} />
-            <Route path="/engage/sequences" element={<PL><SequencesPage /></PL>} />
+            <Route path="/engage" element={<PL><SequencesListPage /></PL>} />
+            <Route path="/engage/sequences" element={<PL><SequencesListPage /></PL>} />
             <Route path="/engage/emails" element={<PL><EmailsPage /></PL>} />
             <Route path="/engage/calls" element={<PL><CallsPage /></PL>} />
             <Route path="/engage/tasks" element={<PL><TasksPage /></PL>} />
@@ -123,8 +123,8 @@ const App = () => (
             <Route path="/deals/deals" element={<PL><DealsPage /></PL>} />
 
             {/* Tools */}
-            <Route path="/tools" element={<PL><WorkflowsPage /></PL>} />
-            <Route path="/tools/workflows" element={<PL><WorkflowsPage /></PL>} />
+            <Route path="/tools" element={<PL><WorkflowsListPage /></PL>} />
+            <Route path="/tools/workflows" element={<PL><WorkflowsListPage /></PL>} />
             <Route path="/tools/analytics" element={<PL><AnalyticsPage /></PL>} />
 
             {/* Records (reuse existing) */}
