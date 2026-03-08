@@ -409,6 +409,19 @@ export default function CampaignDetailPage() {
                 </Select>
               </div>
             )}
+            {newStepType === "linkedin_message" && (
+              <div>
+                <Label className="text-xs">LinkedIn Message Template</Label>
+                <Select value={newLinkedinTemplateId} onValueChange={setNewLinkedinTemplateId}>
+                  <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue placeholder="Select template..." /></SelectTrigger>
+                  <SelectContent>
+                    {linkedinTemplates?.map((t: any) => (
+                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             {(newStepType === "task" || newStepType === "linkedin_connect" || newStepType === "linkedin_message") && (
               <div>
                 <Label className="text-xs">Task Description</Label>
