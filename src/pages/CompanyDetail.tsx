@@ -1,13 +1,17 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useProfiles } from "@/hooks/use-profiles";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, ArrowLeft, Globe, Linkedin, Facebook, Twitter, MapPin, Building2, Phone, Users, DollarSign, Cpu, ExternalLink, Hash } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, ArrowLeft, Globe, Linkedin, Facebook, Twitter, MapPin, Building2, Phone, Users, DollarSign, Cpu, ExternalLink, Hash, UserPlus } from "lucide-react";
 import { QualityScoreBadge, LifecycleBadge } from "@/components/data-table/StatusBadge";
 import { format } from "date-fns";
+import { toast } from "sonner";
 import type { Database, LifecycleStatus } from "@/integrations/supabase/db-types";
 
 type Company = Database["public"]["Tables"]["companies"]["Row"];
@@ -26,6 +30,8 @@ interface LinkedContact {
 export default function CompanyDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { canEdit } = useAuth();
+  const { profiles, getName } = useProfiles();
   const [company, setCompany] = useState<Company | null>(null);
   const [contacts, setContacts] = useState<LinkedContact[]>([]);
   const [contactCount, setContactCount] = useState(0);
@@ -130,7 +136,7 @@ export default function CompanyDetailPage() {
             {company.revenue_range && <Badge variant="outline" className="text-[11px]">{company.revenue_range}</Badge>}
           </div>
         </div>
-        <Button variant="outline" size="sm" className="text-xs">Edit Company</Button>
+        {canEdit && <Button variant="outline" size="sm" className="text-xs">Edit Company</Button>}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -261,6 +267,35 @@ export default function CompanyDetailPage() {
 
         {/* Sidebar */}
         <div className="space-y-6">
+          {/* Owner */}
+          <Card>
+            <CardHeader className="pb-3"><CardTitle className="text-sm font-medium flex items-center gap-1.5"><UserPlus className="h-3.5 w-3.5" /> Owner</CardTitle></CardHeader>
+            <CardContent>
+              {canEdit ? (
+                <Select
+                  value={company.owner_id || "unassigned"}
+                  onValueChange={async (val) => {
+                    const ownerId = val === "unassigned" ? null : val;
+                    // @ts-ignore
+                    await supabase.from("companies").update({ owner_id: ownerId }).eq("id", company.id);
+                    setCompany({ ...company, owner_id: ownerId });
+                    toast.success("Owner updated");
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                    {profiles.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.full_name || p.email || p.id.slice(0, 8)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p className="text-sm">{getName(company.owner_id)}</p>
+              )}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader className="pb-3"><CardTitle className="text-sm font-medium">Tags</CardTitle></CardHeader>
             <CardContent>

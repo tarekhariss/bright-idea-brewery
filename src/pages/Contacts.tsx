@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -90,6 +91,7 @@ export default function ContactsPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const savedViews = useSavedViews("contact");
+  const { canEdit } = useAuth();
 
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [count, setCount] = useState(0);

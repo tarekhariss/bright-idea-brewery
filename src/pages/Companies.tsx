@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -70,6 +71,7 @@ export default function CompaniesPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const savedViews = useSavedViews("company");
+  const { canEdit } = useAuth();
 
   const [companies, setCompanies] = useState<Company[]>([]);
   const [count, setCount] = useState(0);

@@ -1,13 +1,17 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useProfiles, useOwnerName } from "@/hooks/use-profiles";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, ArrowLeft, Mail, Phone, Linkedin, MapPin, Building2, Calendar, Shield, ExternalLink, User } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, ArrowLeft, Mail, Phone, Linkedin, MapPin, Building2, Calendar, Shield, ExternalLink, User, UserPlus } from "lucide-react";
 import { LifecycleBadge, OutreachBadge, EmailValidityBadge, QualityScoreBadge, DncBadge } from "@/components/data-table/StatusBadge";
 import { format } from "date-fns";
+import { toast } from "sonner";
 import type { Database } from "@/integrations/supabase/db-types";
 
 type Contact = Database["public"]["Tables"]["contacts"]["Row"];
@@ -18,6 +22,8 @@ type Tag = Database["public"]["Tables"]["tags"]["Row"];
 export default function ContactDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { canEdit } = useAuth();
+  const { profiles, getName } = useProfiles();
   const [contact, setContact] = useState<Contact | null>(null);
   const [company, setCompany] = useState<Company | null>(null);
   const [activities, setActivities] = useState<ActivityLog[]>([]);
@@ -130,7 +136,7 @@ export default function ContactDetailPage() {
             <QualityScoreBadge score={contact.data_quality_score} />
           </div>
         </div>
-        <Button variant="outline" size="sm" className="text-xs">Edit Contact</Button>
+        {canEdit && <Button variant="outline" size="sm" className="text-xs">Edit Contact</Button>}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -207,6 +213,34 @@ export default function ContactDetailPage() {
 
         {/* Sidebar */}
         <div className="space-y-6">
+          {/* Owner */}
+          <Card>
+            <CardHeader className="pb-3"><CardTitle className="text-sm font-medium flex items-center gap-1.5"><UserPlus className="h-3.5 w-3.5" /> Owner</CardTitle></CardHeader>
+            <CardContent>
+              {canEdit ? (
+                <Select
+                  value={contact.owner_id || "unassigned"}
+                  onValueChange={async (val) => {
+                    const ownerId = val === "unassigned" ? null : val;
+                    // @ts-ignore
+                    await supabase.from("contacts").update({ owner_id: ownerId }).eq("id", contact.id);
+                    setContact({ ...contact, owner_id: ownerId });
+                    toast.success("Owner updated");
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                    {profiles.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.full_name || p.email || p.id.slice(0, 8)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p className="text-sm">{getName(contact.owner_id)}</p>
+              )}
+            </CardContent>
+          </Card>
           {/* Tags */}
           <Card>
             <CardHeader className="pb-3"><CardTitle className="text-sm font-medium">Tags</CardTitle></CardHeader>
@@ -229,6 +263,7 @@ export default function ContactDetailPage() {
           <Card>
             <CardHeader className="pb-3"><CardTitle className="text-sm font-medium">Metadata</CardTitle></CardHeader>
             <CardContent className="space-y-2">
+              <DetailField label="Created By" value={getName(contact.created_by)} />
               <DetailField label="Source" value={contact.source} />
               <DetailField label="Source File" value={contact.source_file} />
               <DetailField label="External Source" value={contact.external_source} />
