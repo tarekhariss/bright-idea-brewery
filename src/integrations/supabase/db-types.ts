@@ -594,6 +594,208 @@ export type Database = {
           created_at?: string;
         };
       };
+      custom_fields: {
+        Row: {
+          id: string;
+          entity_type: "contact" | "company" | "deal";
+          field_name: string;
+          field_label: string;
+          field_type: "text" | "number" | "date" | "boolean" | "picklist" | "multi_picklist" | "url" | "email" | "phone" | "textarea" | "currency";
+          picklist_id: string | null;
+          is_required: boolean;
+          is_active: boolean;
+          default_value: string | null;
+          display_order: number;
+          description: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          entity_type: "contact" | "company" | "deal";
+          field_name: string;
+          field_label: string;
+          field_type: "text" | "number" | "date" | "boolean" | "picklist" | "multi_picklist" | "url" | "email" | "phone" | "textarea" | "currency";
+          picklist_id?: string | null;
+          is_required?: boolean;
+          is_active?: boolean;
+          default_value?: string | null;
+          display_order?: number;
+          description?: string | null;
+          created_by?: string | null;
+        };
+        Update: {
+          field_label?: string;
+          field_type?: "text" | "number" | "date" | "boolean" | "picklist" | "multi_picklist" | "url" | "email" | "phone" | "textarea" | "currency";
+          picklist_id?: string | null;
+          is_required?: boolean;
+          is_active?: boolean;
+          default_value?: string | null;
+          display_order?: number;
+          description?: string | null;
+        };
+      };
+      pipeline_stages: {
+        Row: {
+          id: string;
+          entity_type: "contact" | "company" | "deal";
+          pipeline_name: string;
+          stage_name: string;
+          stage_key: string;
+          display_order: number;
+          color: string | null;
+          description: string | null;
+          is_active: boolean;
+          is_closed: boolean;
+          is_won: boolean;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          entity_type: "contact" | "company" | "deal";
+          pipeline_name?: string;
+          stage_name: string;
+          stage_key: string;
+          display_order?: number;
+          color?: string | null;
+          description?: string | null;
+          is_active?: boolean;
+          is_closed?: boolean;
+          is_won?: boolean;
+          created_by?: string | null;
+        };
+        Update: {
+          stage_name?: string;
+          display_order?: number;
+          color?: string | null;
+          description?: string | null;
+          is_active?: boolean;
+          is_closed?: boolean;
+          is_won?: boolean;
+        };
+      };
+      global_picklists: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          is_active: boolean;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          description?: string | null;
+          is_active?: boolean;
+          created_by?: string | null;
+        };
+        Update: {
+          name?: string;
+          description?: string | null;
+          is_active?: boolean;
+        };
+      };
+      global_picklist_options: {
+        Row: {
+          id: string;
+          picklist_id: string;
+          label: string;
+          value: string;
+          display_order: number;
+          is_active: boolean;
+          color: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          picklist_id: string;
+          label: string;
+          value: string;
+          display_order?: number;
+          is_active?: boolean;
+          color?: string | null;
+        };
+        Update: {
+          label?: string;
+          value?: string;
+          display_order?: number;
+          is_active?: boolean;
+          color?: string | null;
+        };
+      };
+      goals: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          goal_type: "contacts_created" | "emails_sent" | "calls_made" | "meetings_booked" | "deals_won" | "revenue" | "custom";
+          target_value: number;
+          current_value: number;
+          period: "daily" | "weekly" | "monthly" | "quarterly" | "yearly";
+          start_date: string;
+          end_date: string;
+          assigned_to: string | null;
+          team_goal: boolean;
+          is_active: boolean;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          description?: string | null;
+          goal_type: "contacts_created" | "emails_sent" | "calls_made" | "meetings_booked" | "deals_won" | "revenue" | "custom";
+          target_value: number;
+          current_value?: number;
+          period: "daily" | "weekly" | "monthly" | "quarterly" | "yearly";
+          start_date: string;
+          end_date: string;
+          assigned_to?: string | null;
+          team_goal?: boolean;
+          is_active?: boolean;
+          created_by?: string | null;
+        };
+        Update: {
+          name?: string;
+          description?: string | null;
+          target_value?: number;
+          current_value?: number;
+          period?: "daily" | "weekly" | "monthly" | "quarterly" | "yearly";
+          start_date?: string;
+          end_date?: string;
+          assigned_to?: string | null;
+          team_goal?: boolean;
+          is_active?: boolean;
+        };
+      };
+      system_activity_log: {
+        Row: {
+          id: string;
+          action: string;
+          entity_type: string | null;
+          entity_id: string | null;
+          details: Json | null;
+          performed_by: string | null;
+          ip_address: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          action: string;
+          entity_type?: string | null;
+          entity_id?: string | null;
+          details?: Json | null;
+          performed_by?: string | null;
+          ip_address?: string | null;
+        };
+        Update: {};
+      };
       platform_settings: {
         Row: {
           id: string;
