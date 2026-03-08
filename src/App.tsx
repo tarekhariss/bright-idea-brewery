@@ -159,7 +159,6 @@ const App = () => (
             <Route path="/settings/workspace/deliverability/domains" element={<SL><DomainsPage /></SL>} />
             <Route path="/settings/workspace/deliverability/mailboxes" element={<SL><MailboxesPage /></SL>} />
             <Route path="/settings/workspace/users" element={<SL><UserTeamSettings /></SL>} />
-            <Route path="/settings/workspace/users" element={<SL><UserTeamSettings /></SL>} />
             <Route path="/settings/workspace/security" element={<SL><SecuritySettings /></SL>} />
 
             <Route path="/settings/billing/plan-overview" element={<SL><PlanOverviewSettings /></SL>} />
