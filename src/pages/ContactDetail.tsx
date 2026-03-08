@@ -14,6 +14,8 @@ import { LifecycleBadge, OutreachBadge, EmailValidityBadge, QualityScoreBadge, D
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { IntelligenceTab } from "@/components/intelligence/IntelligenceTab";
+import { AttributionSection } from "@/components/analytics/AttributionSection";
+import { useContactAttribution } from "@/hooks/use-analytics";
 import type { Database } from "@/integrations/supabase/db-types";
 
 type Contact = Database["public"]["Tables"]["contacts"]["Row"];
