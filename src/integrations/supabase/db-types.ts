@@ -12,6 +12,12 @@ export type ImportRowStatus = "pending" | "success" | "error" | "skipped" | "dup
 export type LifecycleStatus = "new" | "researching" | "qualified" | "nurturing" | "engaged" | "converted" | "churned" | "archived";
 export type OutreachStatus = "not_contacted" | "queued" | "contacted" | "replied" | "bounced" | "opted_out" | "unresponsive";
 export type EmailValidity = "unknown" | "valid" | "invalid" | "catch_all" | "disposable" | "role_based";
+export type SequenceStatus = "draft" | "active" | "paused" | "archived";
+export type EnrollmentStatus = "active" | "paused" | "completed" | "bounced" | "replied" | "opted_out" | "failed";
+export type EmailStatus = "draft" | "queued" | "processing" | "sent_mock" | "sent" | "failed" | "bounced";
+export type TaskStatus = "pending" | "in_progress" | "completed" | "skipped" | "cancelled";
+export type CallOutcome = "no_answer" | "voicemail" | "connected" | "interested" | "not_interested" | "callback" | "wrong_number";
+export type QueueItemStatus = "pending" | "processing" | "completed" | "failed" | "cancelled";
 
 export type Database = {
   public: {
