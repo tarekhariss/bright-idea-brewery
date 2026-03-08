@@ -22,6 +22,8 @@ type Tag = Database["public"]["Tables"]["tags"]["Row"];
 export default function ContactDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { canEdit } = useAuth();
+  const { profiles, getName } = useProfiles();
   const [contact, setContact] = useState<Contact | null>(null);
   const [company, setCompany] = useState<Company | null>(null);
   const [activities, setActivities] = useState<ActivityLog[]>([]);
