@@ -56,7 +56,7 @@ import MailboxesPage from "./pages/settings/deliverability/MailboxesPage";
 // Settings pages
 import SettingsIndex from "./pages/settings/SettingsIndex";
 import ProfileSettings from "./pages/settings/ProfileSettings";
-import DeliverabilitySettings from "./pages/settings/DeliverabilitySettings";
+// DeliverabilitySettings removed - now using dedicated pages
 import {
   MailboxDomainSettings, PhoneNumberSettings, NotificationSettings,
   ChromeExtensionSettings, ConversationSettings,
