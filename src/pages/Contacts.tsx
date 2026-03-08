@@ -286,13 +286,10 @@ export default function ContactsPage() {
               {col("updated_at") && <TableHead><SortableHeader label="Updated" sortKey="updated_at" currentSort={sortBy} currentDirection={sortDir} onSort={handleSort} /></TableHead>}
             </TableRow>
           </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={20} className="h-48 text-center">
-                <Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" />
-                <p className="mt-2 text-xs text-muted-foreground">Loading contacts...</p>
-              </TableCell></TableRow>
-            ) : contacts.length === 0 ? (
+          {loading ? (
+            <tbody><TableSkeleton rows={pageSize > 50 ? 15 : 10} columns={visibleCols.size + 1} /></tbody>
+          ) : contacts.length === 0 ? (
+            <tbody>
               <TableRow><TableCell colSpan={20} className="h-48 text-center">
                 <div className="flex flex-col items-center gap-2">
                   <Search className="h-8 w-8 text-muted-foreground/40" />
@@ -304,8 +301,12 @@ export default function ContactsPage() {
                   </p>
                 </div>
               </TableCell></TableRow>
-            ) : (
-              contacts.map((c) => (
+            </tbody>
+          ) : (
+            <VirtualizedTableBody
+              items={contacts}
+              estimateSize={40}
+              renderRow={(c) => (
                 <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50 h-10" onClick={() => navigate(`/contacts/${c.id}`)}>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <Checkbox checked={selected.has(c.id)} onCheckedChange={() => toggleSelect(c.id)} />
