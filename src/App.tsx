@@ -19,6 +19,8 @@ import CompanyDetailPage from "./pages/CompanyDetail";
 import ListsPage from "./pages/Lists";
 import ListDetailPage from "./pages/ListDetail";
 import ImportsPage from "./pages/Imports";
+import ImportWizardPage from "./pages/ImportWizard";
+import ImportJobDetailPage from "./pages/ImportJobDetail";
 import SavedViewsPage from "./pages/SavedViews";
 import DataHealthPage from "./pages/DataHealth";
 import SettingsPage from "./pages/Settings";
@@ -55,6 +57,8 @@ const App = () => (
             <Route path="/lists" element={<ProtectedLayout><ListsPage /></ProtectedLayout>} />
             <Route path="/lists/:id" element={<ProtectedLayout><ListDetailPage /></ProtectedLayout>} />
             <Route path="/imports" element={<ProtectedLayout><ImportsPage /></ProtectedLayout>} />
+            <Route path="/imports/new" element={<ProtectedLayout><ImportWizardPage /></ProtectedLayout>} />
+            <Route path="/imports/:id" element={<ProtectedLayout><ImportJobDetailPage /></ProtectedLayout>} />
             <Route path="/saved-views" element={<ProtectedLayout><SavedViewsPage /></ProtectedLayout>} />
             <Route path="/data-health" element={<ProtectedLayout><DataHealthPage /></ProtectedLayout>} />
             <Route path="/settings" element={<ProtectedLayout><SettingsPage /></ProtectedLayout>} />
