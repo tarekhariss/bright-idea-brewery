@@ -1,11 +1,11 @@
 [functions.send-email]
-verify_jwt = false
+verify_jwt = true
 
 [functions.process-email-queue]
-verify_jwt = false
+verify_jwt = true
 
 [functions.process-sequence-steps]
-verify_jwt = false
+verify_jwt = true
 
 [functions.email-admin-tools]
-verify_jwt = false
+verify_jwt = true

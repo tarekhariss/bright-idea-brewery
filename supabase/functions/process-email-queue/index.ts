@@ -4,15 +4,39 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+    "authorization, x-client-info, apikey, content-type, x-cron-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+const cronSecret = Deno.env.get("CRON_SECRET");
 
 const MAX_BATCH = 20;
 const MAX_ATTEMPTS = 3;
+
+/**
+ * Auth: accepts either a valid user JWT or a cron secret header.
+ * pg_cron calls use the x-cron-secret header.
+ */
+async function authenticateCaller(req: Request): Promise<boolean> {
+  // Cron secret check
+  const incomingCronSecret = req.headers.get("x-cron-secret");
+  if (incomingCronSecret && cronSecret && incomingCronSecret === cronSecret) {
+    return true;
+  }
+
+  // User JWT check
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) return false;
+
+  const token = authHeader.replace("Bearer ", "");
+  const anonClient = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+  const { data, error } = await anonClient.auth.getUser(token);
+  return !error && !!data?.user;
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -20,22 +44,12 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
+    const authorized = await authenticateCaller(req);
+    if (!authorized) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
 
     const supabase = createClient(supabaseUrl, serviceKey);
-
-    // Verify caller
-    const anonClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { error: authErr } = await anonClient.auth.getUser();
-    if (authErr) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
-    }
-
     const now = new Date().toISOString();
 
     // 1. Fetch pending email queue items that are due
@@ -66,7 +80,6 @@ Deno.serve(async (req: Request) => {
       const mailboxId = payload?.mailbox_id || item.mailbox_id;
 
       if (!emailId) {
-        // Mark as failed — no email_id
         await supabase.from("message_queue").update({
           status: "failed",
           last_error: "No email_id in payload",
@@ -77,7 +90,7 @@ Deno.serve(async (req: Request) => {
         continue;
       }
 
-      // Fetch the email to determine mailbox
+      // Fetch the email
       const { data: email } = await supabase.from("emails").select("id, status, mailbox_id, to_address").eq("id", emailId).single();
       if (!email) {
         await supabase.from("message_queue").update({
@@ -113,10 +126,10 @@ Deno.serve(async (req: Request) => {
         continue;
       }
 
-      // Fetch mailbox for readiness
-      const { data: mailbox } = await supabase.from("mailboxes").select("*").eq("id", resolvedMailboxId).single();
+      // Fetch mailbox for readiness — uses real ConnectionStatus enum: 'active'
+      const { data: mailbox } = await supabase.from("mailboxes").select("id, connection_status").eq("id", resolvedMailboxId).single();
       if (!mailbox || mailbox.connection_status !== "active") {
-        const reason = !mailbox ? "mailbox_not_found" : "mailbox_not_active";
+        const reason = !mailbox ? "mailbox_not_found" : `mailbox_status_${mailbox.connection_status}`;
         await supabase.from("message_queue").update({
           status: "failed",
           last_error: reason,
@@ -127,12 +140,12 @@ Deno.serve(async (req: Request) => {
         continue;
       }
 
-      // Claim the item (prevent duplicate processing)
+      // Claim the item (optimistic lock)
       const { data: claimed, error: claimErr } = await supabase
         .from("message_queue")
         .update({ status: "processing", started_at: now, attempts: item.attempts + 1 })
         .eq("id", item.id)
-        .eq("status", "pending") // optimistic lock
+        .eq("status", "pending")
         .select()
         .single();
 
@@ -141,14 +154,22 @@ Deno.serve(async (req: Request) => {
         continue;
       }
 
-      // Call send-email function
+      // Call send-email using cron secret (internal call, no user JWT needed)
       try {
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+        };
+        // Use cron secret for internal function-to-function call
+        if (cronSecret) {
+          headers["x-cron-secret"] = cronSecret;
+          headers["Authorization"] = `Bearer ${anonKey}`;
+        } else {
+          headers["Authorization"] = `Bearer ${serviceKey}`;
+        }
+
         const sendRes = await fetch(`${supabaseUrl}/functions/v1/send-email`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${serviceKey}`,
-          },
+          headers,
           body: JSON.stringify({ email_id: emailId, mailbox_id: resolvedMailboxId }),
         });
 
@@ -157,7 +178,6 @@ Deno.serve(async (req: Request) => {
         if (sendRes.ok && sendBody.success) {
           results.push({ id: item.id, email_id: emailId, status: "sent" });
         } else {
-          // send-email already updated email status; update queue
           if (claimed.attempts >= MAX_ATTEMPTS) {
             await supabase.from("message_queue").update({
               status: "failed",
@@ -165,7 +185,7 @@ Deno.serve(async (req: Request) => {
               completed_at: now,
             }).eq("id", item.id);
           } else {
-            // Retry — put back to pending with backoff
+            // Retry with exponential backoff
             const backoffMinutes = Math.pow(2, claimed.attempts) * 5;
             const retryAt = new Date(Date.now() + backoffMinutes * 60000).toISOString();
             await supabase.from("message_queue").update({

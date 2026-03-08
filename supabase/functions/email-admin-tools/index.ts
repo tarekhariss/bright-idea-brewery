@@ -4,11 +4,34 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+    "authorization, x-client-info, apikey, content-type, x-cron-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+const cronSecret = Deno.env.get("CRON_SECRET");
+
+/**
+ * email-admin-tools is always user-initiated (admin dashboard).
+ * No cron access needed. Validates user JWT only.
+ */
+async function authenticateUser(req: Request): Promise<{ userId: string } | { error: string }> {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return { error: "Unauthorized" };
+  }
+
+  const token = authHeader.replace("Bearer ", "");
+  const anonClient = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+  const { data, error } = await anonClient.auth.getUser(token);
+  if (error || !data?.user) {
+    return { error: "Unauthorized" };
+  }
+  return { userId: data.user.id };
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -16,17 +39,9 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
-    }
-
-    const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: userData, error: authErr } = await anonClient.auth.getUser();
-    if (authErr || !userData?.user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
+    const auth = await authenticateUser(req);
+    if ("error" in auth) {
+      return new Response(JSON.stringify({ error: auth.error }), { status: 401, headers: corsHeaders });
     }
 
     const supabase = createClient(supabaseUrl, serviceKey);
@@ -67,19 +82,26 @@ Deno.serve(async (req: Request) => {
         to_address,
         mailbox_id,
         status: "queued",
-        owner_id: userData.user.id,
+        owner_id: auth.userId,
         metadata: { test_email: true },
       }).select().single();
 
       if (createErr) throw createErr;
 
-      // Call send-email directly
+      // Call send-email with cron secret (internal function-to-function)
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (cronSecret) {
+        headers["x-cron-secret"] = cronSecret;
+        headers["Authorization"] = `Bearer ${anonKey}`;
+      } else {
+        headers["Authorization"] = `Bearer ${serviceKey}`;
+      }
+
       const sendRes = await fetch(`${supabaseUrl}/functions/v1/send-email`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${serviceKey}`,
-        },
+        headers,
         body: JSON.stringify({ email_id: testEmail!.id, mailbox_id }),
       });
 
@@ -89,7 +111,7 @@ Deno.serve(async (req: Request) => {
         action: "test_email_sent",
         entity_type: "mailbox",
         entity_id: mailbox_id,
-        performed_by: userData.user.id,
+        performed_by: auth.userId,
         details: { to_address, success: sendRes.ok, result: sendBody },
       });
 
@@ -109,12 +131,19 @@ Deno.serve(async (req: Request) => {
         return new Response(JSON.stringify({ error: "email_id and mailbox_id required" }), { status: 400, headers: corsHeaders });
       }
 
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (cronSecret) {
+        headers["x-cron-secret"] = cronSecret;
+        headers["Authorization"] = `Bearer ${anonKey}`;
+      } else {
+        headers["Authorization"] = `Bearer ${serviceKey}`;
+      }
+
       const sendRes = await fetch(`${supabaseUrl}/functions/v1/send-email`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${serviceKey}`,
-        },
+        headers,
         body: JSON.stringify({ email_id, mailbox_id, dry_run: true }),
       });
 
@@ -155,7 +184,7 @@ Deno.serve(async (req: Request) => {
         .select("id, reference_id, last_error, attempts, scheduled_for")
         .eq("queue_type", "email")
         .eq("status", "processing")
-        .lt("started_at", new Date(Date.now() - 10 * 60 * 1000).toISOString()) // stuck > 10 min
+        .lt("started_at", new Date(Date.now() - 10 * 60 * 1000).toISOString())
         .limit(10);
 
       return new Response(JSON.stringify({
@@ -171,12 +200,21 @@ Deno.serve(async (req: Request) => {
 
     // ── Action: process_queue (trigger queue processing) ──
     if (action === "process_queue") {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (cronSecret) {
+        headers["x-cron-secret"] = cronSecret;
+        headers["Authorization"] = `Bearer ${anonKey}`;
+      } else {
+        // Pass through the user's auth header
+        const userAuth = req.headers.get("Authorization")!;
+        headers["Authorization"] = userAuth;
+      }
+
       const processRes = await fetch(`${supabaseUrl}/functions/v1/process-email-queue`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: authHeader,
-        },
+        headers,
         body: "{}",
       });
       const result = await processRes.json();
@@ -188,12 +226,20 @@ Deno.serve(async (req: Request) => {
     // ── Action: process_sequences (trigger sequence step processing) ──
     if (action === "process_sequences") {
       const { mailbox_id } = body;
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (cronSecret) {
+        headers["x-cron-secret"] = cronSecret;
+        headers["Authorization"] = `Bearer ${anonKey}`;
+      } else {
+        const userAuth = req.headers.get("Authorization")!;
+        headers["Authorization"] = userAuth;
+      }
+
       const processRes = await fetch(`${supabaseUrl}/functions/v1/process-sequence-steps`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: authHeader,
-        },
+        headers,
         body: JSON.stringify({ mailbox_id }),
       });
       const result = await processRes.json();
