@@ -63,13 +63,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data } = await supabase
       .from("user_roles")
       .select("role")
-      .eq("user_id", userId);
+      .eq("user_id", userId) as { data: { role: AppRole }[] | null };
     if (data && data.length > 0) {
-      // Pick highest role
-      const best = data.reduce((a, b) => (ROLE_RANK[b.role as AppRole] > ROLE_RANK[a.role as AppRole] ? b : a));
-      setRole(best.role as AppRole);
+      const best = data.reduce((a, b) => (ROLE_RANK[b.role] > ROLE_RANK[a.role] ? b : a));
+      setRole(best.role);
     } else {
-      // Default to operator if no role assigned
       setRole("operator");
     }
   }

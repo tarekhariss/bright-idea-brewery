@@ -16,15 +16,15 @@ async function loadAllProfiles(): Promise<Profile[]> {
   if (allProfilesLoaded) return Array.from(profileCache.values());
   if (allProfilesPromise) return allProfilesPromise;
   
-  allProfilesPromise = supabase
-    .from("profiles")
-    .select("id, email, full_name, avatar_url")
-    .then(({ data }) => {
-      const profiles = (data ?? []) as Profile[];
-      profiles.forEach((p) => profileCache.set(p.id, p));
-      allProfilesLoaded = true;
-      return profiles;
-    });
+  allProfilesPromise = (async () => {
+    const { data } = await supabase
+      .from("profiles")
+      .select("id, email, full_name, avatar_url");
+    const profiles = (data ?? []) as Profile[];
+    profiles.forEach((p) => profileCache.set(p.id, p));
+    allProfilesLoaded = true;
+    return profiles;
+  })();
   
   return allProfilesPromise;
 }
