@@ -337,6 +337,11 @@ export default function CampaignDetailPage() {
           ) : null}
         </TabsContent>
 
+        {/* ── Analytics Tab ── */}
+        <TabsContent value="analytics">
+          <CampaignAnalyticsTab campaignId={id!} />
+        </TabsContent>
+
         {/* ── Settings Tab ── */}
         <TabsContent value="settings">
           <Card>
