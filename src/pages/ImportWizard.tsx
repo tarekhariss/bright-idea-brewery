@@ -258,8 +258,8 @@ export default function ImportWizardPage() {
       }
 
       // 3. Update job summary
-      await supabase
-        .from("import_jobs")
+      await (supabase
+        .from("import_jobs") as any)
         .update({
           status: "completed" as const,
           processed_rows: parsed.rows.length,

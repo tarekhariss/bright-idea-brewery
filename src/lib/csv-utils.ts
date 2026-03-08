@@ -301,7 +301,7 @@ export function checkDuplicatesLocal(
   const details: DuplicateCheckResult["details"] = [];
 
   for (let i = 0; i < rows.length; i++) {
-    const row = rows[i];
+    const row = rows[i] as Record<string, unknown>;
     const email = String(row.email ?? "").toLowerCase().trim();
     const linkedin = String(row.linkedin_url ?? "").toLowerCase().trim();
     const extId = String(row.external_contact_id ?? "").trim();
