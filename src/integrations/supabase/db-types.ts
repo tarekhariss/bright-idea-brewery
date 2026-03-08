@@ -12,6 +12,12 @@ export type ImportRowStatus = "pending" | "success" | "error" | "skipped" | "dup
 export type LifecycleStatus = "new" | "researching" | "qualified" | "nurturing" | "engaged" | "converted" | "churned" | "archived";
 export type OutreachStatus = "not_contacted" | "queued" | "contacted" | "replied" | "bounced" | "opted_out" | "unresponsive";
 export type EmailValidity = "unknown" | "valid" | "invalid" | "catch_all" | "disposable" | "role_based";
+export type SequenceStatus = "draft" | "active" | "paused" | "archived";
+export type EnrollmentStatus = "active" | "paused" | "completed" | "bounced" | "replied" | "opted_out" | "failed";
+export type EmailStatus = "draft" | "queued" | "processing" | "sent_mock" | "sent" | "failed" | "bounced";
+export type TaskStatus = "pending" | "in_progress" | "completed" | "skipped" | "cancelled";
+export type CallOutcome = "no_answer" | "voicemail" | "connected" | "interested" | "not_interested" | "callback" | "wrong_number";
+export type QueueItemStatus = "pending" | "processing" | "completed" | "failed" | "cancelled";
 
 export type Database = {
   public: {
@@ -819,6 +825,325 @@ export type Database = {
           updated_at?: string;
         };
       };
+      sequences: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          status: SequenceStatus;
+          owner_id: string | null;
+          schedule_config: Json | null;
+          max_enrollments: number | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          description?: string | null;
+          status?: SequenceStatus;
+          owner_id?: string | null;
+          schedule_config?: Json | null;
+          max_enrollments?: number | null;
+          created_by?: string | null;
+        };
+        Update: {
+          name?: string;
+          description?: string | null;
+          status?: SequenceStatus;
+          owner_id?: string | null;
+          schedule_config?: Json | null;
+          max_enrollments?: number | null;
+          updated_at?: string;
+        };
+      };
+      sequence_steps: {
+        Row: {
+          id: string;
+          sequence_id: string;
+          step_order: number;
+          step_type: string;
+          label: string;
+          delay_days: number;
+          delay_hours: number;
+          email_subject: string | null;
+          email_body: string | null;
+          task_instructions: string | null;
+          call_instructions: string | null;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          sequence_id: string;
+          step_order: number;
+          step_type: string;
+          label?: string;
+          delay_days?: number;
+          delay_hours?: number;
+          email_subject?: string | null;
+          email_body?: string | null;
+          task_instructions?: string | null;
+          call_instructions?: string | null;
+          is_active?: boolean;
+        };
+        Update: {
+          step_order?: number;
+          step_type?: string;
+          label?: string;
+          delay_days?: number;
+          delay_hours?: number;
+          email_subject?: string | null;
+          email_body?: string | null;
+          task_instructions?: string | null;
+          call_instructions?: string | null;
+          is_active?: boolean;
+        };
+      };
+      sequence_enrollments: {
+        Row: {
+          id: string;
+          sequence_id: string;
+          contact_id: string;
+          status: EnrollmentStatus;
+          current_step_order: number;
+          next_step_at: string | null;
+          enrolled_by: string | null;
+          enrolled_at: string;
+          completed_at: string | null;
+          paused_at: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          sequence_id: string;
+          contact_id: string;
+          status?: EnrollmentStatus;
+          current_step_order?: number;
+          next_step_at?: string | null;
+          enrolled_by?: string | null;
+        };
+        Update: {
+          status?: EnrollmentStatus;
+          current_step_order?: number;
+          next_step_at?: string | null;
+          completed_at?: string | null;
+          paused_at?: string | null;
+          updated_at?: string;
+        };
+      };
+      emails: {
+        Row: {
+          id: string;
+          subject: string;
+          body_html: string | null;
+          body_text: string | null;
+          from_address: string | null;
+          to_address: string;
+          cc: string | null;
+          bcc: string | null;
+          status: EmailStatus;
+          contact_id: string | null;
+          company_id: string | null;
+          sequence_id: string | null;
+          sequence_step_id: string | null;
+          enrollment_id: string | null;
+          owner_id: string | null;
+          scheduled_at: string | null;
+          sent_at: string | null;
+          opened_at: string | null;
+          clicked_at: string | null;
+          replied_at: string | null;
+          bounced_at: string | null;
+          error_message: string | null;
+          metadata: Json | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          subject?: string;
+          body_html?: string | null;
+          body_text?: string | null;
+          from_address?: string | null;
+          to_address: string;
+          cc?: string | null;
+          bcc?: string | null;
+          status?: EmailStatus;
+          contact_id?: string | null;
+          company_id?: string | null;
+          sequence_id?: string | null;
+          sequence_step_id?: string | null;
+          enrollment_id?: string | null;
+          owner_id?: string | null;
+          scheduled_at?: string | null;
+        };
+        Update: {
+          subject?: string;
+          body_html?: string | null;
+          status?: EmailStatus;
+          sent_at?: string | null;
+          opened_at?: string | null;
+          clicked_at?: string | null;
+          replied_at?: string | null;
+          bounced_at?: string | null;
+          error_message?: string | null;
+          updated_at?: string;
+        };
+      };
+      email_events: {
+        Row: {
+          id: string;
+          email_id: string;
+          event_type: string;
+          details: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          email_id: string;
+          event_type: string;
+          details?: Json | null;
+        };
+        Update: {};
+      };
+      tasks: {
+        Row: {
+          id: string;
+          title: string;
+          description: string | null;
+          task_type: string;
+          status: TaskStatus;
+          priority: string;
+          due_date: string | null;
+          completed_at: string | null;
+          contact_id: string | null;
+          company_id: string | null;
+          sequence_id: string | null;
+          sequence_step_id: string | null;
+          enrollment_id: string | null;
+          owner_id: string | null;
+          assigned_to: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          title: string;
+          description?: string | null;
+          task_type?: string;
+          status?: TaskStatus;
+          priority?: string;
+          due_date?: string | null;
+          contact_id?: string | null;
+          company_id?: string | null;
+          sequence_id?: string | null;
+          sequence_step_id?: string | null;
+          enrollment_id?: string | null;
+          owner_id?: string | null;
+          assigned_to?: string | null;
+          created_by?: string | null;
+        };
+        Update: {
+          title?: string;
+          description?: string | null;
+          task_type?: string;
+          status?: TaskStatus;
+          priority?: string;
+          due_date?: string | null;
+          completed_at?: string | null;
+          assigned_to?: string | null;
+          updated_at?: string;
+        };
+      };
+      calls: {
+        Row: {
+          id: string;
+          direction: string;
+          outcome: CallOutcome | null;
+          duration_seconds: number | null;
+          notes: string | null;
+          phone_number: string | null;
+          scheduled_at: string | null;
+          started_at: string | null;
+          ended_at: string | null;
+          contact_id: string | null;
+          company_id: string | null;
+          sequence_id: string | null;
+          sequence_step_id: string | null;
+          enrollment_id: string | null;
+          owner_id: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          direction?: string;
+          outcome?: CallOutcome | null;
+          duration_seconds?: number | null;
+          notes?: string | null;
+          phone_number?: string | null;
+          scheduled_at?: string | null;
+          contact_id?: string | null;
+          company_id?: string | null;
+          sequence_id?: string | null;
+          sequence_step_id?: string | null;
+          enrollment_id?: string | null;
+          owner_id?: string | null;
+          created_by?: string | null;
+        };
+        Update: {
+          direction?: string;
+          outcome?: CallOutcome | null;
+          duration_seconds?: number | null;
+          notes?: string | null;
+          ended_at?: string | null;
+          updated_at?: string;
+        };
+      };
+      message_queue: {
+        Row: {
+          id: string;
+          queue_type: string;
+          status: QueueItemStatus;
+          priority: number;
+          payload: Json;
+          reference_id: string | null;
+          reference_type: string | null;
+          sequence_id: string | null;
+          enrollment_id: string | null;
+          scheduled_for: string;
+          started_at: string | null;
+          completed_at: string | null;
+          attempts: number;
+          max_attempts: number;
+          last_error: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          queue_type: string;
+          status?: QueueItemStatus;
+          priority?: number;
+          payload: Json;
+          reference_id?: string | null;
+          reference_type?: string | null;
+          sequence_id?: string | null;
+          enrollment_id?: string | null;
+          scheduled_for?: string;
+        };
+        Update: {
+          status?: QueueItemStatus;
+          started_at?: string | null;
+          completed_at?: string | null;
+          attempts?: number;
+          last_error?: string | null;
+        };
+      };
     };
     Views: {};
     Functions: {
@@ -838,6 +1163,12 @@ export type Database = {
       lifecycle_status: LifecycleStatus;
       outreach_status: OutreachStatus;
       email_validity: EmailValidity;
+      sequence_status: SequenceStatus;
+      enrollment_status: EnrollmentStatus;
+      email_status: EmailStatus;
+      task_status: TaskStatus;
+      call_outcome: CallOutcome;
+      queue_item_status: QueueItemStatus;
     };
   };
 };
