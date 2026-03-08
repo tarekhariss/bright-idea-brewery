@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Loader2, Search, Plus, Download, Building2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { QualityScoreBadge } from "@/components/data-table/StatusBadge";
 import { SortableHeader } from "@/components/data-table/SortableHeader";
 import { TablePagination } from "@/components/data-table/TablePagination";
