@@ -219,42 +219,44 @@ export function normalizeRow(
     }
 
     if (val && typeof val === "string") {
+      let strVal = val as string;
       // Email normalization
       if (fieldKey.includes("email")) {
-        const lower = val.toLowerCase();
-        if (lower !== val) {
-          changes.push({ field: fieldKey, original: val, normalized: lower, rule: "Email lowercased" });
+        const lower = strVal.toLowerCase();
+        if (lower !== strVal) {
+          changes.push({ field: fieldKey, original: strVal, normalized: lower, rule: "Email lowercased" });
         }
-        val = lower;
+        strVal = lower;
       }
 
       // LinkedIn cleanup
       if (fieldKey === "linkedin_url") {
-        let cleaned = val.replace(/\/$/, "").replace(/^https?:\/\/(www\.)?/i, "https://www.");
+        let cleaned = strVal.replace(/\/$/, "").replace(/^https?:\/\/(www\.)?/i, "https://www.");
         if (!cleaned.startsWith("http")) cleaned = "https://www." + cleaned;
-        if (cleaned !== val) {
-          changes.push({ field: fieldKey, original: val, normalized: cleaned, rule: "LinkedIn URL standardized" });
+        if (cleaned !== strVal) {
+          changes.push({ field: fieldKey, original: strVal, normalized: cleaned, rule: "LinkedIn URL standardized" });
         }
-        val = cleaned;
+        strVal = cleaned;
       }
 
       // Domain cleanup
       if (fieldKey === "domain") {
-        let cleaned = val.toLowerCase().replace(/^https?:\/\/(www\.)?/i, "").replace(/\/$/, "");
-        if (cleaned !== val) {
-          changes.push({ field: fieldKey, original: val, normalized: cleaned, rule: "Domain cleaned" });
+        let cleaned = strVal.toLowerCase().replace(/^https?:\/\/(www\.)?/i, "").replace(/\/$/, "");
+        if (cleaned !== strVal) {
+          changes.push({ field: fieldKey, original: strVal, normalized: cleaned, rule: "Domain cleaned" });
         }
-        val = cleaned;
+        strVal = cleaned;
       }
 
       // Phone cleanup
       if (fieldKey.includes("phone")) {
-        const cleaned = val.replace(/[^\d+\-() ]/g, "");
-        if (cleaned !== val) {
-          changes.push({ field: fieldKey, original: val, normalized: cleaned, rule: "Phone characters cleaned" });
+        const cleaned = strVal.replace(/[^\d+\-() ]/g, "");
+        if (cleaned !== strVal) {
+          changes.push({ field: fieldKey, original: strVal, normalized: cleaned, rule: "Phone characters cleaned" });
         }
-        val = cleaned;
+        strVal = cleaned;
       }
+      val = strVal;
     }
 
     // Type casting
