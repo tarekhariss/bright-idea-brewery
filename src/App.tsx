@@ -168,6 +168,10 @@ const App = () => (
             <Route path="/settings/workspace/deliverability/overview" element={<SL><DeliverabilityOverview /></SL>} />
             <Route path="/settings/workspace/deliverability/domains" element={<SL><DomainsPage /></SL>} />
             <Route path="/settings/workspace/deliverability/mailboxes" element={<SL><MailboxesPage /></SL>} />
+            <Route path="/settings/workspace/deliverability/dashboard" element={<SL><DeliverabilityDashboard /></SL>} />
+            <Route path="/settings/workspace/deliverability/suppression" element={<SL><SuppressionPage /></SL>} />
+            <Route path="/settings/workspace/deliverability/sending-windows" element={<SL><SendingWindowsPage /></SL>} />
+            <Route path="/settings/workspace/deliverability/esp-routing" element={<SL><ESPRoutingPage /></SL>} />
             <Route path="/settings/workspace/users" element={<SL><UserTeamSettings /></SL>} />
             <Route path="/settings/workspace/security" element={<SL><SecuritySettings /></SL>} />
 
