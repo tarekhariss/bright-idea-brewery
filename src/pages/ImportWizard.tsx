@@ -111,7 +111,7 @@ export default function ImportWizardPage() {
     setFile(f);
     try {
       const text = await f.text();
-      const result = parseCSVText(text);
+      const result = parseCSVText(text, 500); // preview only
       if (result.headers.length === 0) {
         setParseError("Could not detect columns in this file.");
         return;
