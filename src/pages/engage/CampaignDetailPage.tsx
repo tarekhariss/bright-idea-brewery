@@ -134,6 +134,7 @@ export default function CampaignDetailPage() {
         <TabsList>
           <TabsTrigger value="steps" className="text-xs">Workflow Steps</TabsTrigger>
           <TabsTrigger value="enrollments" className="text-xs">Contacts ({enrollments?.length || 0})</TabsTrigger>
+          <TabsTrigger value="linkedin" className="text-xs">LinkedIn Accounts</TabsTrigger>
           <TabsTrigger value="settings" className="text-xs">Settings</TabsTrigger>
         </TabsList>
 
