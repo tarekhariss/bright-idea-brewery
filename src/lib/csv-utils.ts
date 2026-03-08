@@ -602,12 +602,12 @@ export function classifyRowAction(
 
     case "exact_duplicate":
       if (settings.skip_exact_duplicates) return { status: "skipped", action: "skipped_exact_duplicate", reviewRequired: false };
-      if (settings.update_missing_fields) return { status: "pending", action: "update_missing_fields", reviewRequired: false };
+      if (settings.update_missing_fields) return { status: "success", action: "update_missing_fields", reviewRequired: false };
       return { status: "review", action: "exact_duplicate_flagged", reviewRequired: true };
 
     case "likely_duplicate":
       if (settings.review_likely_duplicates) return { status: "review", action: "likely_duplicate_flagged", reviewRequired: true };
-      if (settings.update_missing_fields) return { status: "pending", action: "update_missing_fields", reviewRequired: false };
+      if (settings.update_missing_fields) return { status: "success", action: "update_missing_fields", reviewRequired: false };
       return { status: "review", action: "likely_duplicate_flagged", reviewRequired: true };
 
     case "review_required":
@@ -615,7 +615,7 @@ export function classifyRowAction(
 
     case "new":
     default:
-      return { status: "pending", action: "create_new", reviewRequired: false };
+      return { status: "success", action: "create_new", reviewRequired: false };
   }
 }
 
