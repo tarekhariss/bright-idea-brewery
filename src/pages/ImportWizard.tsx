@@ -220,20 +220,11 @@ export default function ImportWizardPage() {
           let actionTaken: string | null = null;
           let reviewRequired = false;
 
-          if (dupDetail?.status === "invalid") {
-            status = "error";
-            duplicateReason = dupDetail.reason;
-          } else if (dupDetail?.status === "duplicate") {
-            if (dupStrategy === "skip") {
-              status = "skipped";
-              actionTaken = "skipped_duplicate";
-            } else if (dupStrategy === "flag_review") {
-              status = "review";
-              reviewRequired = true;
-            } else {
-              status = "pending";
-              actionTaken = "update_missing";
-            }
+          if (dupDetail) {
+            const rowAction = classifyRowAction(dupDetail.classification, importSettings);
+            status = rowAction.status;
+            actionTaken = rowAction.action;
+            reviewRequired = rowAction.reviewRequired;
             duplicateReason = dupDetail.reason;
           }
 
@@ -243,7 +234,7 @@ export default function ImportWizardPage() {
             raw_data: raw as unknown as Json,
             normalized_data: norm.normalized as unknown as Json,
             status: status as "pending" | "success" | "error" | "skipped" | "duplicate" | "review",
-            error_message: dupDetail?.status === "invalid" ? dupDetail.reason : null,
+            error_message: dupDetail?.classification === "invalid" ? dupDetail.reason : null,
             duplicate_match_reason: duplicateReason,
             action_taken: actionTaken,
             review_required: reviewRequired,
