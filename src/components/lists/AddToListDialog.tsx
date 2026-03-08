@@ -40,7 +40,7 @@ export function AddToListDialog({ open, onOpenChange, contactIds, onSuccess }: A
         .from("lists")
         .select("id, name, is_dynamic, description")
         .order("name", { ascending: true });
-      setLists((data as ListItem[] | null) ?? []);
+      setLists((data as unknown as ListItem[] | null) ?? []);
       setLoading(false);
     }
     load();
@@ -56,7 +56,7 @@ export function AddToListDialog({ open, onOpenChange, contactIds, onSuccess }: A
       contact_id: cid,
       added_by: user.id,
     }));
-    const { error } = await supabase.from("list_contacts").upsert(rows, { onConflict: "list_id,contact_id" });
+    const { error } = await supabase.from("list_contacts").upsert(rows as any, { onConflict: "list_id,contact_id" });
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
@@ -74,13 +74,13 @@ export function AddToListDialog({ open, onOpenChange, contactIds, onSuccess }: A
       name: newName.trim(),
       is_dynamic: false,
       created_by: user.id,
-    }).select("id").single();
+    } as any).select("id").single();
     if (error || !data) {
       toast({ title: "Error", description: error?.message ?? "Failed to create list", variant: "destructive" });
       setAdding(false);
       return;
     }
-    await addToList(data.id);
+    await addToList((data as any).id);
     setCreating(false);
     setNewName("");
   };

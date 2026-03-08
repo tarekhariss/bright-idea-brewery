@@ -43,7 +43,7 @@ export function useSavedViews(entityType: "contact" | "company") {
       .eq("entity_type", entityType)
       .order("is_default", { ascending: false })
       .order("name", { ascending: true });
-    setViews((data as SavedView[] | null) ?? []);
+    setViews((data as unknown as SavedView[] | null) ?? []);
     setLoading(false);
   }, [user, entityType]);
 
@@ -51,33 +51,34 @@ export function useSavedViews(entityType: "contact" | "company") {
 
   const saveView = async (name: string, state: ViewState) => {
     if (!user) return;
-    const payload = {
+    const payload: any = {
       name,
       entity_type: entityType,
-      filters: { search: state.search, filterValues: state.filters, pageSize: state.pageSize } as unknown as Json,
-      columns: state.visibleColumns as unknown as Json,
+      filters: { search: state.search, filterValues: state.filters, pageSize: state.pageSize },
+      columns: state.visibleColumns,
       sort_by: state.sortBy,
-      sort_direction: state.sortDirection as "asc" | "desc",
+      sort_direction: state.sortDirection,
       is_default: false,
       created_by: user.id,
     };
-    const { data, error } = await supabase.from("saved_views").insert(payload).select().single();
+    const { data, error } = await supabase.from("saved_views").insert(payload as any).select().single();
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
       return null;
     }
     toast({ title: "View saved", description: `"${name}" has been saved.` });
     await fetchViews();
-    return data as SavedView;
+    return data as unknown as SavedView;
   };
 
   const updateView = async (id: string, state: ViewState) => {
-    const { error } = await supabase.from("saved_views").update({
-      filters: { search: state.search, filterValues: state.filters, pageSize: state.pageSize } as unknown as Json,
-      columns: state.visibleColumns as unknown as Json,
+    const payload: any = {
+      filters: { search: state.search, filterValues: state.filters, pageSize: state.pageSize },
+      columns: state.visibleColumns,
       sort_by: state.sortBy,
-      sort_direction: state.sortDirection as "asc" | "desc",
-    }).eq("id", id);
+      sort_direction: state.sortDirection,
+    };
+    const { error } = await supabase.from("saved_views").update(payload as any).eq("id", id);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
       return;
@@ -87,7 +88,7 @@ export function useSavedViews(entityType: "contact" | "company") {
   };
 
   const renameView = async (id: string, name: string) => {
-    const { error } = await supabase.from("saved_views").update({ name }).eq("id", id);
+    const { error } = await supabase.from("saved_views").update({ name } as any).eq("id", id);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
       return;
@@ -107,11 +108,10 @@ export function useSavedViews(entityType: "contact" | "company") {
   };
 
   const setDefault = async (id: string) => {
-    // Unset all defaults for this entity type
     if (user) {
-      await supabase.from("saved_views").update({ is_default: false }).eq("entity_type", entityType).eq("created_by", user.id);
+      await supabase.from("saved_views").update({ is_default: false } as any).eq("entity_type", entityType).eq("created_by", user.id);
     }
-    await supabase.from("saved_views").update({ is_default: true }).eq("id", id);
+    await supabase.from("saved_views").update({ is_default: true } as any).eq("id", id);
     toast({ title: "Default view set" });
     await fetchViews();
   };
