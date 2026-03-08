@@ -174,8 +174,8 @@ export default function ImportWizardPage() {
         unmapped_columns: unmappedHeaders,
       };
 
-      const { data: job, error: jobErr } = await supabase
-        .from("import_jobs")
+      const { data: job, error: jobErr } = await (supabase
+        .from("import_jobs") as any)
         .insert({
           file_name: file.name,
           status: "processing" as const,
