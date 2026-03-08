@@ -53,6 +53,11 @@ export default function CampaignDetailPage() {
   const { data: steps, isLoading: loadingSteps } = useCampaignSteps(id || null);
   const { data: enrollments, isLoading: loadingEnrollments } = useCampaignEnrollments(id || null);
   const { data: templates } = useEmailTemplatesList();
+  const { data: linkedinTemplates } = useLinkedinMessageTemplates();
+  const { data: linkedinAccounts } = useLinkedinAccounts();
+  const { data: campaignLinkedinAccounts } = useCampaignLinkedinAccounts(id || null);
+  const linkLinkedin = useLinkLinkedinAccount();
+  const unlinkLinkedin = useUnlinkLinkedinAccount();
   const updateCampaign = useUpdateCampaign();
   const addStep = useAddCampaignStep();
   const updateStep = useUpdateCampaignStep();
