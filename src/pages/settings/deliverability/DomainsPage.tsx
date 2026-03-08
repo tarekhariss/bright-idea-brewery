@@ -1,49 +1,28 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Globe, Plus, CheckCircle2, XCircle, Clock, Shield, Copy,
   MoreHorizontal, ExternalLink, Archive, Loader2, RefreshCw,
-  AlertTriangle, ChevronDown, ChevronRight,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { useSendingDomains, useCreateDomain, useUpdateDomain, useDeleteDomain } from "@/hooks/use-deliverability";
+import type { Database } from "@/integrations/supabase/db-types";
 
-interface Domain {
-  id: string;
-  name: string;
-  status: "pending" | "verified" | "failed";
-  spf: "pass" | "fail" | "pending";
-  dkim: "pass" | "fail" | "pending";
-  dmarc: "pass" | "fail" | "pending";
-  warmup_enabled: boolean;
-  daily_limit: number;
-  notes: string;
-  created_at: string;
-}
+type SendingDomain = Database["public"]["Tables"]["sending_domains"]["Row"];
 
-interface DnsRecord {
-  type: string;
-  host: string;
-  value: string;
-  status: "pass" | "fail" | "pending";
-}
-
-const STORAGE_KEY = "lb_domains";
-
-const loadDomains = (): Domain[] => {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); } catch { return []; }
-};
-const saveDomains = (d: Domain[]) => localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
+interface DnsRecord { type: string; host: string; value: string; status: string; }
 
 const dnsIcon = (s: string) => {
   if (s === "pass") return <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />;
@@ -57,85 +36,42 @@ const statusBadge = (s: string) => {
   return <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20 text-[10px]">Pending</Badge>;
 };
 
-const getDnsRecords = (domain: string, d: Domain): DnsRecord[] => [
-  { type: "TXT", host: domain, value: `v=spf1 include:_spf.${domain} ~all`, status: d.spf },
-  { type: "CNAME", host: `lb._domainkey.${domain}`, value: `lb.dkim.${domain}`, status: d.dkim },
-  { type: "TXT", host: `_dmarc.${domain}`, value: `v=DMARC1; p=quarantine; rua=mailto:dmarc@${domain}`, status: d.dmarc },
+const getDnsRecords = (domain: string, d: SendingDomain): DnsRecord[] => [
+  { type: "TXT", host: domain, value: `v=spf1 include:_spf.${domain} ~all`, status: d.spf_status },
+  { type: "CNAME", host: `lb._domainkey.${domain}`, value: `lb.dkim.${domain}`, status: d.dkim_status },
+  { type: "TXT", host: `_dmarc.${domain}`, value: `v=DMARC1; p=quarantine; rua=mailto:dmarc@${domain}`, status: d.dmarc_status },
 ];
 
+const copyToClipboard = (text: string) => { navigator.clipboard.writeText(text); toast.success("Copied"); };
+
 export default function DomainsPage() {
-  const [domains, setDomains] = useState<Domain[]>(loadDomains);
+  const { data: domains, isLoading } = useSendingDomains();
+  const createDomain = useCreateDomain();
+  const updateDomain = useUpdateDomain();
+  const deleteDomain = useDeleteDomain();
+
   const [addOpen, setAddOpen] = useState(false);
   const [newDomain, setNewDomain] = useState("");
-  const [adding, setAdding] = useState(false);
-  const [detailDomain, setDetailDomain] = useState<Domain | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const detailDomain = domains?.find((d) => d.id === detailId) || null;
 
-  useEffect(() => { saveDomains(domains); }, [domains]);
-
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!newDomain.trim()) return;
     const clean = newDomain.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/$/, "");
-    if (domains.some((d) => d.name === clean)) {
-      toast.error("Domain already exists");
-      return;
-    }
-    setAdding(true);
-    const d: Domain = {
-      id: crypto.randomUUID(),
-      name: clean,
-      status: "pending",
-      spf: "pending",
-      dkim: "pending",
-      dmarc: "pending",
-      warmup_enabled: false,
-      daily_limit: 50,
-      notes: "",
-      created_at: new Date().toISOString(),
-    };
-    setTimeout(() => {
-      setDomains((prev) => [...prev, d]);
-      setAddOpen(false);
-      setNewDomain("");
-      setAdding(false);
-      toast.success(`Domain ${clean} added — configure DNS records next`);
-      setDetailDomain(d);
-    }, 500);
+    if (domains?.some((d) => d.domain_name === clean)) { toast.error("Domain already exists"); return; }
+    const d = await createDomain.mutateAsync({ domain_name: clean });
+    setAddOpen(false);
+    setNewDomain("");
+    setDetailId(d.id);
   };
 
-  const handleVerify = (domainId: string) => {
-    // Simulate DNS verification
-    setDomains((prev) => prev.map((d) => {
-      if (d.id !== domainId) return d;
-      // Random pass/fail for demo
-      const rnd = () => Math.random() > 0.3 ? "pass" as const : "pending" as const;
-      const spf = rnd();
-      const dkim = rnd();
-      const dmarc = rnd();
-      const allPass = spf === "pass" && dkim === "pass" && dmarc === "pass";
-      return { ...d, spf, dkim, dmarc, status: allPass ? "verified" : "pending" };
-    }));
-    if (detailDomain?.id === domainId) {
-      setTimeout(() => {
-        setDetailDomain(domains.find((d) => d.id === domainId) || null);
-      }, 100);
-    }
-    toast.info("DNS records checked — results updated");
-  };
-
-  const handleRemove = (id: string) => {
-    setDomains((prev) => prev.filter((d) => d.id !== id));
-    if (detailDomain?.id === id) setDetailDomain(null);
-    toast.success("Domain removed");
-  };
-
-  const updateDomain = (id: string, updates: Partial<Domain>) => {
-    setDomains((prev) => prev.map((d) => d.id === id ? { ...d, ...updates } : d));
-    if (detailDomain?.id === id) setDetailDomain((p) => p ? { ...p, ...updates } : p);
-  };
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast.success("Copied to clipboard");
+  const handleVerify = (id: string) => {
+    // Simulate DNS verification — in prod this would call an edge function
+    const rnd = () => Math.random() > 0.3 ? "pass" as const : "pending" as const;
+    const spf = rnd(); const dkim = rnd(); const dmarc = rnd();
+    const allPass = spf === "pass" && dkim === "pass" && dmarc === "pass";
+    updateDomain.mutate({ id, spf_status: spf, dkim_status: dkim, dmarc_status: dmarc, status: allPass ? "verified" : "pending" });
+    toast.info("DNS records checked");
   };
 
   return (
@@ -155,7 +91,9 @@ export default function DomainsPage() {
         </Button>
       </div>
 
-      {domains.length === 0 ? (
+      {isLoading ? (
+        <div className="space-y-2">{[1,2,3].map((i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
+      ) : !domains?.length ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-20 text-center">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted mb-4">
@@ -188,18 +126,18 @@ export default function DomainsPage() {
             </TableHeader>
             <TableBody>
               {domains.map((d) => (
-                <TableRow key={d.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setDetailDomain(d)}>
-                  <TableCell className="text-sm font-medium">{d.name}</TableCell>
+                <TableRow key={d.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setDetailId(d.id)}>
+                  <TableCell className="text-sm font-medium">{d.domain_name}</TableCell>
                   <TableCell>{statusBadge(d.status)}</TableCell>
-                  <TableCell className="text-center">{dnsIcon(d.spf)}</TableCell>
-                  <TableCell className="text-center">{dnsIcon(d.dkim)}</TableCell>
-                  <TableCell className="text-center">{dnsIcon(d.dmarc)}</TableCell>
+                  <TableCell className="text-center">{dnsIcon(d.spf_status)}</TableCell>
+                  <TableCell className="text-center">{dnsIcon(d.dkim_status)}</TableCell>
+                  <TableCell className="text-center">{dnsIcon(d.dmarc_status)}</TableCell>
                   <TableCell>
                     <Badge variant={d.warmup_enabled ? "default" : "secondary"} className="text-[10px]">
                       {d.warmup_enabled ? "Active" : "Off"}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-sm">{d.daily_limit}/day</TableCell>
+                  <TableCell className="text-sm">{d.daily_sending_limit}/day</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{format(new Date(d.created_at), "MMM d, yyyy")}</TableCell>
                   <TableCell>
                     <DropdownMenu>
@@ -207,13 +145,13 @@ export default function DomainsPage() {
                         <Button variant="ghost" size="icon" className="h-7 w-7"><MoreHorizontal className="h-3.5 w-3.5" /></Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setDetailDomain(d); }}>
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setDetailId(d.id); }}>
                           <ExternalLink className="h-3.5 w-3.5 mr-2" /> Details
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleVerify(d.id); }}>
                           <RefreshCw className="h-3.5 w-3.5 mr-2" /> Re-verify DNS
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); handleRemove(d.id); }}>
+                        <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); deleteDomain.mutate(d.id); }}>
                           <Archive className="h-3.5 w-3.5 mr-2" /> Remove
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -241,7 +179,7 @@ export default function DomainsPage() {
             <div className="rounded-lg bg-muted/50 p-3 space-y-2">
               <p className="text-xs font-medium flex items-center gap-1.5"><Shield className="h-3.5 w-3.5" /> After adding, configure these DNS records:</p>
               <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
-                <li><strong>SPF</strong> — Authorize our servers to send on your behalf</li>
+                <li><strong>SPF</strong> — Authorize servers to send on your behalf</li>
                 <li><strong>DKIM</strong> — Cryptographically sign your emails</li>
                 <li><strong>DMARC</strong> — Policy for handling failed authentication</li>
               </ul>
@@ -249,8 +187,8 @@ export default function DomainsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setAddOpen(false)}>Cancel</Button>
-            <Button size="sm" onClick={handleAdd} disabled={!newDomain.trim() || adding}>
-              {adding && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+            <Button size="sm" onClick={handleAdd} disabled={!newDomain.trim() || createDomain.isPending}>
+              {createDomain.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
               Add Domain
             </Button>
           </DialogFooter>
@@ -258,11 +196,11 @@ export default function DomainsPage() {
       </Dialog>
 
       {/* Domain Detail Dialog */}
-      <Dialog open={!!detailDomain} onOpenChange={() => setDetailDomain(null)}>
+      <Dialog open={!!detailId} onOpenChange={() => setDetailId(null)}>
         <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <div className="flex items-center gap-3">
-              <DialogTitle className="text-base flex-1">{detailDomain?.name}</DialogTitle>
+              <DialogTitle className="text-base flex-1">{detailDomain?.domain_name}</DialogTitle>
               {detailDomain && statusBadge(detailDomain.status)}
             </div>
             <DialogDescription className="text-sm">Domain configuration, DNS records, and settings</DialogDescription>
@@ -282,13 +220,13 @@ export default function DomainsPage() {
                   </Button>
                 </div>
                 <div className="space-y-3">
-                  {getDnsRecords(detailDomain.name, detailDomain).map((rec, i) => (
+                  {getDnsRecords(detailDomain.domain_name, detailDomain).map((rec, i) => (
                     <div key={i} className="rounded-lg border p-3 space-y-2">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           {dnsIcon(rec.status)}
                           <Badge variant="secondary" className="text-[10px]">{rec.type}</Badge>
-                          <span className="text-xs font-medium">{rec.type === "TXT" && i === 0 ? "SPF" : rec.type === "CNAME" ? "DKIM" : "DMARC"}</span>
+                          <span className="text-xs font-medium">{i === 0 ? "SPF" : i === 1 ? "DKIM" : "DMARC"}</span>
                         </div>
                         <Badge className={`text-[10px] ${rec.status === "pass" ? "bg-emerald-500/10 text-emerald-600" : rec.status === "fail" ? "bg-destructive/10 text-destructive" : "bg-amber-500/10 text-amber-600"}`}>
                           {rec.status === "pass" ? "Verified" : rec.status === "fail" ? "Failed" : "Pending"}
@@ -298,16 +236,12 @@ export default function DomainsPage() {
                         <div className="flex items-center gap-2">
                           <Label className="text-[10px] w-12 shrink-0 text-muted-foreground">Host</Label>
                           <code className="text-[11px] bg-muted px-2 py-1 rounded flex-1 truncate">{rec.host}</code>
-                          <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => copyToClipboard(rec.host)}>
-                            <Copy className="h-3 w-3" />
-                          </Button>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => copyToClipboard(rec.host)}><Copy className="h-3 w-3" /></Button>
                         </div>
                         <div className="flex items-center gap-2">
                           <Label className="text-[10px] w-12 shrink-0 text-muted-foreground">Value</Label>
                           <code className="text-[11px] bg-muted px-2 py-1 rounded flex-1 truncate">{rec.value}</code>
-                          <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => copyToClipboard(rec.value)}>
-                            <Copy className="h-3 w-3" />
-                          </Button>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => copyToClipboard(rec.value)}><Copy className="h-3 w-3" /></Button>
                         </div>
                       </div>
                     </div>
@@ -316,44 +250,42 @@ export default function DomainsPage() {
               </TabsContent>
 
               <TabsContent value="settings" className="space-y-4">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label className="text-xs font-medium">Warmup</Label>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">Gradually increase sending volume</p>
-                    </div>
-                    <Switch
-                      checked={detailDomain.warmup_enabled}
-                      onCheckedChange={(v) => updateDomain(detailDomain.id, { warmup_enabled: v })}
-                    />
-                  </div>
-                  <Separator />
+                <div className="flex items-center justify-between">
                   <div>
-                    <Label className="text-xs font-medium">Daily Sending Limit</Label>
-                    <Input
-                      type="number" min={1}
-                      value={detailDomain.daily_limit}
-                      className="mt-1.5 h-9 text-sm w-32"
-                      onChange={(e) => updateDomain(detailDomain.id, { daily_limit: parseInt(e.target.value) || 50 })}
-                    />
-                    <p className="text-[10px] text-muted-foreground mt-1">Max emails sent per day from this domain</p>
+                    <Label className="text-xs font-medium">Warmup</Label>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Gradually increase sending volume</p>
                   </div>
-                  <Separator />
-                  <div>
-                    <Label className="text-xs font-medium">Notes</Label>
-                    <Input
-                      value={detailDomain.notes}
-                      className="mt-1.5 h-9 text-sm"
-                      placeholder="Internal notes about this domain..."
-                      onChange={(e) => updateDomain(detailDomain.id, { notes: e.target.value })}
-                    />
-                  </div>
+                  <Switch
+                    checked={detailDomain.warmup_enabled}
+                    onCheckedChange={(v) => updateDomain.mutate({ id: detailDomain.id, warmup_enabled: v })}
+                  />
+                </div>
+                <Separator />
+                <div>
+                  <Label className="text-xs font-medium">Daily Sending Limit</Label>
+                  <Input
+                    type="number" min={1}
+                    defaultValue={detailDomain.daily_sending_limit}
+                    className="mt-1.5 h-9 text-sm w-32"
+                    onBlur={(e) => updateDomain.mutate({ id: detailDomain.id, daily_sending_limit: parseInt(e.target.value) || 50 })}
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1">Max emails per day from this domain</p>
+                </div>
+                <Separator />
+                <div>
+                  <Label className="text-xs font-medium">Notes</Label>
+                  <Input
+                    defaultValue={detailDomain.notes || ""}
+                    className="mt-1.5 h-9 text-sm"
+                    placeholder="Internal notes..."
+                    onBlur={(e) => updateDomain.mutate({ id: detailDomain.id, notes: e.target.value })}
+                  />
                 </div>
               </TabsContent>
             </Tabs>
           )}
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setDetailDomain(null)}>Close</Button>
+            <Button variant="outline" size="sm" onClick={() => setDetailId(null)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

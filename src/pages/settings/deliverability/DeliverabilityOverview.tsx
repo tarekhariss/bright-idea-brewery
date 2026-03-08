@@ -1,13 +1,15 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Inbox, Globe, Mail, Plus, Shield, CheckCircle2, XCircle, Clock,
-  ArrowRight, BarChart3, Zap, AlertTriangle, Activity, Server,
+  Inbox, Globe, Mail, Plus, Shield, CheckCircle2,
+  ArrowRight, Activity, Zap, Server,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useSendingDomains } from "@/hooks/use-deliverability";
+import { useMailboxes } from "@/hooks/use-deliverability";
 
 interface SetupStep {
   title: string;
@@ -20,17 +22,15 @@ interface SetupStep {
 
 export default function DeliverabilityOverview() {
   const navigate = useNavigate();
+  const { data: domains, isLoading: domainsLoading } = useSendingDomains();
+  const { data: mailboxes, isLoading: mailboxesLoading } = useMailboxes();
+  const isLoading = domainsLoading || mailboxesLoading;
 
-  // These would come from DB once domains/mailboxes tables exist.
-  // For now, read from localStorage to persist across page loads.
-  const storedDomains = JSON.parse(localStorage.getItem("lb_domains") || "[]");
-  const storedMailboxes = JSON.parse(localStorage.getItem("lb_mailboxes") || "[]");
-
-  const domainCount = storedDomains.length;
-  const mailboxCount = storedMailboxes.length;
-  const verifiedDomains = storedDomains.filter((d: any) => d.status === "verified").length;
-  const activeMailboxes = storedMailboxes.filter((m: any) => m.status === "active").length;
-  const warmingMailboxes = storedMailboxes.filter((m: any) => m.warmup_status === "active").length;
+  const domainCount = domains?.length ?? 0;
+  const mailboxCount = mailboxes?.length ?? 0;
+  const verifiedDomains = domains?.filter((d) => d.status === "verified").length ?? 0;
+  const activeMailboxes = mailboxes?.filter((m) => m.connection_status === "active").length ?? 0;
+  const warmingMailboxes = mailboxes?.filter((m) => m.warmup_enabled).length ?? 0;
 
   const stats = [
     { label: "Domains", value: `${verifiedDomains}/${domainCount}`, sub: "verified", icon: Globe, color: "text-blue-500 bg-blue-500/10" },
@@ -64,22 +64,28 @@ export default function DeliverabilityOverview() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {stats.map((s) => (
-          <Card key={s.label}>
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${s.color}`}>
-                <s.icon className="h-4 w-4" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[11px] text-muted-foreground truncate">{s.label}</p>
-                <p className="text-lg font-semibold leading-tight">{s.value}</p>
-                {s.sub && <p className="text-[10px] text-muted-foreground">{s.sub}</p>}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {isLoading ? (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {[1,2,3,4].map((i) => <Skeleton key={i} className="h-20" />)}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {stats.map((s) => (
+            <Card key={s.label}>
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${s.color}`}>
+                  <s.icon className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[11px] text-muted-foreground truncate">{s.label}</p>
+                  <p className="text-lg font-semibold leading-tight">{s.value}</p>
+                  {s.sub && <p className="text-[10px] text-muted-foreground">{s.sub}</p>}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* Setup Progress */}
       <Card className="border-primary/20 bg-primary/5">
