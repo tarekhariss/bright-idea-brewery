@@ -2,7 +2,7 @@ import type { FilterValues } from "@/components/data-table/FilterPanel";
 
 /**
  * Apply filter values to a Supabase query builder.
- * Handles select (eq), text (ilike), boolean, range, and date_range filters.
+ * Handles select, text, boolean, exists, range, and date_range filters.
  */
 export function applyFilters(query: any, filters: FilterValues, filterConfigs: { key: string; type: string }[]) {
   for (const config of filterConfigs) {
@@ -23,6 +23,12 @@ export function applyFilters(query: any, filters: FilterValues, filterConfigs: {
       const val = filters[key];
       if (val === "true") query = query.eq(key, true);
       if (val === "false") query = query.eq(key, false);
+    }
+
+    if (type === "exists") {
+      const val = filters[key];
+      if (val === "exists") query = query.not(key, "is", null);
+      if (val === "missing") query = query.is(key, null);
     }
 
     if (type === "range") {
