@@ -263,6 +263,7 @@ export default function ContactDetailPage() {
           <Card>
             <CardHeader className="pb-3"><CardTitle className="text-sm font-medium">Metadata</CardTitle></CardHeader>
             <CardContent className="space-y-2">
+              <DetailField label="Created By" value={getName(contact.created_by)} />
               <DetailField label="Source" value={contact.source} />
               <DetailField label="Source File" value={contact.source_file} />
               <DetailField label="External Source" value={contact.external_source} />
