@@ -70,6 +70,7 @@ import WorkspaceDetailAdmin from "./pages/admin/WorkspaceDetailAdmin";
 // Settings pages
 import SettingsIndex from "./pages/settings/SettingsIndex";
 import ProfileSettings from "./pages/settings/ProfileSettings";
+import ProviderConnectionsPage from "./pages/settings/ProviderConnectionsPage";
 // DeliverabilitySettings removed - now using dedicated pages
 import {
   MailboxDomainSettings, PhoneNumberSettings, NotificationSettings,
