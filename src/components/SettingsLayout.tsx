@@ -38,6 +38,7 @@ const settingsSections: SettingsNavSection[] = [
   {
     title: "Workspace",
     items: [
+      { label: "Provider Connections", path: "/settings/workspace/provider-connections", icon: Puzzle },
       { label: "Deliverability Overview", path: "/settings/workspace/deliverability", icon: Inbox },
       { label: "Deliverability Dashboard", path: "/settings/workspace/deliverability/dashboard", icon: ActivityIcon },
       { label: "Domains", path: "/settings/workspace/deliverability/domains", icon: Globe },

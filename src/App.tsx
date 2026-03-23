@@ -70,6 +70,7 @@ import WorkspaceDetailAdmin from "./pages/admin/WorkspaceDetailAdmin";
 // Settings pages
 import SettingsIndex from "./pages/settings/SettingsIndex";
 import ProfileSettings from "./pages/settings/ProfileSettings";
+import ProviderConnectionsPage from "./pages/settings/ProviderConnectionsPage";
 // DeliverabilitySettings removed - now using dedicated pages
 import {
   MailboxDomainSettings, PhoneNumberSettings, NotificationSettings,
@@ -178,6 +179,7 @@ const App = () => (
             <Route path="/settings/search/chrome-extension" element={<SL><ChromeExtensionSettings /></SL>} />
             <Route path="/settings/search/conversations" element={<SL><ConversationSettings /></SL>} />
 
+            <Route path="/settings/workspace/provider-connections" element={<SL><ProviderConnectionsPage /></SL>} />
             <Route path="/settings/workspace/deliverability" element={<SL><DeliverabilityOverview /></SL>} />
             <Route path="/settings/workspace/deliverability/overview" element={<SL><DeliverabilityOverview /></SL>} />
             <Route path="/settings/workspace/deliverability/domains" element={<SL><DomainsPage /></SL>} />
