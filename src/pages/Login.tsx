@@ -18,6 +18,16 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+
+    // Check allowlist before attempting auth
+    const { data: allowed, error: rpcErr } = await (supabase as any).rpc("is_email_allowed", { p_email: email });
+
+    if (rpcErr || !allowed) {
+      setLoading(false);
+      toast({ title: "Access denied", description: "This email is not authorized to access the platform.", variant: "destructive" });
+      return;
+    }
+
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) {
@@ -51,8 +61,7 @@ export default function LoginPage() {
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Sign in
             </Button>
-            <div className="flex justify-between text-sm">
-              <Link to="/signup" className="text-primary hover:underline">Create account</Link>
+            <div className="flex justify-end text-sm">
               <Link to="/forgot-password" className="text-muted-foreground hover:underline">Forgot password?</Link>
             </div>
           </form>
