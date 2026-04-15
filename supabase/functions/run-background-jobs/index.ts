@@ -1,8 +1,8 @@
 /// <reference lib="deno.ns" />
 /**
  * Unified background job runner — called via pg_cron every 5 minutes.
- * Handles: analytics aggregation, admin KPI population, dynamic list refresh.
- * Lightweight: each sub-job runs a simple aggregation query.
+ * Handles: analytics aggregation, admin KPI population, dynamic list refresh,
+ * and stuck import job detection.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
@@ -21,7 +21,6 @@ Deno.serve(async (req: Request) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Auth: cron secret or service key
   const incomingSecret = req.headers.get("x-cron-secret");
   const authHeader = req.headers.get("Authorization");
   const isAuthed =
@@ -39,7 +38,27 @@ Deno.serve(async (req: Request) => {
   const results: Record<string, any> = {};
 
   try {
-    // 1. Populate admin_platform_kpis
+    // ── 0. Stuck import job detection ──────────────────────────────
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { data: stuckJobs } = await supabase
+      .from("import_jobs")
+      .select("id, started_at, total_rows, processed_rows")
+      .eq("status", "processing")
+      .lt("started_at", oneHourAgo);
+
+    for (const job of stuckJobs ?? []) {
+      await supabase
+        .from("import_jobs")
+        .update({
+          status: "failed",
+          error_summary: { reason: `Job stuck in processing for over 1 hour. Started at ${job.started_at}. ${job.processed_rows}/${job.total_rows} rows processed before stall.` },
+          completed_at: new Date().toISOString(),
+        })
+        .eq("id", job.id);
+    }
+    results.stuck_jobs_failed = (stuckJobs ?? []).length;
+
+    // ── 1. Populate admin_platform_kpis ───────────────────────────
     const [
       { count: totalContacts },
       { count: totalCompanies },
@@ -60,7 +79,6 @@ Deno.serve(async (req: Request) => {
       supabase.from("deals").select("id", { count: "exact", head: true }),
     ]);
 
-    // Upsert platform KPIs (single row)
     const { data: existingKpi } = await supabase
       .from("admin_platform_kpis")
       .select("id")
@@ -87,7 +105,7 @@ Deno.serve(async (req: Request) => {
     }
     results.platform_kpis = "updated";
 
-    // 2. Populate workspace summaries
+    // ── 2. Populate workspace summaries ───────────────────────────
     const { data: allWorkspaces } = await supabase.from("workspaces").select("id, name");
     for (const ws of allWorkspaces ?? []) {
       const [contacts, companies, campaigns, active, emails, meetings, deals] = await Promise.all([
@@ -115,7 +133,7 @@ Deno.serve(async (req: Request) => {
     }
     results.workspace_summaries = `updated ${(allWorkspaces ?? []).length}`;
 
-    // 3. Populate campaign performance metrics
+    // ── 3. Campaign performance metrics ───────────────────────────
     const { data: activeCampaignsList } = await supabase
       .from("campaigns")
       .select("id, workspace_id")
