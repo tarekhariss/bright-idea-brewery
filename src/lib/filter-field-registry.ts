@@ -2,7 +2,8 @@
  * Registry of all filterable fields for contacts and companies.
  * Used by the Advanced Filter Panel to render field pickers and operators.
  */
-import type { FilterFieldMeta } from "./advanced-filter-types";
+import { type FilterFieldMeta } from "./advanced-filter-types";
+export type { FilterFieldMeta };
 
 // ─── Contact Fields ──────────────────────────────────────────
 export const CONTACT_FILTER_FIELDS: FilterFieldMeta[] = [

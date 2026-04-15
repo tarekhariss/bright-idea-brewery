@@ -404,7 +404,7 @@ function ConditionRow({
                 value={Array.isArray(condition.value) ? String(condition.value[0] ?? "") : ""}
                 onChange={(e) => {
                   const cur = Array.isArray(condition.value) ? condition.value : ["", ""];
-                  onChange({ value: [e.target.value, cur[1]] as [number, number] });
+                  onChange({ value: [e.target.value, cur[1]] as unknown as [number, number] });
                 }}
               />
               <Input
@@ -413,7 +413,7 @@ function ConditionRow({
                 value={Array.isArray(condition.value) ? String(condition.value[1] ?? "") : ""}
                 onChange={(e) => {
                   const cur = Array.isArray(condition.value) ? condition.value : ["", ""];
-                  onChange({ value: [cur[0], e.target.value] as [number, number] });
+                  onChange({ value: [cur[0], e.target.value] as unknown as [number, number] });
                 }}
               />
             </div>
