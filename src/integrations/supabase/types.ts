@@ -454,6 +454,24 @@ export type Database = {
           },
         ]
       }
+      allowed_emails: {
+        Row: {
+          created_at: string | null
+          email: string
+          id: string
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          id?: string
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          id?: string
+        }
+        Relationships: []
+      }
       calls: {
         Row: {
           company_id: string | null
@@ -5736,6 +5754,7 @@ export type Database = {
         Args: { p_limit: number; p_mailbox_id: string }
         Returns: boolean
       }
+      is_email_allowed: { Args: { p_email: string }; Returns: boolean }
       is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
       is_workspace_member: {
         Args: { _user_id: string; _workspace_id: string }
