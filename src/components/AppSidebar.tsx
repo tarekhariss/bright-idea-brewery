@@ -177,9 +177,7 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" className="sidebar-gradient border-r-0">
       {/* Logo */}
       <div className="flex h-14 items-center gap-2.5 px-4 border-b border-sidebar-border shrink-0">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary">
-          <span className="text-xs font-bold text-sidebar-primary-foreground">TB</span>
-        </div>
+        <img src="/logo.png" alt="Leads Bridge" className="h-8 w-8 shrink-0 rounded-lg object-contain" />
         {!collapsed && (
           <div className="flex flex-col min-w-0">
             <span className="text-sm font-semibold text-sidebar-accent-foreground truncate">TLBG</span>
