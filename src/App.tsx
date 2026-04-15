@@ -31,6 +31,7 @@ import NotFound from "./pages/NotFound";
 
 // Search pages
 import ProspectEnrichPage from "./pages/search/ProspectEnrich";
+import ProspectSearchPage from "./pages/search/ProspectSearchPage";
 import DataEnrichmentPage from "./pages/search/DataEnrichment";
 import ProspectIntelligencePage from "./pages/search/ProspectIntelligence";
 
@@ -118,7 +119,8 @@ const App = () => (
             <Route path="/" element={<PL><DashboardPage /></PL>} />
 
             {/* Search */}
-            <Route path="/search" element={<PL><ProspectEnrichPage /></PL>} />
+            <Route path="/search" element={<PL><ProspectSearchPage /></PL>} />
+            <Route path="/search/prospect" element={<PL><ProspectEnrichPage /></PL>} />
             <Route path="/search/people" element={<PL><ContactsPage /></PL>} />
             <Route path="/search/companies" element={<PL><CompaniesPage /></PL>} />
             <Route path="/search/lists" element={<PL><ListsPage /></PL>} />
