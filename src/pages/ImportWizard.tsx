@@ -421,9 +421,10 @@ export default function ImportWizardPage() {
         toast.success(`Import complete: ${actualInserted.toLocaleString()} contacts inserted, ${(dupCount + skippedCount).toLocaleString()} duplicates, ${errorCount.toLocaleString()} errors`);
       }
       navigate(`/imports/${job.id}`);
-    } catch (err) {
-      toast.error("Failed to create import job");
-      console.error(err);
+    } catch (err: any) {
+      const msg = err?.message || "Unknown error";
+      toast.error(`Import failed: ${msg}`);
+      console.error("Import error:", err);
     } finally {
       setSubmitting(false);
     }
