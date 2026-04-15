@@ -76,6 +76,35 @@ export default function ImportJobDetailPage() {
   const [activeTab, setActiveTab] = useState("all");
   const [reviewRow, setReviewRow] = useState<any | null>(null);
   const [selectedRow, setSelectedRow] = useState<any | null>(null);
+  const [retrying, setRetrying] = useState(false);
+
+  const handleRetryFailed = useCallback(async () => {
+    if (!id) return;
+    setRetrying(true);
+    try {
+      // Reset all error/failed rows back to pending
+      const { error, count } = await (supabase.from("import_job_rows") as any)
+        .update({ status: "pending", error_message: null, action_taken: null })
+        .eq("import_job_id", id)
+        .eq("status", "error")
+        .select("id", { count: "exact", head: true });
+
+      if (error) throw error;
+      toast.success(`${count ?? 0} failed row(s) reset for re-processing`);
+
+      // Update the job status back to processing
+      await (supabase.from("import_jobs") as any)
+        .update({ status: "processing" })
+        .eq("id", id);
+
+      queryClient.invalidateQueries({ queryKey: ["import-job", id] });
+      queryClient.invalidateQueries({ queryKey: ["import-job-rows"] });
+    } catch {
+      toast.error("Failed to retry rows");
+    } finally {
+      setRetrying(false);
+    }
+  }, [id, queryClient]);
 
   const { data: job, isLoading: jobLoading } = useQuery({
     queryKey: ["import-job", id],
