@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import logo from "@/assets/logo.png";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -14,6 +15,19 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const logAttempt = async (success: boolean, errorMessage?: string) => {
+    try {
+      await (supabase as any).from("login_audit_log").insert({
+        email,
+        success,
+        error_message: errorMessage ?? null,
+        user_agent: navigator.userAgent,
+      });
+    } catch {
+      // audit logging should never block login flow
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,16 +37,20 @@ export default function LoginPage() {
     const { data: allowed, error: rpcErr } = await (supabase as any).rpc("is_email_allowed", { p_email: email });
 
     if (rpcErr || !allowed) {
+      await logAttempt(false, "Email not on allowlist");
       setLoading(false);
       toast({ title: "Access denied", description: "This email is not authorized to access the platform.", variant: "destructive" });
       return;
     }
 
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
     if (error) {
+      await logAttempt(false, error.message);
+      setLoading(false);
       toast({ title: "Login failed", description: error.message, variant: "destructive" });
     } else {
+      await logAttempt(true);
+      setLoading(false);
       navigate("/");
     }
   };
@@ -41,8 +59,8 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md animate-fade-in">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary">
-            <span className="text-lg font-bold text-primary-foreground">TB</span>
+          <div className="mx-auto mb-4">
+            <img src={logo} alt="Leads Bridge" className="h-16 w-auto" />
           </div>
           <CardTitle className="text-2xl font-semibold">Sign in</CardTitle>
           <CardDescription>TLBG Prospect Intelligence Platform</CardDescription>
