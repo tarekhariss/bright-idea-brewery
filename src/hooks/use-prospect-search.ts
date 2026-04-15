@@ -103,6 +103,46 @@ function applySearchFilter(query: any, entityType: EntityType, search: string) {
   return query.or(`name.ilike.%${search}%,domain.ilike.%${search}%`);
 }
 
+interface ListFilterIds {
+  includeIds: string[] | null;
+  excludeIds: string[] | null;
+}
+
+async function resolveListFilters(def: FilterDefinition): Promise<ListFilterIds> {
+  let includeIds: string[] | null = null;
+  let excludeIds: string[] | null = null;
+
+  if (def.includeLists?.length) {
+    const { data } = await supabase
+      .from("list_contacts")
+      .select("contact_id")
+      .in("list_id", def.includeLists);
+    includeIds = [...new Set((data as any[])?.map(r => r.contact_id) ?? [])];
+  }
+  if (def.excludeLists?.length) {
+    const { data } = await supabase
+      .from("list_contacts")
+      .select("contact_id")
+      .in("list_id", def.excludeLists);
+    excludeIds = [...new Set((data as any[])?.map(r => r.contact_id) ?? [])];
+  }
+  return { includeIds, excludeIds };
+}
+
+function applyListIds(query: any, ids: ListFilterIds): any {
+  if (ids.includeIds !== null) {
+    if (ids.includeIds.length > 0) {
+      query = query.in("id", ids.includeIds);
+    } else {
+      query = query.eq("id", "00000000-0000-0000-0000-000000000000");
+    }
+  }
+  if (ids.excludeIds !== null && ids.excludeIds.length > 0) {
+    query = query.not("id", "in", `(${ids.excludeIds.join(",")})`);
+  }
+  return query;
+}
+
 // ─── State manager hook ──────────────────────────────────────
 export function useProspectSearchState() {
   const [entityType, setEntityType] = useState<EntityType>("contact");
