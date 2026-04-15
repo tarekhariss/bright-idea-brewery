@@ -202,7 +202,7 @@ export default function ImportsPage() {
                           {job.status}
                         </Badge>
                         {job.status === "processing" && job.started_at && (Date.now() - new Date(job.started_at).getTime() > 3600000) && (
-                          <AlertTriangle className="h-3.5 w-3.5 text-amber-500" title="This job may be stuck" />
+                          <span title="This job may be stuck"><AlertTriangle className="h-3.5 w-3.5 text-amber-500" /></span>
                         )}
                         {job.status === "failed" && job.error_summary && (
                           <span className="text-[10px] text-destructive truncate max-w-[120px]" title={typeof job.error_summary === 'object' ? (job.error_summary as any).reason : String(job.error_summary)}>
