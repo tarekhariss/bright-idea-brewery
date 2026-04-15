@@ -54,10 +54,14 @@ export function useProspectSearch(options: ProspectSearchOptions) {
       const from = options.page * options.pageSize;
       const to = from + options.pageSize - 1;
 
+      // Resolve list include/exclude IDs upfront
+      const listIds = await resolveListFilters(options.filterDefinition);
+
       // Build count query
       let countQuery = db().from(table).select("*", { count: "exact", head: true });
       countQuery = applySearchFilter(countQuery, options.entityType, debouncedSearch);
       countQuery = applyAdvancedFilters(countQuery, options.filterDefinition);
+      countQuery = applyListIds(countQuery, listIds);
       const { count } = await countQuery;
       const totalCount = count ?? 0;
 
@@ -73,6 +77,7 @@ export function useProspectSearch(options: ProspectSearchOptions) {
 
       dataQuery = applySearchFilter(dataQuery, options.entityType, debouncedSearch);
       dataQuery = applyAdvancedFilters(dataQuery, options.filterDefinition);
+      dataQuery = applyListIds(dataQuery, listIds);
 
       const { data, error } = await dataQuery;
       if (error) throw error;
