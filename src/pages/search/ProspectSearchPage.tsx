@@ -188,7 +188,7 @@ export default function ProspectSearchPage() {
   const totalCount = searchResult.data?.totalCount ?? 0;
   const totalPages = searchResult.data?.totalPages ?? 0;
   const filterCount = countActiveConditions(state.filterDefinition);
-  const allSelected = rows.length > 0 && rows.every((r: any) => state.selectedRows.has(r.id));
+  const allSelected = state.selectAllMode || (rows.length > 0 && rows.every((r: any) => state.selectedRows.has(r.id)));
 
   const handleSort = (key: string) => {
     if (key === "name") key = state.entityType === "contact" ? "first_name" : "name";
