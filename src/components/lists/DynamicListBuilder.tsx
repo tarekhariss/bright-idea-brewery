@@ -16,8 +16,8 @@ import { Loader2, Zap, Users, Eye, Plus, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { AdvancedFilterPanel } from "@/components/data-table/AdvancedFilterPanel";
 import type { FilterDefinition } from "@/lib/advanced-filter-types";
-import { createEmptyFilterDefinition, countActiveConditions } from "@/lib/advanced-filter-types";
-import { applyAdvancedFilters, countActiveConditions as engineCount } from "@/lib/advanced-filter-engine";
+import { createEmptyFilterDefinition } from "@/lib/advanced-filter-types";
+import { applyAdvancedFilters, countActiveConditions } from "@/lib/advanced-filter-engine";
 import { CONTACT_FILTER_FIELDS } from "@/lib/filter-field-registry";
 import { useDebounce } from "@/hooks/use-debounce";
 
@@ -196,7 +196,7 @@ export function DynamicListBuilder({ open, onOpenChange, existingList, onSuccess
                 filterDefinition={filterDef}
                 onFilterChange={setFilterDef}
                 fields={CONTACT_FILTER_FIELDS}
-                entityType="contacts"
+                entityType="contact"
               />
             </div>
           </div>
