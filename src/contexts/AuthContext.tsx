@@ -18,7 +18,6 @@ interface AuthContextType {
   canManage: boolean;
   isAdmin: boolean;
   signOut: () => Promise<void>;
-  // Workspace
   workspaceId: string | null;
   workspace: Workspace | null;
   workspaces: Workspace[];
@@ -120,7 +119,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // Get saved preference
       const { data: pref } = await (supabase as any)
         .from("user_workspace_preferences")
         .select("active_workspace_id")
@@ -151,22 +149,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const createWorkspace = async (name: string): Promise<Workspace | null> => {
     const user = session?.user;
     if (!user) return null;
-    const { data: ws, error } = await (supabase as any)
-      .from("workspaces")
-      .insert({ name, owner_id: user.id })
-      .select()
-      .single();
-    if (error || !ws) return null;
 
-    await (supabase as any)
-      .from("workspace_members")
-      .insert({ workspace_id: ws.id, user_id: user.id, role: "admin" });
+    // Use atomic SECURITY DEFINER function to avoid RLS race condition
+    const { data, error } = await (supabase as any).rpc("create_workspace_for_user", {
+      p_name: name,
+      p_user_id: user.id,
+    });
 
-    await (supabase as any)
-      .from("user_workspace_preferences")
-      .upsert({ user_id: user.id, active_workspace_id: ws.id }, { onConflict: "user_id" });
+    if (error) {
+      console.error("Workspace creation failed:", error);
+      throw new Error(error.message || "Failed to create workspace");
+    }
 
-    const newWs = { id: ws.id, name: ws.name };
+    if (!data) return null;
+
+    const newWs: Workspace = { id: data.id, name: data.name };
     setWorkspaces((prev) => [...prev, newWs]);
     setWorkspace(newWs);
     return newWs;

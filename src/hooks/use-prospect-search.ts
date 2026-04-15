@@ -34,7 +34,7 @@ export interface ProspectSearchResult<T = any> {
 }
 
 export function useProspectSearch(options: ProspectSearchOptions) {
-  const { user } = useAuth();
+  const { user, workspaceId } = useAuth();
   const debouncedSearch = useDebounce(options.search, 300);
 
   return useQuery({
@@ -47,8 +47,9 @@ export function useProspectSearch(options: ProspectSearchOptions) {
       options.sortDirection,
       options.page,
       options.pageSize,
+      workspaceId,
     ],
-    enabled: !!user,
+    enabled: !!user && !!workspaceId,
     queryFn: async (): Promise<ProspectSearchResult> => {
       const table = options.entityType === "contact" ? "contacts" : "companies";
       const from = options.page * options.pageSize;
