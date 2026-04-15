@@ -2271,6 +2271,103 @@ export type Database = {
           },
         ]
       }
+      duplicate_candidates: {
+        Row: {
+          created_at: string
+          entity_type: string
+          group_id: string
+          id: string
+          is_primary: boolean
+          match_reasons: string[]
+          match_score: number | null
+          merge_status: Database["public"]["Enums"]["merge_status"]
+          record_id: string
+        }
+        Insert: {
+          created_at?: string
+          entity_type?: string
+          group_id: string
+          id?: string
+          is_primary?: boolean
+          match_reasons?: string[]
+          match_score?: number | null
+          merge_status?: Database["public"]["Enums"]["merge_status"]
+          record_id: string
+        }
+        Update: {
+          created_at?: string
+          entity_type?: string
+          group_id?: string
+          id?: string
+          is_primary?: boolean
+          match_reasons?: string[]
+          match_score?: number | null
+          merge_status?: Database["public"]["Enums"]["merge_status"]
+          record_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "duplicate_candidates_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "duplicate_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      duplicate_groups: {
+        Row: {
+          confidence_score: number | null
+          created_at: string
+          entity_type: string
+          id: string
+          match_rules: string[]
+          primary_record_id: string | null
+          record_count: number
+          resolved_at: string | null
+          resolved_by: string | null
+          status: Database["public"]["Enums"]["duplicate_group_status"]
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          confidence_score?: number | null
+          created_at?: string
+          entity_type?: string
+          id?: string
+          match_rules?: string[]
+          primary_record_id?: string | null
+          record_count?: number
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: Database["public"]["Enums"]["duplicate_group_status"]
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          confidence_score?: number | null
+          created_at?: string
+          entity_type?: string
+          id?: string
+          match_rules?: string[]
+          primary_record_id?: string | null
+          record_count?: number
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: Database["public"]["Enums"]["duplicate_group_status"]
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "duplicate_groups_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_bounces: {
         Row: {
           bounce_reason: string | null
@@ -2633,6 +2730,127 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "esp_routing_rules_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      export_jobs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          entity_type: string
+          error_message: string | null
+          export_type: Database["public"]["Enums"]["export_type"]
+          file_name: string
+          file_url: string | null
+          filter_definition: Json | null
+          id: string
+          processed_rows: number
+          selected_columns: string[]
+          selected_ids: string[] | null
+          source_id: string | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["export_status"]
+          template_id: string | null
+          total_rows: number
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          entity_type?: string
+          error_message?: string | null
+          export_type?: Database["public"]["Enums"]["export_type"]
+          file_name: string
+          file_url?: string | null
+          filter_definition?: Json | null
+          id?: string
+          processed_rows?: number
+          selected_columns?: string[]
+          selected_ids?: string[] | null
+          source_id?: string | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["export_status"]
+          template_id?: string | null
+          total_rows?: number
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          entity_type?: string
+          error_message?: string | null
+          export_type?: Database["public"]["Enums"]["export_type"]
+          file_name?: string
+          file_url?: string | null
+          filter_definition?: Json | null
+          id?: string
+          processed_rows?: number
+          selected_columns?: string[]
+          selected_ids?: string[] | null
+          source_id?: string | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["export_status"]
+          template_id?: string | null
+          total_rows?: number
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "export_jobs_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      export_templates: {
+        Row: {
+          columns: string[]
+          created_at: string
+          created_by: string | null
+          entity_type: string
+          id: string
+          is_default: boolean
+          name: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          columns?: string[]
+          created_at?: string
+          created_by?: string | null
+          entity_type?: string
+          id?: string
+          is_default?: boolean
+          name: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          columns?: string[]
+          created_at?: string
+          created_by?: string | null
+          entity_type?: string
+          id?: string
+          is_default?: boolean
+          name?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "export_templates_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -3950,6 +4168,60 @@ export type Database = {
           },
           {
             foreignKeyName: "meetings_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      merge_history: {
+        Row: {
+          created_at: string
+          duplicate_group_id: string | null
+          entity_type: string
+          field_selections: Json
+          id: string
+          merge_summary: Json | null
+          merged_record_ids: string[]
+          performed_by: string | null
+          surviving_record_id: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          duplicate_group_id?: string | null
+          entity_type?: string
+          field_selections?: Json
+          id?: string
+          merge_summary?: Json | null
+          merged_record_ids?: string[]
+          performed_by?: string | null
+          surviving_record_id: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          duplicate_group_id?: string | null
+          entity_type?: string
+          field_selections?: Json
+          id?: string
+          merge_summary?: Json | null
+          merged_record_ids?: string[]
+          performed_by?: string | null
+          surviving_record_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "merge_history_duplicate_group_id_fkey"
+            columns: ["duplicate_group_id"]
+            isOneToOne: false
+            referencedRelation: "duplicate_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "merge_history_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -5464,6 +5736,7 @@ export type Database = {
       deal_status: "open" | "won" | "lost" | "abandoned"
       dns_record_status: "pending" | "pass" | "fail"
       domain_status: "pending" | "verified" | "failed"
+      duplicate_group_status: "pending" | "reviewing" | "resolved" | "dismissed"
       email_status:
         | "draft"
         | "queued"
@@ -5487,6 +5760,13 @@ export type Database = {
         | "replied"
         | "opted_out"
         | "failed"
+      export_status:
+        | "pending"
+        | "processing"
+        | "completed"
+        | "failed"
+        | "cancelled"
+      export_type: "filtered" | "selected" | "list" | "saved_search" | "full"
       generated_content_type:
         | "email_subject"
         | "email_body"
@@ -5523,6 +5803,7 @@ export type Database = {
       linkedin_queue_status: "pending" | "scheduled" | "completed" | "failed"
       mailbox_provider_type: "google" | "microsoft" | "smtp" | "other"
       meeting_status: "scheduled" | "completed" | "cancelled" | "no_show"
+      merge_status: "candidate" | "merged" | "kept_separate" | "skipped"
       outreach_status:
         | "not_contacted"
         | "queued"
@@ -5758,6 +6039,7 @@ export const Constants = {
       deal_status: ["open", "won", "lost", "abandoned"],
       dns_record_status: ["pending", "pass", "fail"],
       domain_status: ["pending", "verified", "failed"],
+      duplicate_group_status: ["pending", "reviewing", "resolved", "dismissed"],
       email_status: [
         "draft",
         "queued",
@@ -5784,6 +6066,14 @@ export const Constants = {
         "opted_out",
         "failed",
       ],
+      export_status: [
+        "pending",
+        "processing",
+        "completed",
+        "failed",
+        "cancelled",
+      ],
+      export_type: ["filtered", "selected", "list", "saved_search", "full"],
       generated_content_type: [
         "email_subject",
         "email_body",
@@ -5824,6 +6114,7 @@ export const Constants = {
       linkedin_queue_status: ["pending", "scheduled", "completed", "failed"],
       mailbox_provider_type: ["google", "microsoft", "smtp", "other"],
       meeting_status: ["scheduled", "completed", "cancelled", "no_show"],
+      merge_status: ["candidate", "merged", "kept_separate", "skipped"],
       outreach_status: [
         "not_contacted",
         "queued",

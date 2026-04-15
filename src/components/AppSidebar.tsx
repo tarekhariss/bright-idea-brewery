@@ -4,7 +4,7 @@ import {
   Search, Users, Building2, List, Sparkles, Brain,
   Send, Mail, Phone, CheckSquare, Megaphone, FileText, Inbox, Linkedin,
   Handshake, MessageSquare, CalendarCheck, DollarSign,
-  Wrench, GitBranch, BarChart3,
+  Wrench, GitBranch, BarChart3, Download, GitMerge,
   Database, Settings, LogOut, ChevronRight,
   Upload, Activity, Bookmark, LayoutDashboard, ShieldCheck,
 } from "lucide-react";
@@ -89,6 +89,8 @@ const navGroups: NavGroup[] = [
     items: [
       { title: "Workflows", url: "/tools/workflows", icon: GitBranch },
       { title: "Analytics", url: "/tools/analytics", icon: BarChart3 },
+      { title: "Export History", url: "/tools/exports", icon: Download },
+      { title: "Duplicate Review", url: "/tools/duplicates", icon: GitMerge },
     ],
   },
   {
