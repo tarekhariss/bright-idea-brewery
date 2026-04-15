@@ -37,7 +37,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 </div>
                 <div className="flex items-center gap-2">
                   <Button asChild size="sm">
-                    <Link to="/onboarding">Create or join later</Link>
+                    <Link to="/onboarding">Open workspace setup</Link>
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => setWorkspaceBannerDismissed(true)}>
                     Dismiss
