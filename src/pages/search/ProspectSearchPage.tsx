@@ -189,7 +189,7 @@ export default function ProspectSearchPage() {
     <div className="flex h-[calc(100vh-3.5rem)] animate-fade-in">
       {/* Left filter sidebar */}
       {showFilters && (
-        <div className="w-[300px] border-r flex flex-col shrink-0 bg-background">
+        <div className="w-[320px] border-r border-border flex flex-col shrink-0 bg-card">
           <AdvancedFilterPanel
             entityType={state.entityType}
             value={state.filterDefinition}
