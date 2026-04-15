@@ -249,6 +249,7 @@ export default function ImportWizardPage() {
       let dupCount = 0;
       let reviewCount = 0;
       let skippedCount = 0;
+      let totalInserted = 0;
 
       // Contact field keys we can map
       const CONTACT_FIELDS = new Set([
@@ -350,15 +351,17 @@ export default function ImportWizardPage() {
 
         // Insert actual contacts in sub-batches
         if (contactsToInsert.length > 0) {
-          const { error: contactErr } = await supabase
+          const { data: insertedData, error: contactErr } = await supabase
             .from("contacts")
-            .insert(contactsToInsert as any);
+            .insert(contactsToInsert as any)
+            .select("id");
           if (contactErr) {
             console.error("Contact insert error for batch:", contactErr);
-            // Downgrade success rows to errors for this batch
             const batchSuccesses = contactsToInsert.length;
             successCount -= batchSuccesses;
             errorCount += batchSuccesses;
+          } else {
+            totalInserted += (insertedData?.length ?? 0);
           }
         }
 
@@ -369,22 +372,42 @@ export default function ImportWizardPage() {
           .eq("id", job.id);
       }
 
-      // 3. Final job status update
+      // 3. Post-insert verification: count actual contacts with this import's source_file
+      const { count: verifiedCount } = await supabase
+        .from("contacts")
+        .select("id", { count: "exact", head: true })
+        .eq("source_file", file.name)
+        .eq("created_by", user.id);
+
+      const actualInserted = verifiedCount ?? totalInserted;
       const totalProcessed = successCount + errorCount + dupCount + reviewCount + skippedCount;
+
+      // If staged success count doesn't match actual inserts, mark discrepancy
+      const mismatch = successCount > 0 && actualInserted < successCount;
+      const finalStatus = mismatch && actualInserted === 0 ? "failed" : "completed";
+      const errorSummary = mismatch
+        ? { reason: `Verification mismatch: ${successCount} rows staged as success but only ${actualInserted} contacts were actually inserted into the database.` }
+        : null;
 
       await (supabase.from("import_jobs") as any)
         .update({
-          status: "completed",
+          status: finalStatus,
           processed_rows: totalProcessed,
           success_rows: successCount,
-          error_rows: errorCount,
+          inserted_rows: actualInserted,
+          error_rows: errorCount + (mismatch ? successCount - actualInserted : 0),
           duplicate_rows: dupCount + skippedCount,
           review_rows: reviewCount,
           completed_at: new Date().toISOString(),
+          ...(errorSummary ? { error_summary: errorSummary } : {}),
         })
         .eq("id", job.id);
 
-      toast.success(`Import complete: ${successCount.toLocaleString()} contacts created, ${(dupCount + skippedCount).toLocaleString()} duplicates, ${errorCount.toLocaleString()} errors`);
+      if (mismatch) {
+        toast.warning(`Import finished with issues: ${actualInserted.toLocaleString()} of ${successCount.toLocaleString()} contacts actually inserted. Check job details for more info.`);
+      } else {
+        toast.success(`Import complete: ${actualInserted.toLocaleString()} contacts inserted, ${(dupCount + skippedCount).toLocaleString()} duplicates, ${errorCount.toLocaleString()} errors`);
+      }
       navigate(`/imports/${job.id}`);
     } catch (err) {
       toast.error("Failed to create import job");

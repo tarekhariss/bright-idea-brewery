@@ -1,0 +1,1 @@
+ALTER TABLE public.import_jobs ADD COLUMN inserted_rows integer NOT NULL DEFAULT 0;

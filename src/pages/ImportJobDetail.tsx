@@ -239,11 +239,23 @@ export default function ImportJobDetailPage() {
       )}
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+      {/* Verification mismatch warning */}
+      {job.status === "completed" && job.inserted_rows !== undefined && job.inserted_rows < job.success_rows && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-200 text-amber-700 text-sm">
+          <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+          <span>
+            <strong>Verification warning:</strong> {job.success_rows.toLocaleString()} rows were staged as successful, but only {job.inserted_rows.toLocaleString()} contacts were actually inserted into the database.
+          </span>
+        </div>
+      )}
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-7 gap-3">
         {[
           { label: "Total Rows", value: job.total_rows, icon: FileSpreadsheet, color: "text-foreground" },
           { label: "Processed", value: job.processed_rows, icon: CheckCircle2, color: "text-foreground" },
-          { label: "Success", value: job.success_rows, icon: CheckCircle2, color: "text-emerald-600" },
+          { label: "Staged OK", value: job.success_rows, icon: CheckCircle2, color: "text-foreground" },
+          { label: "Inserted", value: job.inserted_rows ?? 0, icon: CheckCircle2, color: "text-emerald-600" },
           { label: "Errors", value: job.error_rows, icon: XCircle, color: "text-destructive" },
           { label: "Duplicates", value: job.duplicate_rows, icon: MinusCircle, color: "text-amber-600" },
           { label: "Review", value: job.review_rows, icon: AlertTriangle, color: "text-primary" },

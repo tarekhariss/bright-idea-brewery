@@ -3178,6 +3178,7 @@ export type Database = {
           file_name: string
           file_url: string | null
           id: string
+          inserted_rows: number
           processed_rows: number
           review_rows: number
           settings: Json | null
@@ -3198,6 +3199,7 @@ export type Database = {
           file_name: string
           file_url?: string | null
           id?: string
+          inserted_rows?: number
           processed_rows?: number
           review_rows?: number
           settings?: Json | null
@@ -3218,6 +3220,7 @@ export type Database = {
           file_name?: string
           file_url?: string | null
           id?: string
+          inserted_rows?: number
           processed_rows?: number
           review_rows?: number
           settings?: Json | null
