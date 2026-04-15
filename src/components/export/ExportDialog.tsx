@@ -1,27 +1,30 @@
 /**
  * ExportDialog — Reusable export dialog for search, lists, etc.
+ * Shows estimated row count after per-company limits.
  */
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Download, Loader2, Save } from "lucide-react";
+import { Download, Loader2, Save, Info, AlertTriangle } from "lucide-react";
 import {
   useCreateExport, useExportTemplates,
   DEFAULT_CONTACT_EXPORT_COLUMNS, DEFAULT_COMPANY_EXPORT_COLUMNS,
   ALL_CONTACT_EXPORT_COLUMNS, ALL_COMPANY_EXPORT_COLUMNS,
   type CreateExportParams,
 } from "@/hooks/use-exports";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import type { FilterDefinition } from "@/lib/advanced-filter-types";
 
 interface ExportDialogProps {
@@ -50,9 +53,67 @@ export function ExportDialog({
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [templateName, setTemplateName] = useState("");
   const [maxPerCompany, setMaxPerCompany] = useState<string>("0");
+  const [estimatedCount, setEstimatedCount] = useState<number | null>(null);
+  const [estimating, setEstimating] = useState(false);
 
   const { createExport, creating } = useCreateExport();
   const { templates, saveTemplate } = useExportTemplates(entityType);
+  const { user } = useAuth();
+
+  const baseCount = exportType === "selected" && selectedIds
+    ? selectedIds.length
+    : totalCount ?? 0;
+
+  const perCompanyLimit = parseInt(maxPerCompany, 10);
+  const hasPerCompanyLimit = perCompanyLimit > 0 && entityType === "contact";
+
+  // Estimate row count when per-company limit changes
+  useEffect(() => {
+    if (!open || !hasPerCompanyLimit || baseCount === 0) {
+      setEstimatedCount(null);
+      return;
+    }
+
+    let cancelled = false;
+    const estimate = async () => {
+      setEstimating(true);
+      try {
+        // Fetch company_name_raw for the selection to estimate filtered count
+        let query = (supabase.from("contacts") as any)
+          .select("company_name_raw")
+          .limit(50000);
+
+        if (workspaceId && workspaceId.trim()) {
+          query = query.eq("workspace_id", workspaceId);
+        } else if (user) {
+          query = query.is("workspace_id", null).eq("created_by", user.id);
+        }
+
+        if (exportType === "selected" && selectedIds?.length) {
+          query = query.in("id", selectedIds);
+        }
+
+        const { data } = await query;
+        if (cancelled || !data) return;
+
+        const companyCounts: Record<string, number> = {};
+        let kept = 0;
+        for (const row of data) {
+          const key = (row.company_name_raw || "__no_company__").toLowerCase();
+          companyCounts[key] = (companyCounts[key] || 0) + 1;
+          if (companyCounts[key] <= perCompanyLimit) kept++;
+        }
+        if (!cancelled) setEstimatedCount(kept);
+      } catch {
+        if (!cancelled) setEstimatedCount(null);
+      } finally {
+        if (!cancelled) setEstimating(false);
+      }
+    };
+
+    estimate();
+    return () => { cancelled = true; };
+  }, [open, hasPerCompanyLimit, perCompanyLimit, baseCount, exportType, selectedIds, workspaceId, user]);
 
   const toggleColumn = (col: string) => {
     setSelectedColumns((prev) =>
@@ -113,9 +174,11 @@ export function ExportDialog({
     return groups;
   }, [allColumns]);
 
-  const displayCount = exportType === "selected" && selectedIds
-    ? selectedIds.length
-    : totalCount ?? 0;
+  // Final count to display
+  const finalCount = hasPerCompanyLimit && estimatedCount !== null
+    ? estimatedCount
+    : baseCount;
+  const reducedByLimit = hasPerCompanyLimit && estimatedCount !== null && estimatedCount < baseCount;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -127,12 +190,39 @@ export function ExportDialog({
           </DialogTitle>
           <DialogDescription>
             {exportType === "selected" && selectedIds
-              ? `Export ${selectedIds.length.toLocaleString()} selected ${entityType}(s)`
-              : `Export ${displayCount.toLocaleString()} ${exportType} results`}
+              ? `Exporting ${selectedIds.length.toLocaleString()} selected ${entityType}(s)`
+              : `Exporting all ${baseCount.toLocaleString()} matching results across every page`}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Export summary with final count */}
+          <Alert className="bg-muted/50 border-border">
+            <Info className="h-4 w-4 text-primary" />
+            <AlertDescription className="text-xs space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="font-medium">Records to export:</span>
+                {estimating ? (
+                  <span className="flex items-center gap-1 text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" /> Calculating…
+                  </span>
+                ) : (
+                  <Badge variant="secondary" className="text-xs font-semibold">
+                    {finalCount.toLocaleString()} rows
+                  </Badge>
+                )}
+              </div>
+              {reducedByLimit && (
+                <div className="flex items-center gap-1.5 text-destructive">
+                  <AlertTriangle className="h-3 w-3 shrink-0" />
+                  <span>
+                    Reduced from {baseCount.toLocaleString()} to {estimatedCount!.toLocaleString()} by the {perCompanyLimit}-per-company limit
+                  </span>
+                </div>
+              )}
+            </AlertDescription>
+          </Alert>
+
           {/* File name */}
           <div className="space-y-1.5">
             <Label className="text-sm">File Name</Label>
@@ -186,7 +276,7 @@ export function ExportDialog({
                 <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={selectNone}>None</Button>
               </div>
             </div>
-            <ScrollArea className="h-[280px] border rounded-md p-3">
+            <ScrollArea className="h-[240px] border rounded-md p-3">
               <div className="space-y-4">
                 {Object.entries(groupedColumns).map(([group, cols]) => (
                   <div key={group}>
@@ -232,7 +322,7 @@ export function ExportDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button onClick={handleExport} disabled={creating || selectedColumns.length === 0} className="gap-2">
             {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-            {creating ? "Exporting…" : "Export CSV"}
+            {creating ? "Exporting…" : `Export ${finalCount.toLocaleString()} rows`}
           </Button>
         </DialogFooter>
       </DialogContent>
