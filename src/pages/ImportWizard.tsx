@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -60,6 +61,27 @@ import {
   type ExistingCompany,
 } from "@/lib/csv-utils";
 import type { Json } from "@/integrations/supabase/db-types";
+
+function ListSelector({ value, onChange }: { value: string | null; onChange: (id: string | null) => void }) {
+  const { data: lists } = useQuery({
+    queryKey: ["lists-for-import"],
+    queryFn: async () => {
+      const { data } = await (supabase.from("lists") as any).select("id, name").order("name");
+      return (data ?? []) as { id: string; name: string }[];
+    },
+  });
+  return (
+    <Select value={value ?? "__none__"} onValueChange={(v) => onChange(v === "__none__" ? null : v)}>
+      <SelectTrigger>
+        <SelectValue placeholder="No list" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="__none__">— No list —</SelectItem>
+        {lists?.map((l) => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+      </SelectContent>
+    </Select>
+  );
+}
 
 const STEPS = [
   { id: 1, label: "Upload", icon: Upload },
@@ -737,6 +759,38 @@ export default function ImportWizardPage() {
                   Review your import settings before processing.
                 </CardDescription>
               </div>
+
+              {/* Import Tag & Source */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Import Tag</Label>
+                  <Input
+                    placeholder="e.g. Q2 2026 Webinar Leads"
+                    value={importSettings.import_tag}
+                    onChange={(e) => setImportSettings((prev) => ({ ...prev, import_tag: e.target.value }))}
+                  />
+                  <p className="text-xs text-muted-foreground">Tags all imported contacts for easy filtering</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Source</Label>
+                  <Input
+                    placeholder="e.g. apollo, linkedin, webinar"
+                    value={importSettings.source}
+                    onChange={(e) => setImportSettings((prev) => ({ ...prev, source: e.target.value }))}
+                  />
+                  <p className="text-xs text-muted-foreground">Tracks where these leads came from</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Add to List</Label>
+                  <ListSelector
+                    value={importSettings.list_id}
+                    onChange={(id) => setImportSettings((prev) => ({ ...prev, list_id: id }))}
+                  />
+                  <p className="text-xs text-muted-foreground">Automatically add imported contacts to a list</p>
+                </div>
+              </div>
+
+              <Separator />
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Card>

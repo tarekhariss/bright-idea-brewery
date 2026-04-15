@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
@@ -36,8 +37,12 @@ import {
   ChevronRight,
   GitMerge,
   Shield,
+  RotateCcw,
+  Loader2,
+  Tag,
 } from "lucide-react";
 import { format } from "date-fns";
+import { toast } from "sonner";
 import { ImportReviewPanel } from "@/components/import/ImportReviewPanel";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -71,6 +76,35 @@ export default function ImportJobDetailPage() {
   const [activeTab, setActiveTab] = useState("all");
   const [reviewRow, setReviewRow] = useState<any | null>(null);
   const [selectedRow, setSelectedRow] = useState<any | null>(null);
+  const [retrying, setRetrying] = useState(false);
+
+  const handleRetryFailed = useCallback(async () => {
+    if (!id) return;
+    setRetrying(true);
+    try {
+      // Reset all error/failed rows back to pending
+      const { error, count } = await (supabase.from("import_job_rows") as any)
+        .update({ status: "pending", error_message: null, action_taken: null })
+        .eq("import_job_id", id)
+        .eq("status", "error")
+        .select("id", { count: "exact", head: true });
+
+      if (error) throw error;
+      toast.success(`${count ?? 0} failed row(s) reset for re-processing`);
+
+      // Update the job status back to processing
+      await (supabase.from("import_jobs") as any)
+        .update({ status: "processing" })
+        .eq("id", id);
+
+      queryClient.invalidateQueries({ queryKey: ["import-job", id] });
+      queryClient.invalidateQueries({ queryKey: ["import-job-rows"] });
+    } catch {
+      toast.error("Failed to retry rows");
+    } finally {
+      setRetrying(false);
+    }
+  }, [id, queryClient]);
 
   const { data: job, isLoading: jobLoading } = useQuery({
     queryKey: ["import-job", id],
@@ -153,6 +187,12 @@ export default function ImportJobDetailPage() {
     );
   }
 
+  const progressPct = job.total_rows > 0 ? Math.round((job.processed_rows / job.total_rows) * 100) : 0;
+  const hasErrors = (job.error_rows ?? 0) > 0;
+  const importTag = settingsObj.import_tag as string | undefined;
+  const importSource = settingsObj.source as string | undefined;
+  const importListId = settingsObj.list_id as string | undefined;
+
   return (
     <div className="p-6 space-y-6 animate-fade-in">
       {/* Header */}
@@ -167,13 +207,36 @@ export default function ImportJobDetailPage() {
             <Badge variant="outline" className={`capitalize text-xs ${JOB_STATUS_STYLES[job.status] ?? ""}`}>
               {job.status}
             </Badge>
+            {importTag && (
+              <Badge variant="secondary" className="text-xs gap-1">
+                <Tag className="h-3 w-3" /> {importTag}
+              </Badge>
+            )}
           </div>
           <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
             <span>Created {format(new Date(job.created_at), "MMM d, yyyy 'at' h:mm a")}</span>
             {job.completed_at && <span>· Completed {format(new Date(job.completed_at), "MMM d, yyyy 'at' h:mm a")}</span>}
+            {importSource && <span>· Source: {importSource}</span>}
           </div>
         </div>
+        {hasErrors && job.status === "completed" && (
+          <Button variant="outline" size="sm" className="gap-2" onClick={handleRetryFailed} disabled={retrying}>
+            {retrying ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+            Retry Failed ({job.error_rows})
+          </Button>
+        )}
       </div>
+
+      {/* Progress Bar for in-progress jobs */}
+      {job.status === "processing" && (
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Processing rows…</span>
+            <span className="font-medium">{progressPct}%</span>
+          </div>
+          <Progress value={progressPct} className="h-2" />
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
