@@ -213,7 +213,7 @@ export function ExportDialog({
                 )}
               </div>
               {reducedByLimit && (
-                <div className="flex items-center gap-1.5 text-amber-600">
+                <div className="flex items-center gap-1.5 text-destructive">
                   <AlertTriangle className="h-3 w-3 shrink-0" />
                   <span>
                     Reduced from {baseCount.toLocaleString()} to {estimatedCount!.toLocaleString()} by the {perCompanyLimit}-per-company limit
