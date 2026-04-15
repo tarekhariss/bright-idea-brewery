@@ -11,7 +11,7 @@ import type { FilterDefinition } from "@/lib/advanced-filter-types";
 
 export interface ExportJob {
   id: string;
-  workspace_id: string;
+  workspace_id: string | null;
   entity_type: "contact" | "company";
   export_type: string;
   status: string;
@@ -75,6 +75,12 @@ export const ALL_COMPANY_EXPORT_COLUMNS = [
   "data_quality_score", "owner_id", "created_at",
 ];
 
+/** Sanitize workspace_id: convert empty strings to null */
+function sanitizeUuid(val: string | null | undefined): string | null {
+  if (!val || val.trim() === "") return null;
+  return val;
+}
+
 // ─── Export Jobs Hook ──────────────────────────────────────────────────────────
 
 export function useExportJobs() {
@@ -119,8 +125,13 @@ export function useExportTemplates(entityType: "contact" | "company") {
   });
 
   const saveTemplate = useCallback(async (name: string, columns: string[], wsId: string) => {
+    const cleanWsId = sanitizeUuid(wsId);
+    if (!cleanWsId) {
+      toast.error("No workspace selected");
+      return;
+    }
     const { error } = await (supabase.from("export_templates") as any).insert({
-      workspace_id: wsId,
+      workspace_id: cleanWsId,
       name,
       entity_type: entityType,
       columns,
@@ -152,6 +163,7 @@ export interface CreateExportParams {
   selectedIds?: string[];
   templateId?: string;
   sourceId?: string;
+  maxPerCompany?: number | null;
 }
 
 const SERVER_SIDE_THRESHOLD = 500;
@@ -196,6 +208,10 @@ export function useCreateExport() {
   const createExport = useCallback(async (params: CreateExportParams) => {
     if (!user) return null;
     setCreating(true);
+
+    // Sanitize workspace_id — never send empty string
+    const cleanWorkspaceId = sanitizeUuid(params.workspaceId);
+
     try {
       // Count rows to decide client vs server
       let totalRows = 0;
@@ -204,27 +220,32 @@ export function useCreateExport() {
       } else {
         let countQuery = (supabase.from(params.entityType === "contact" ? "contacts" : "companies") as any)
           .select("id", { count: "exact", head: true });
-        if (params.workspaceId) countQuery = countQuery.eq("workspace_id", params.workspaceId);
+        if (cleanWorkspaceId) countQuery = countQuery.eq("workspace_id", cleanWorkspaceId);
         const { count } = await countQuery;
         totalRows = count ?? 0;
       }
 
+      // Build the insert payload — omit workspace_id entirely if null
+      const jobPayload: Record<string, any> = {
+        entity_type: params.entityType,
+        export_type: params.exportType,
+        status: "pending",
+        total_rows: totalRows,
+        file_name: params.fileName,
+        selected_columns: params.selectedColumns,
+        filter_definition: params.filterDefinition ?? null,
+        selected_ids: params.selectedIds ?? null,
+        template_id: sanitizeUuid(params.templateId) ?? null,
+        source_id: sanitizeUuid(params.sourceId) ?? null,
+        created_by: user.id,
+      };
+      if (cleanWorkspaceId) {
+        jobPayload.workspace_id = cleanWorkspaceId;
+      }
+
       // Create job record
       const { data: job, error } = await (supabase.from("export_jobs") as any)
-        .insert({
-          workspace_id: params.workspaceId,
-          entity_type: params.entityType,
-          export_type: params.exportType,
-          status: "pending",
-          total_rows: totalRows,
-          file_name: params.fileName,
-          selected_columns: params.selectedColumns,
-          filter_definition: params.filterDefinition ?? null,
-          selected_ids: params.selectedIds ?? null,
-          template_id: params.templateId ?? null,
-          source_id: params.sourceId ?? null,
-          created_by: user.id,
-        })
+        .insert(jobPayload)
         .select()
         .single();
 
@@ -258,15 +279,26 @@ export function useCreateExport() {
       let dataQuery = (supabase.from(table) as any)
         .select(params.selectedColumns.join(","))
         .limit(100000);
-      if (params.workspaceId) dataQuery = dataQuery.eq("workspace_id", params.workspaceId);
+      if (cleanWorkspaceId) dataQuery = dataQuery.eq("workspace_id", cleanWorkspaceId);
       if (params.exportType === "selected" && params.selectedIds?.length) {
         dataQuery = dataQuery.in("id", params.selectedIds);
       }
-      const { data: rows, error: fetchErr } = await dataQuery;
+      let { data: rows, error: fetchErr } = await dataQuery;
       if (fetchErr) throw fetchErr;
+      rows = rows ?? [];
+
+      // Apply per-company limit if set (contact exports only)
+      if (params.maxPerCompany && params.maxPerCompany > 0 && params.entityType === "contact") {
+        const companyCounts: Record<string, number> = {};
+        rows = rows.filter((row: any) => {
+          const key = (row.company_name_raw || "__no_company__").toLowerCase();
+          companyCounts[key] = (companyCounts[key] || 0) + 1;
+          return companyCounts[key] <= params.maxPerCompany!;
+        });
+      }
 
       const csvRows = [params.selectedColumns.join(",")];
-      for (const row of (rows ?? [])) {
+      for (const row of rows) {
         const vals = params.selectedColumns.map((col) => {
           const v = row[col];
           if (v === null || v === undefined) return "";
@@ -287,13 +319,13 @@ export function useCreateExport() {
 
       await (supabase.from("export_jobs") as any).update({
         status: "completed",
-        processed_rows: (rows ?? []).length,
-        total_rows: (rows ?? []).length,
+        processed_rows: rows.length,
+        total_rows: rows.length,
         completed_at: new Date().toISOString(),
       }).eq("id", job.id);
 
       queryClient.invalidateQueries({ queryKey: ["export-jobs"] });
-      toast.success(`Exported ${(rows ?? []).length} ${params.entityType}(s)`);
+      toast.success(`Exported ${rows.length} ${params.entityType}(s)`);
       return job;
     } catch (err: any) {
       console.error(err);

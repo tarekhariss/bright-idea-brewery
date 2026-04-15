@@ -34,11 +34,12 @@ interface ExportDialogProps {
   filterDefinition?: FilterDefinition | null;
   sourceId?: string;
   defaultFileName?: string;
+  totalCount?: number;
 }
 
 export function ExportDialog({
   open, onOpenChange, entityType, workspaceId,
-  exportType, selectedIds, filterDefinition, sourceId, defaultFileName,
+  exportType, selectedIds, filterDefinition, sourceId, defaultFileName, totalCount,
 }: ExportDialogProps) {
   const allColumns = entityType === "contact" ? ALL_CONTACT_EXPORT_COLUMNS : ALL_COMPANY_EXPORT_COLUMNS;
   const defaultColumns = entityType === "contact" ? DEFAULT_CONTACT_EXPORT_COLUMNS : DEFAULT_COMPANY_EXPORT_COLUMNS;
@@ -48,6 +49,7 @@ export function ExportDialog({
   const [templateId, setTemplateId] = useState<string | null>(null);
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [templateName, setTemplateName] = useState("");
+  const [maxPerCompany, setMaxPerCompany] = useState<string>("0");
 
   const { createExport, creating } = useCreateExport();
   const { templates, saveTemplate } = useExportTemplates(entityType);
@@ -68,6 +70,7 @@ export function ExportDialog({
   };
 
   const handleExport = async () => {
+    const limit = parseInt(maxPerCompany, 10);
     await createExport({
       workspaceId,
       entityType,
@@ -78,6 +81,7 @@ export function ExportDialog({
       selectedIds,
       templateId: templateId ?? undefined,
       sourceId,
+      maxPerCompany: limit > 0 ? limit : null,
     });
     onOpenChange(false);
   };
@@ -109,6 +113,10 @@ export function ExportDialog({
     return groups;
   }, [allColumns]);
 
+  const displayCount = exportType === "selected" && selectedIds
+    ? selectedIds.length
+    : totalCount ?? 0;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl">
@@ -119,8 +127,8 @@ export function ExportDialog({
           </DialogTitle>
           <DialogDescription>
             {exportType === "selected" && selectedIds
-              ? `Export ${selectedIds.length} selected ${entityType}(s)`
-              : `Export ${exportType} results`}
+              ? `Export ${selectedIds.length.toLocaleString()} selected ${entityType}(s)`
+              : `Export ${displayCount.toLocaleString()} ${exportType} results`}
           </DialogDescription>
         </DialogHeader>
 
@@ -130,6 +138,26 @@ export function ExportDialog({
             <Label className="text-sm">File Name</Label>
             <Input value={fileName} onChange={(e) => setFileName(e.target.value)} />
           </div>
+
+          {/* Per-company limit (contacts only) */}
+          {entityType === "contact" && (
+            <div className="space-y-1.5">
+              <Label className="text-sm">Max contacts per company (optional)</Label>
+              <Select value={maxPerCompany} onValueChange={setMaxPerCompany}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="No limit" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">No limit</SelectItem>
+                  <SelectItem value="1">1 per company</SelectItem>
+                  <SelectItem value="2">2 per company</SelectItem>
+                  <SelectItem value="3">3 per company</SelectItem>
+                  <SelectItem value="5">5 per company</SelectItem>
+                  <SelectItem value="10">10 per company</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Template selector */}
           {templates && templates.length > 0 && (

@@ -28,6 +28,7 @@ import { ProspectMetricsBar } from "@/components/search/ProspectMetricsBar";
 import { SearchBulkActionsBar } from "@/components/search/SearchBulkActionsBar";
 import { ProspectPreviewDrawer } from "@/components/search/ProspectPreviewDrawer";
 import { useProspectSearch, useProspectSearchState, type EntityType } from "@/hooks/use-prospect-search";
+import { useAuth } from "@/contexts/AuthContext";
 import { useSavedSearches, type SavedSearch } from "@/hooks/use-saved-searches";
 import { countActiveConditions } from "@/lib/advanced-filter-engine";
 import type { FilterDefinition } from "@/lib/advanced-filter-types";
@@ -167,8 +168,8 @@ export default function ProspectSearchPage() {
   const [showFilters, setShowFilters] = useState(true);
   const [previewRecord, setPreviewRecord] = useState<any>(null);
 
-  // TODO: replace with real workspace_id from context when available
-  const workspaceId = "00000000-0000-0000-0000-000000000000";
+  const { workspaceId: authWorkspaceId } = useAuth();
+  const workspaceId = authWorkspaceId || "";
 
   const { searches, create: createSearch, isCreating } = useSavedSearches(state.entityType, workspaceId);
 
@@ -187,7 +188,7 @@ export default function ProspectSearchPage() {
   const totalCount = searchResult.data?.totalCount ?? 0;
   const totalPages = searchResult.data?.totalPages ?? 0;
   const filterCount = countActiveConditions(state.filterDefinition);
-  const allSelected = rows.length > 0 && rows.every((r: any) => state.selectedRows.has(r.id));
+  const allSelected = state.selectAllMode || (rows.length > 0 && rows.every((r: any) => state.selectedRows.has(r.id)));
 
   const handleSort = (key: string) => {
     if (key === "name") key = state.entityType === "contact" ? "first_name" : "name";
@@ -325,11 +326,14 @@ export default function ProspectSearchPage() {
 
           {/* Bulk actions */}
           <SearchBulkActionsBar
-            selectedCount={state.selectedRows.size}
+            selectedCount={state.selectAllMode ? totalCount : state.selectedRows.size}
             selectedIds={Array.from(state.selectedRows)}
             entityType={state.entityType}
-            workspaceId=""
+            workspaceId={workspaceId}
             onClear={state.clearSelection}
+            totalCount={totalCount}
+            selectAllMode={state.selectAllMode}
+            onSelectAll={state.selectAllResults}
           />
         </div>
 
