@@ -54,10 +54,14 @@ export function useProspectSearch(options: ProspectSearchOptions) {
       const from = options.page * options.pageSize;
       const to = from + options.pageSize - 1;
 
+      // Resolve list include/exclude IDs upfront
+      const listIds = await resolveListFilters(options.filterDefinition);
+
       // Build count query
       let countQuery = db().from(table).select("*", { count: "exact", head: true });
       countQuery = applySearchFilter(countQuery, options.entityType, debouncedSearch);
       countQuery = applyAdvancedFilters(countQuery, options.filterDefinition);
+      countQuery = applyListIds(countQuery, listIds);
       const { count } = await countQuery;
       const totalCount = count ?? 0;
 
@@ -73,6 +77,7 @@ export function useProspectSearch(options: ProspectSearchOptions) {
 
       dataQuery = applySearchFilter(dataQuery, options.entityType, debouncedSearch);
       dataQuery = applyAdvancedFilters(dataQuery, options.filterDefinition);
+      dataQuery = applyListIds(dataQuery, listIds);
 
       const { data, error } = await dataQuery;
       if (error) throw error;
@@ -96,6 +101,46 @@ function applySearchFilter(query: any, entityType: EntityType, search: string) {
     );
   }
   return query.or(`name.ilike.%${search}%,domain.ilike.%${search}%`);
+}
+
+interface ListFilterIds {
+  includeIds: string[] | null;
+  excludeIds: string[] | null;
+}
+
+async function resolveListFilters(def: FilterDefinition): Promise<ListFilterIds> {
+  let includeIds: string[] | null = null;
+  let excludeIds: string[] | null = null;
+
+  if (def.includeLists?.length) {
+    const { data } = await supabase
+      .from("list_contacts")
+      .select("contact_id")
+      .in("list_id", def.includeLists);
+    includeIds = [...new Set((data as any[])?.map(r => r.contact_id) ?? [])];
+  }
+  if (def.excludeLists?.length) {
+    const { data } = await supabase
+      .from("list_contacts")
+      .select("contact_id")
+      .in("list_id", def.excludeLists);
+    excludeIds = [...new Set((data as any[])?.map(r => r.contact_id) ?? [])];
+  }
+  return { includeIds, excludeIds };
+}
+
+function applyListIds(query: any, ids: ListFilterIds): any {
+  if (ids.includeIds !== null) {
+    if (ids.includeIds.length > 0) {
+      query = query.in("id", ids.includeIds);
+    } else {
+      query = query.eq("id", "00000000-0000-0000-0000-000000000000");
+    }
+  }
+  if (ids.excludeIds !== null && ids.excludeIds.length > 0) {
+    query = query.not("id", "in", `(${ids.excludeIds.join(",")})`);
+  }
+  return query;
 }
 
 // ─── State manager hook ──────────────────────────────────────
