@@ -64,7 +64,7 @@ const CONTACT_COLUMNS: ColDef[] = [
     render: (r) => {
       const s = r.email_validity_status;
       if (!s) return <span className="text-xs text-muted-foreground">—</span>;
-      const color = s === "valid" ? "bg-emerald-500/10 text-emerald-700" : s === "invalid" ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground";
+      const color = s === "valid" ? "bg-primary/10 text-primary" : s === "invalid" ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground";
       return <Badge variant="outline" className={`text-[10px] ${color}`}>{s}</Badge>;
     },
   },
