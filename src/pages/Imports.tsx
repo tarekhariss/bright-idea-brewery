@@ -21,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Upload, Search, FileSpreadsheet, Plus, ArrowUpDown } from "lucide-react";
+import { Upload, Search, FileSpreadsheet, Plus, ArrowUpDown, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import type { ImportStatus } from "@/integrations/supabase/db-types";
@@ -197,9 +197,19 @@ export default function ImportsPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={`capitalize text-xs ${STATUS_STYLES[job.status] ?? ""}`}>
-                        {job.status}
-                      </Badge>
+                      <div className="flex items-center gap-1.5">
+                        <Badge variant="outline" className={`capitalize text-xs ${STATUS_STYLES[job.status] ?? ""}`}>
+                          {job.status}
+                        </Badge>
+                        {job.status === "processing" && job.started_at && (Date.now() - new Date(job.started_at).getTime() > 3600000) && (
+                          <span title="This job may be stuck"><AlertTriangle className="h-3.5 w-3.5 text-amber-500" /></span>
+                        )}
+                        {job.status === "failed" && job.error_summary && (
+                          <span className="text-[10px] text-destructive truncate max-w-[120px]" title={typeof job.error_summary === 'object' ? (job.error_summary as any).reason : String(job.error_summary)}>
+                            {typeof job.error_summary === 'object' ? (job.error_summary as any).reason?.slice(0, 40) + '…' : ''}
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right font-mono text-sm">{job.total_rows.toLocaleString()}</TableCell>
                     <TableCell className="text-right font-mono text-sm text-emerald-600">{job.success_rows.toLocaleString()}</TableCell>
