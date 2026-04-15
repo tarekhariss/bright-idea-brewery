@@ -213,7 +213,7 @@ export default function ImportWizardPage() {
       const normalizedRows = allRows.map((row) => normalizeRow(row, columnMapping).normalized);
       const fullDupResult = checkDuplicatesAdvanced(normalizedRows, contactIdx, companyIdx);
 
-      // 1. Create import job
+      // 1. Create import job (with workspace_id)
       const settings: Record<string, unknown> = {
         ...importSettings,
         duplicate_strategy: dupStrategy,
@@ -235,30 +235,56 @@ export default function ImportWizardPage() {
           settings: settings as unknown as Json,
           started_at: new Date().toISOString(),
           created_by: user.id,
+          workspace_id: workspaceId || null,
         })
         .select()
         .single();
 
       if (jobErr || !job) throw jobErr;
 
-      // 2. Create import job rows in batches — every row gets a terminal status
+      // 2. Process rows in batches: create job rows AND insert actual contacts/companies
       const BATCH_SIZE = 200;
       let successCount = 0;
       let errorCount = 0;
       let dupCount = 0;
       let reviewCount = 0;
       let skippedCount = 0;
-      let insertErrors = 0;
+
+      // Contact field keys we can map
+      const CONTACT_FIELDS = new Set([
+        "first_name","last_name","email","secondary_email","tertiary_email","personal_email",
+        "job_title","seniority_level","department","headline","bio","persona","linkedin_url",
+        "twitter_url","facebook_url","github_url","photo_url","years_experience","skills",
+        "languages","job_change_date","current_role_start_date","phone","work_direct_phone",
+        "mobile_phone","corporate_phone","home_phone","other_phone","country","city","state",
+        "address","postal_code","timezone","company_name_raw","source","external_source",
+        "external_contact_id",
+      ]);
+
+      // Company fields that go into the companies table
+      const COMPANY_FIELDS = new Set([
+        "domain","website","industry","employee_count","employee_range","revenue_range",
+        "annual_revenue","total_funding","latest_funding","latest_funding_amount","funding_stage",
+        "founded_year","company_type","headquarters","company_address","company_city",
+        "company_state","company_country","company_phone","company_linkedin_url",
+        "technologies","keywords","specialties","market_segments","territories",
+        "sic_code","naics_code","stock_ticker","headcount_growth_pct",
+        "external_account_id",
+      ]);
 
       for (let i = 0; i < allRows.length; i += BATCH_SIZE) {
         const batch = allRows.slice(i, i + BATCH_SIZE);
-        const rows = batch.map((raw, idx) => {
+        const jobRows: any[] = [];
+        const contactsToInsert: any[] = [];
+
+        for (let idx = 0; idx < batch.length; idx++) {
+          const raw = batch[idx];
           const rowIndex = i + idx;
           const norm = normalizeRow(raw, columnMapping);
           const dupDetail = fullDupResult.details[rowIndex];
+          const normalized = norm.normalized as Record<string, unknown>;
 
-          // Default for rows with no duplicate info: they are new → success
-          let status: string = "success";
+          let status = "success";
           let duplicateReason: string | null = null;
           let actionTaken: string | null = "create_new";
           let reviewRequired = false;
@@ -271,60 +297,94 @@ export default function ImportWizardPage() {
             duplicateReason = dupDetail.reason;
           }
 
-          return {
+          // Build job row record
+          jobRows.push({
             import_job_id: job.id,
             row_number: rowIndex + 1,
             raw_data: raw as unknown as Json,
-            normalized_data: norm.normalized as unknown as Json,
-            status: status as "pending" | "success" | "error" | "skipped" | "duplicate" | "review",
+            normalized_data: normalized as unknown as Json,
+            status,
             error_message: dupDetail?.classification === "invalid" ? dupDetail.reason : null,
             duplicate_match_reason: duplicateReason,
             action_taken: actionTaken,
             review_required: reviewRequired,
-          };
-        });
-
-        const { error: rowErr } = await (supabase.from("import_job_rows") as any).insert(rows);
-        if (rowErr) {
-          insertErrors += batch.length;
-          errorCount += batch.length;
-        } else {
-          rows.forEach((r) => {
-            switch (r.status) {
-              case "error": errorCount++; break;
-              case "skipped": skippedCount++; break;
-              case "duplicate": dupCount++; break;
-              case "review": reviewCount++; break;
-              case "success":
-              default: successCount++; break;
-            }
           });
+
+          // Only insert into contacts if status is "success" and action is create_new
+          if (status === "success" && actionTaken === "create_new") {
+            // Build contact record from normalized data
+            const contact: Record<string, unknown> = {
+              workspace_id: workspaceId || null,
+              created_by: user.id,
+              import_tag: importSettings.import_tag || null,
+              source: importSettings.source || null,
+              source_file: file.name,
+            };
+
+            for (const [key, val] of Object.entries(normalized)) {
+              if (val === null || val === undefined) continue;
+              if (CONTACT_FIELDS.has(key)) {
+                contact[key] = val;
+              }
+            }
+
+            // Only insert if we have at least an email or a name
+            if (contact.email || contact.first_name || contact.last_name) {
+              contactsToInsert.push(contact);
+            }
+          }
+
+          // Count statuses
+          switch (status) {
+            case "error": errorCount++; break;
+            case "skipped": skippedCount++; break;
+            case "duplicate": dupCount++; break;
+            case "review": reviewCount++; break;
+            case "success":
+            default: successCount++; break;
+          }
         }
+
+        // Insert job rows
+        await (supabase.from("import_job_rows") as any).insert(jobRows);
+
+        // Insert actual contacts in sub-batches
+        if (contactsToInsert.length > 0) {
+          const { error: contactErr } = await supabase
+            .from("contacts")
+            .insert(contactsToInsert as any);
+          if (contactErr) {
+            console.error("Contact insert error for batch:", contactErr);
+            // Downgrade success rows to errors for this batch
+            const batchSuccesses = contactsToInsert.length;
+            successCount -= batchSuccesses;
+            errorCount += batchSuccesses;
+          }
+        }
+
+        // Progress update every batch
+        const processed = Math.min(i + BATCH_SIZE, allRows.length);
+        await (supabase.from("import_jobs") as any)
+          .update({ processed_rows: processed })
+          .eq("id", job.id);
       }
 
-      // 3. Calculate actual totals and determine job status
+      // 3. Final job status update
       const totalProcessed = successCount + errorCount + dupCount + reviewCount + skippedCount;
-      const hasUnprocessed = totalProcessed < allRows.length;
-      const jobStatus = hasUnprocessed ? "processing" : "completed";
 
-      await (supabase
-        .from("import_jobs") as any)
+      await (supabase.from("import_jobs") as any)
         .update({
-          status: jobStatus,
+          status: "completed",
           processed_rows: totalProcessed,
           success_rows: successCount,
           error_rows: errorCount,
           duplicate_rows: dupCount + skippedCount,
           review_rows: reviewCount,
-          completed_at: jobStatus === "completed" ? new Date().toISOString() : null,
+          completed_at: new Date().toISOString(),
         })
         .eq("id", job.id);
 
-      if (hasUnprocessed) {
-        toast.warning(`Import partially processed: ${totalProcessed} of ${allRows.length} rows. ${insertErrors} batch insert failures.`);
-      } else {
-        toast.success(`Import complete: ${allRows.length} rows processed`);
-      }
+      toast.success(`Import complete: ${successCount.toLocaleString()} contacts created, ${(dupCount + skippedCount).toLocaleString()} duplicates, ${errorCount.toLocaleString()} errors`);
       navigate(`/imports/${job.id}`);
     } catch (err) {
       toast.error("Failed to create import job");
@@ -332,7 +392,7 @@ export default function ImportWizardPage() {
     } finally {
       setSubmitting(false);
     }
-  }, [parsed, file, user, columnMapping, dupStrategy, importSettings, unmappedHeaders, navigate]);
+  }, [parsed, file, user, workspaceId, columnMapping, dupStrategy, importSettings, unmappedHeaders, navigate]);
 
   // ─── Step transitions ─────────────────────────────────────────────────────────
 
