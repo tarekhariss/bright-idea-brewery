@@ -1164,6 +1164,7 @@ export type Database = {
           naics_code: string | null
           name: string
           news_summary: string | null
+          normalized_domain: string | null
           normalized_name: string | null
           notes: string | null
           owner_id: string | null
@@ -1228,6 +1229,7 @@ export type Database = {
           naics_code?: string | null
           name: string
           news_summary?: string | null
+          normalized_domain?: string | null
           normalized_name?: string | null
           notes?: string | null
           owner_id?: string | null
@@ -1292,6 +1294,7 @@ export type Database = {
           naics_code?: string | null
           name?: string
           news_summary?: string | null
+          normalized_domain?: string | null
           normalized_name?: string | null
           notes?: string | null
           owner_id?: string | null
@@ -1734,6 +1737,7 @@ export type Database = {
           lifecycle_status: Database["public"]["Enums"]["lifecycle_status"]
           linkedin_url: string | null
           mobile_phone: string | null
+          normalized_name: string | null
           notes: string | null
           other_phone: string | null
           outreach_status: Database["public"]["Enums"]["outreach_status"]
@@ -1802,6 +1806,7 @@ export type Database = {
           lifecycle_status?: Database["public"]["Enums"]["lifecycle_status"]
           linkedin_url?: string | null
           mobile_phone?: string | null
+          normalized_name?: string | null
           notes?: string | null
           other_phone?: string | null
           outreach_status?: Database["public"]["Enums"]["outreach_status"]
@@ -1870,6 +1875,7 @@ export type Database = {
           lifecycle_status?: Database["public"]["Enums"]["lifecycle_status"]
           linkedin_url?: string | null
           mobile_phone?: string | null
+          normalized_name?: string | null
           notes?: string | null
           other_phone?: string | null
           outreach_status?: Database["public"]["Enums"]["outreach_status"]
@@ -5661,6 +5667,8 @@ export type Database = {
         }
         Returns: string
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       workspace_role: {
         Args: { _user_id: string; _workspace_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
