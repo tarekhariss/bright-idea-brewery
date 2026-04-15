@@ -136,8 +136,9 @@ const COMPANY_COLUMNS: ColDef[] = [
     key: "employee_count", label: "Employees", sortable: true,
     render: (r) => <span className="text-xs">{r.employee_count?.toLocaleString() ?? r.employee_range ?? "—"}</span>,
   },
-  { key: "revenue_range", label: "Revenue", render: (r) => <span className="text-xs">{r.revenue_range || "—"}</span> },
+  { key: "revenue_range", label: "Revenue", render: (r) => <span className="text-xs">{r.revenue_range || (r.annual_revenue ? `$${r.annual_revenue.toLocaleString()}` : "—")}</span> },
   { key: "funding_stage", label: "Funding", render: (r) => <span className="text-xs">{r.funding_stage || "—"}</span> },
+  { key: "company_type", label: "Type", render: (r) => <span className="text-xs">{r.company_type || "—"}</span> },
   {
     key: "technologies", label: "Technologies",
     render: (r) => {
