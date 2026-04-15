@@ -4546,6 +4546,59 @@ export type Database = {
           },
         ]
       }
+      saved_searches: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          entity_type: string
+          filter_definition: Json
+          id: string
+          is_pinned: boolean | null
+          last_used_at: string | null
+          name: string
+          updated_at: string | null
+          usage_count: number | null
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          entity_type?: string
+          filter_definition?: Json
+          id?: string
+          is_pinned?: boolean | null
+          last_used_at?: string | null
+          name: string
+          updated_at?: string | null
+          usage_count?: number | null
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          entity_type?: string
+          filter_definition?: Json
+          id?: string
+          is_pinned?: boolean | null
+          last_used_at?: string | null
+          name?: string
+          updated_at?: string | null
+          usage_count?: number | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_searches_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       saved_views: {
         Row: {
           columns: Json | null
