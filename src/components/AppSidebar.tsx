@@ -6,7 +6,7 @@ import {
   Handshake, MessageSquare, CalendarCheck, DollarSign,
   Wrench, GitBranch, BarChart3, Download, GitMerge, Pencil,
   Database, Settings, LogOut, ChevronRight,
-  Upload, Activity, Bookmark, LayoutDashboard, ShieldCheck,
+  Upload, Activity, Bookmark, LayoutDashboard, ShieldCheck, ServerCog,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";

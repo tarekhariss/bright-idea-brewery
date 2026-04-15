@@ -179,6 +179,7 @@ const App = () => (
 
             {/* Admin */}
             <Route path="/admin" element={<PL><AdminDashboard /></PL>} />
+            <Route path="/admin/system-status" element={<PL><SystemStatusPage /></PL>} />
             <Route path="/admin/workspaces/:id" element={<PL><WorkspaceDetailAdmin /></PL>} />
 
             {/* Settings */}
