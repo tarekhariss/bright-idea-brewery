@@ -6,13 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Separator } from "@/components/ui/separator";
-import { Loader2, ArrowLeft, Zap, Users, Trash2, Plus, Download, Calendar } from "lucide-react";
+import { Loader2, ArrowLeft, Zap, Users, Trash2, Plus, Download, Calendar, Pencil, RefreshCw } from "lucide-react";
 import { LifecycleBadge } from "@/components/data-table/StatusBadge";
 import { TablePagination } from "@/components/data-table/TablePagination";
 import { AddToListDialog } from "@/components/lists/AddToListDialog";
+import { DynamicListBuilder } from "@/components/lists/DynamicListBuilder";
+import { applyAdvancedFilters } from "@/lib/advanced-filter-engine";
 import { format } from "date-fns";
 import type { LifecycleStatus } from "@/integrations/supabase/db-types";
+import type { FilterDefinition } from "@/lib/advanced-filter-types";
 import { toast } from "@/hooks/use-toast";
 
 const db = () => supabase as any;
@@ -50,6 +52,7 @@ export default function ListDetailPage() {
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   const fetchList = useCallback(async () => {
     if (!id) return;
@@ -57,58 +60,69 @@ export default function ListDetailPage() {
     setList(data as ListData | null);
   }, [id]);
 
-  const fetchContacts = useCallback(async () => {
-    if (!id || !list) return;
-    setLoading(true);
+  const fetchDynamicContacts = useCallback(async (listData: ListData) => {
+    const fc = listData.filter_criteria as FilterDefinition | null;
+    if (!fc) {
+      setContacts([]);
+      setContactCount(0);
+      return;
+    }
 
-    if (list.is_dynamic) {
-      // For dynamic lists, query contacts with filter_criteria
-      let query: any = supabase.from("contacts")
-        .select("id, first_name, last_name, email, job_title, company_name_raw, lifecycle_status", { count: "exact" })
-        .order("updated_at", { ascending: false })
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+    // Count query
+    let countQuery = db().from("contacts").select("*", { count: "exact", head: true });
+    countQuery = applyAdvancedFilters(countQuery, fc);
+    countQuery = await applyListFilters(countQuery, fc);
+    const { count } = await countQuery;
+    setContactCount(count ?? 0);
 
-      // Apply dynamic filter criteria if present
-      const criteria = list.filter_criteria as Record<string, string> | null;
-      if (criteria) {
-        Object.entries(criteria).forEach(([key, value]) => {
-          if (value && value !== "all" && value !== "") {
-            query = query.eq(key, value);
-          }
-        });
-      }
+    // Data query
+    let dataQuery = db().from("contacts")
+      .select("id, first_name, last_name, email, job_title, company_name_raw, lifecycle_status")
+      .order("updated_at", { ascending: false })
+      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+    dataQuery = applyAdvancedFilters(dataQuery, fc);
+    dataQuery = await applyListFilters(dataQuery, fc);
+    const { data } = await dataQuery;
+    setContacts((data as ListContact[]) ?? []);
+  }, [page]);
 
-      const { data, count } = await query;
-      setContacts((data as ListContact[]) ?? []);
-      setContactCount(count ?? 0);
+  const fetchStaticContacts = useCallback(async () => {
+    if (!id) return;
+    const { count } = await supabase
+      .from("list_contacts")
+      .select("contact_id", { count: "exact", head: true })
+      .eq("list_id", id);
+    setContactCount(count ?? 0);
+
+    const { data: linkData } = await supabase
+      .from("list_contacts")
+      .select("contact_id")
+      .eq("list_id", id)
+      .order("added_at", { ascending: false })
+      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+
+    if (linkData && linkData.length > 0) {
+      const contactIds = (linkData as any[]).map((l) => l.contact_id);
+      const { data: contactData } = await supabase
+        .from("contacts")
+        .select("id, first_name, last_name, email, job_title, company_name_raw, lifecycle_status")
+        .in("id", contactIds);
+      setContacts((contactData as ListContact[]) ?? []);
     } else {
-      // Static list — join through list_contacts
-      const { count } = await supabase
-        .from("list_contacts")
-        .select("contact_id", { count: "exact", head: true })
-        .eq("list_id", id);
-      setContactCount(count ?? 0);
+      setContacts([]);
+    }
+  }, [id, page]);
 
-      const { data: linkData } = await supabase
-        .from("list_contacts")
-        .select("contact_id")
-        .eq("list_id", id)
-        .order("added_at", { ascending: false })
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
-
-      if (linkData && linkData.length > 0) {
-        const contactIds = (linkData as any[]).map((l) => l.contact_id);
-        const { data: contactData } = await supabase
-          .from("contacts")
-          .select("id, first_name, last_name, email, job_title, company_name_raw, lifecycle_status")
-          .in("id", contactIds);
-        setContacts((contactData as ListContact[]) ?? []);
-      } else {
-        setContacts([]);
-      }
+  const fetchContacts = useCallback(async () => {
+    if (!list) return;
+    setLoading(true);
+    if (list.is_dynamic) {
+      await fetchDynamicContacts(list);
+    } else {
+      await fetchStaticContacts();
     }
     setLoading(false);
-  }, [id, list, page]);
+  }, [list, fetchDynamicContacts, fetchStaticContacts]);
 
   useEffect(() => { fetchList(); }, [fetchList]);
   useEffect(() => { if (list) fetchContacts(); }, [fetchContacts, list]);
@@ -124,6 +138,14 @@ export default function ListDetailPage() {
 
   const totalPages = Math.ceil(contactCount / PAGE_SIZE);
   const fmtDate = (d: string) => { try { return format(new Date(d), "MMM d, yyyy"); } catch { return "—"; } };
+
+  const filterCriteria = list?.filter_criteria as FilterDefinition | null;
+  const ruleCount = filterCriteria
+    ? (filterCriteria.conditions?.filter(c => c.field).length ?? 0) +
+      (filterCriteria.groups?.length ?? 0) +
+      (filterCriteria.includeLists?.length ?? 0) +
+      (filterCriteria.excludeLists?.length ?? 0)
+    : 0;
 
   if (!list && !loading) {
     return (
@@ -153,10 +175,21 @@ export default function ListDetailPage() {
               {list.description && <p className="text-sm text-muted-foreground">{list.description}</p>}
               <div className="flex items-center gap-3 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1"><Users className="h-3 w-3" /> {contactCount.toLocaleString()} contacts</span>
+                {list.is_dynamic && <span className="flex items-center gap-1"><Zap className="h-3 w-3" /> {ruleCount} rule{ruleCount !== 1 ? "s" : ""}</span>}
                 <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> Updated {fmtDate(list.updated_at)}</span>
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {list.is_dynamic && (
+                <>
+                  <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => fetchContacts()}>
+                    <RefreshCw className="h-3.5 w-3.5" /> Refresh
+                  </Button>
+                  <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setEditOpen(true)}>
+                    <Pencil className="h-3.5 w-3.5" /> Edit Rules
+                  </Button>
+                </>
+              )}
               <Button variant="outline" size="sm" className="gap-1.5 text-xs">
                 <Download className="h-3.5 w-3.5" /> Export
               </Button>
@@ -169,17 +202,21 @@ export default function ListDetailPage() {
           </div>
 
           {/* Dynamic rules display */}
-          {list.is_dynamic && list.filter_criteria && Object.keys(list.filter_criteria).length > 0 && (
+          {list.is_dynamic && filterCriteria && ruleCount > 0 && (
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm font-medium flex items-center gap-1.5"><Zap className="h-3.5 w-3.5 text-primary" /> Filter Rules</CardTitle></CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-2">
-                  {Object.entries(list.filter_criteria as Record<string, string>).map(([key, value]) => (
-                    value && value !== "all" && (
-                      <Badge key={key} variant="outline" className="text-[11px]">
-                        {key}: {value}
-                      </Badge>
-                    )
+                  {filterCriteria.conditions?.filter(c => c.field).map((c) => (
+                    <Badge key={c.id} variant="outline" className="text-[11px]">
+                      {c.conditionType === "exclude" ? "NOT " : ""}{c.field} {c.operator} {String(c.value ?? "")}
+                    </Badge>
+                  ))}
+                  {filterCriteria.includeLists?.map(lid => (
+                    <Badge key={`inc-${lid}`} variant="outline" className="text-[11px] border-primary/30">Include list</Badge>
+                  ))}
+                  {filterCriteria.excludeLists?.map(lid => (
+                    <Badge key={`exc-${lid}`} variant="outline" className="text-[11px] border-destructive/30">Exclude list</Badge>
                   ))}
                 </div>
               </CardContent>
@@ -257,13 +294,50 @@ export default function ListDetailPage() {
         </>
       )}
 
-      {/* Add contacts dialog for static lists */}
-      <AddToListDialog
-        open={addOpen}
-        onOpenChange={setAddOpen}
-        contactIds={[]}
-        onSuccess={fetchContacts}
-      />
+      <AddToListDialog open={addOpen} onOpenChange={setAddOpen} contactIds={[]} onSuccess={fetchContacts} />
+
+      {list?.is_dynamic && (
+        <DynamicListBuilder
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          existingList={{
+            id: list.id,
+            name: list.name,
+            description: list.description,
+            filter_criteria: filterCriteria,
+            include_lists: filterCriteria?.includeLists ?? [],
+            exclude_lists: filterCriteria?.excludeLists ?? [],
+          }}
+          onSuccess={() => { fetchList(); }}
+        />
+      )}
     </div>
   );
+}
+
+/** Apply include/exclude list filters from the FilterDefinition */
+async function applyListFilters(query: any, fc: FilterDefinition): Promise<any> {
+  if (fc.includeLists?.length) {
+    const { data } = await supabase
+      .from("list_contacts")
+      .select("contact_id")
+      .in("list_id", fc.includeLists);
+    const ids = [...new Set((data as any[])?.map(r => r.contact_id) ?? [])];
+    if (ids.length > 0) {
+      query = query.in("id", ids);
+    } else {
+      query = query.eq("id", "00000000-0000-0000-0000-000000000000"); // no matches
+    }
+  }
+  if (fc.excludeLists?.length) {
+    const { data } = await supabase
+      .from("list_contacts")
+      .select("contact_id")
+      .in("list_id", fc.excludeLists);
+    const ids = [...new Set((data as any[])?.map(r => r.contact_id) ?? [])];
+    if (ids.length > 0) {
+      query = query.not("id", "in", `(${ids.join(",")})`);
+    }
+  }
+  return query;
 }
