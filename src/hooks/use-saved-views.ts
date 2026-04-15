@@ -24,6 +24,7 @@ export interface SavedView {
   sort_direction: "asc" | "desc";
   is_default: boolean;
   created_by: string | null;
+  workspace_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -32,28 +33,29 @@ export interface SavedView {
 const db = () => supabase as any;
 
 export function useSavedViews(entityType: "contact" | "company") {
-  const { user } = useAuth();
+  const { user, workspaceId } = useAuth();
   const [views, setViews] = useState<SavedView[]>([]);
   const [activeViewId, setActiveViewId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const fetchViews = useCallback(async () => {
-    if (!user) return;
+    if (!user || !workspaceId) return;
     setLoading(true);
     const { data } = await db()
       .from("saved_views")
       .select("*")
       .eq("entity_type", entityType)
+      .eq("workspace_id", workspaceId)
       .order("is_default", { ascending: false })
       .order("name", { ascending: true });
     setViews((data as SavedView[]) ?? []);
     setLoading(false);
-  }, [user, entityType]);
+  }, [user, entityType, workspaceId]);
 
   useEffect(() => { fetchViews(); }, [fetchViews]);
 
   const saveView = async (name: string, state: ViewState) => {
-    if (!user) return null;
+    if (!user || !workspaceId) return null;
     const { data, error } = await db().from("saved_views").insert({
       name,
       entity_type: entityType,
@@ -63,6 +65,7 @@ export function useSavedViews(entityType: "contact" | "company") {
       sort_direction: state.sortDirection,
       is_default: false,
       created_by: user.id,
+      workspace_id: workspaceId,
     }).select().single();
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -109,8 +112,10 @@ export function useSavedViews(entityType: "contact" | "company") {
   };
 
   const setDefault = async (id: string) => {
-    if (user) {
-      await db().from("saved_views").update({ is_default: false }).eq("entity_type", entityType).eq("created_by", user.id);
+    if (user && workspaceId) {
+      await db().from("saved_views").update({ is_default: false })
+        .eq("entity_type", entityType)
+        .eq("workspace_id", workspaceId);
     }
     await db().from("saved_views").update({ is_default: true }).eq("id", id);
     toast({ title: "Default view set" });

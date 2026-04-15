@@ -6,7 +6,7 @@ import {
   Handshake, MessageSquare, CalendarCheck, DollarSign,
   Wrench, GitBranch, BarChart3, Download, GitMerge, Pencil,
   Database, Settings, LogOut, ChevronRight,
-  Upload, Activity, Bookmark, LayoutDashboard, ShieldCheck,
+  Upload, Activity, Bookmark, LayoutDashboard, ShieldCheck, ServerCog,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
@@ -240,11 +240,24 @@ export function AppSidebar() {
                     <SidebarMenuButton asChild>
                       <NavLink
                         to="/admin"
+                        end
                         className="flex items-center gap-2.5 rounded-md px-3 py-2 text-[13px] text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                         activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
                       >
                         <ShieldCheck className="h-4 w-4 shrink-0" />
                         {!collapsed && <span>Platform Admin</span>}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild>
+                      <NavLink
+                        to="/admin/system-status"
+                        className="flex items-center gap-2.5 rounded-md px-3 py-2 text-[13px] text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                        activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                      >
+                        <ServerCog className="h-4 w-4 shrink-0" />
+                        {!collapsed && <span>System Status</span>}
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

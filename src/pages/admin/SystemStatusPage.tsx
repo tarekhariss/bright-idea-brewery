@@ -20,12 +20,12 @@ interface StatusItem {
 
 const SYSTEM_STATUS: StatusItem[] = [
   // Background Jobs
-  { name: "Email Queue Processor", category: "Background Jobs", status: "ready", description: "Edge function deployed. Needs pg_cron trigger to auto-process." },
-  { name: "Campaign Step Processor", category: "Background Jobs", status: "ready", description: "Edge function deployed. Needs pg_cron trigger to auto-execute steps." },
+  { name: "Email Queue Processor", category: "Background Jobs", status: "ready", description: "Edge function deployed. pg_cron trigger active (every 2 min)." },
+  { name: "Campaign Step Processor", category: "Background Jobs", status: "ready", description: "Edge function deployed. pg_cron trigger active (every 3 min)." },
   { name: "Export Job Processor", category: "Background Jobs", status: "ready", description: "Edge function deployed. Invoked on-demand from frontend for large exports." },
   { name: "Dedup Scan Processor", category: "Background Jobs", status: "ready", description: "Edge function deployed. Invoked on-demand from frontend." },
-  { name: "Background Jobs Aggregator", category: "Background Jobs", status: "ready", description: "Edge function deployed. Needs pg_cron trigger for periodic KPI refresh." },
-  { name: "pg_cron Scheduling", category: "Background Jobs", status: "needs_setup", description: "Cron triggers not yet configured. Need INSERT into cron.schedule for each job." },
+  { name: "Background Jobs Aggregator", category: "Background Jobs", status: "ready", description: "Edge function deployed. pg_cron trigger active (every 5 min)." },
+  { name: "pg_cron Scheduling", category: "Background Jobs", status: "ready", description: "3 cron jobs active: background-jobs (5m), email-queue (2m), sequence-steps (3m)." },
 
   // Email & Sending
   { name: "Email Templates & Variants", category: "Email System", status: "ready", description: "Full CRUD with workspace scoping." },
