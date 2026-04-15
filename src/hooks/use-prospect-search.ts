@@ -70,8 +70,8 @@ export function useProspectSearch(options: ProspectSearchOptions) {
       let dataQuery = db()
         .from(table)
         .select(options.entityType === "contact"
-          ? "id,first_name,last_name,email,job_title,company_name_raw,company_id,email_validity_status,phone_status,phone,country,city,state,lifecycle_status,outreach_status,owner_id,linkedin_url,seniority_level,department,source,data_quality_score,last_contacted_at,created_at,updated_at"
-          : "id,name,domain,website,industry,employee_count,employee_range,revenue_range,annual_revenue,funding_stage,total_funding,country,city,state,headquarters,technologies,keywords,owner_id,data_quality_score,linkedin_url,created_at,updated_at"
+          ? "id,first_name,last_name,email,job_title,company_name_raw,company_id,email_validity_status,phone_status,phone,mobile_phone,corporate_phone,work_direct_phone,country,city,state,lifecycle_status,outreach_status,owner_id,linkedin_url,seniority_level,department,source,data_quality_score,last_contacted_at,created_at,updated_at,headline,persona,address,postal_code,timezone,bio,skills,languages,years_experience,current_role_start_date,personal_email,secondary_email,companies(name,industry,employee_count,employee_range,domain,website,annual_revenue,revenue_range,funding_stage,headquarters)"
+          : "id,name,domain,website,industry,employee_count,employee_range,revenue_range,annual_revenue,funding_stage,total_funding,country,city,state,headquarters,technologies,keywords,owner_id,data_quality_score,linkedin_url,created_at,updated_at,description,founded_year,company_type,stock_ticker,facebook_url,twitter_url"
         )
         .range(from, to)
         .order(options.sortBy, { ascending: options.sortDirection === "asc" });
