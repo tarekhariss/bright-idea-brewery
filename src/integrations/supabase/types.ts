@@ -4339,6 +4339,174 @@ export type Database = {
           },
         ]
       }
+      provider_connection_logs: {
+        Row: {
+          connection_id: string
+          created_at: string
+          event_message: string | null
+          event_type: string
+          id: string
+          metadata: Json | null
+        }
+        Insert: {
+          connection_id: string
+          created_at?: string
+          event_message?: string | null
+          event_type: string
+          id?: string
+          metadata?: Json | null
+        }
+        Update: {
+          connection_id?: string
+          created_at?: string
+          event_message?: string | null
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_connection_logs_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "provider_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_connections: {
+        Row: {
+          account_email: string | null
+          account_name: string
+          connection_status: Database["public"]["Enums"]["provider_connection_status"]
+          created_at: string
+          created_by: string | null
+          daily_connect_limit: number | null
+          daily_message_limit: number | null
+          default_daily_limit: number | null
+          from_email: string | null
+          from_name: string | null
+          health_state: string | null
+          id: string
+          imap_host: string | null
+          imap_port: number | null
+          last_sync_at: string | null
+          last_validated_at: string | null
+          notes: string | null
+          oauth_metadata: Json | null
+          profile_url: string | null
+          provider_type: Database["public"]["Enums"]["provider_type"]
+          smtp_host: string | null
+          smtp_port: number | null
+          smtp_secure: boolean | null
+          smtp_username: string | null
+          token_status: string | null
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          account_email?: string | null
+          account_name: string
+          connection_status?: Database["public"]["Enums"]["provider_connection_status"]
+          created_at?: string
+          created_by?: string | null
+          daily_connect_limit?: number | null
+          daily_message_limit?: number | null
+          default_daily_limit?: number | null
+          from_email?: string | null
+          from_name?: string | null
+          health_state?: string | null
+          id?: string
+          imap_host?: string | null
+          imap_port?: number | null
+          last_sync_at?: string | null
+          last_validated_at?: string | null
+          notes?: string | null
+          oauth_metadata?: Json | null
+          profile_url?: string | null
+          provider_type: Database["public"]["Enums"]["provider_type"]
+          smtp_host?: string | null
+          smtp_port?: number | null
+          smtp_secure?: boolean | null
+          smtp_username?: string | null
+          token_status?: string | null
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          account_email?: string | null
+          account_name?: string
+          connection_status?: Database["public"]["Enums"]["provider_connection_status"]
+          created_at?: string
+          created_by?: string | null
+          daily_connect_limit?: number | null
+          daily_message_limit?: number | null
+          default_daily_limit?: number | null
+          from_email?: string | null
+          from_name?: string | null
+          health_state?: string | null
+          id?: string
+          imap_host?: string | null
+          imap_port?: number | null
+          last_sync_at?: string | null
+          last_validated_at?: string | null
+          notes?: string | null
+          oauth_metadata?: Json | null
+          profile_url?: string | null
+          provider_type?: Database["public"]["Enums"]["provider_type"]
+          smtp_host?: string | null
+          smtp_port?: number | null
+          smtp_secure?: boolean | null
+          smtp_username?: string | null
+          token_status?: string | null
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_connections_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_validation_results: {
+        Row: {
+          connection_id: string
+          error_message: string | null
+          id: string
+          passed: boolean
+          validated_at: string
+          validation_type: string
+        }
+        Insert: {
+          connection_id: string
+          error_message?: string | null
+          id?: string
+          passed?: boolean
+          validated_at?: string
+          validation_type: string
+        }
+        Update: {
+          connection_id?: string
+          error_message?: string | null
+          id?: string
+          passed?: boolean
+          validated_at?: string
+          validation_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_validation_results_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "provider_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       saved_views: {
         Row: {
           columns: Json | null
@@ -5271,6 +5439,13 @@ export type Database = {
         | "bounced"
         | "opted_out"
         | "unresponsive"
+      provider_connection_status:
+        | "connected"
+        | "disconnected"
+        | "needs_reauth"
+        | "invalid_credentials"
+        | "pending_validation"
+      provider_type: "google_workspace" | "microsoft_365" | "smtp" | "linkedin"
       queue_item_status:
         | "pending"
         | "processing"
@@ -5565,6 +5740,14 @@ export const Constants = {
         "opted_out",
         "unresponsive",
       ],
+      provider_connection_status: [
+        "connected",
+        "disconnected",
+        "needs_reauth",
+        "invalid_credentials",
+        "pending_validation",
+      ],
+      provider_type: ["google_workspace", "microsoft_365", "smtp", "linkedin"],
       queue_item_status: [
         "pending",
         "processing",
