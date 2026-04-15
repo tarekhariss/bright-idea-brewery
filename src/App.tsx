@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { AdminRoute } from "@/components/AdminRoute";
 import { AppLayout } from "@/components/AppLayout";
 import { SettingsLayout } from "@/components/SettingsLayout";
 
@@ -102,6 +103,10 @@ function PL({ children }: { children: React.ReactNode }) {
   return <ProtectedRoute><AppLayout>{children}</AppLayout></ProtectedRoute>;
 }
 
+function AL({ children }: { children: React.ReactNode }) {
+  return <AdminRoute><AppLayout>{children}</AppLayout></AdminRoute>;
+}
+
 function SL({ children }: { children: React.ReactNode }) {
   return <PL><SettingsLayout>{children}</SettingsLayout></PL>;
 }
@@ -178,9 +183,9 @@ const App = () => (
             <Route path="/data-health" element={<PL><DataHealthPage /></PL>} />
 
             {/* Admin */}
-            <Route path="/admin" element={<PL><AdminDashboard /></PL>} />
-            <Route path="/admin/system-status" element={<PL><SystemStatusPage /></PL>} />
-            <Route path="/admin/workspaces/:id" element={<PL><WorkspaceDetailAdmin /></PL>} />
+            <Route path="/admin" element={<AL><AdminDashboard /></AL>} />
+            <Route path="/admin/system-status" element={<AL><SystemStatusPage /></AL>} />
+            <Route path="/admin/workspaces/:id" element={<AL><WorkspaceDetailAdmin /></AL>} />
 
             {/* Settings */}
             <Route path="/settings" element={<SL><SettingsIndex /></SL>} />
