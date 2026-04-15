@@ -1,39 +1,57 @@
 /**
- * AdvancedFilterPanel — Apollo-style filter sidebar
+ * AdvancedFilterPanel — Apollo-style filter workspace
  *
- * Supports nested filter groups, AND/OR logic, include/exclude,
- * saved searches, and all operator types.
+ * Multi-column category-grouped layout with expandable filter rows,
+ * pinned filters, search-within-filters, and dense premium feel.
  */
-import { useState, useCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
-  Plus, Trash2, ChevronDown, ChevronRight, Save, X,
-  ToggleLeft, Copy, Pin,
+  Search, X, Save, ChevronDown, ChevronRight, Pin, GripVertical,
+  User, Building2, Mail, MapPin, Tag, Activity, BarChart3, Shield,
+  Briefcase, Phone, Globe, Zap, DollarSign, Calendar, Users,
 } from "lucide-react";
 import type {
   FilterDefinition,
   FilterCondition,
-  FilterGroup,
   FilterOperator,
 } from "@/lib/advanced-filter-types";
 import {
   createEmptyFilterDefinition,
   createEmptyCondition,
-  createEmptyGroup,
   genFilterId,
   OPERATORS,
   getOperatorsForType,
 } from "@/lib/advanced-filter-types";
 import type { FilterFieldMeta } from "@/lib/filter-field-registry";
-import { getFieldsForEntity, getCategories, getFieldMeta } from "@/lib/filter-field-registry";
+import {
+  getFieldsForEntity,
+  getCategories,
+  getFieldMeta,
+  getPinnedFilters,
+} from "@/lib/filter-field-registry";
 import { countActiveConditions } from "@/lib/advanced-filter-engine";
+import { cn } from "@/lib/utils";
+
+// Category icon mapping
+const CATEGORY_ICONS: Record<string, React.ReactNode> = {
+  "Person Info": <User className="h-3.5 w-3.5" />,
+  "Contact Details": <Phone className="h-3.5 w-3.5" />,
+  "Company Info": <Building2 className="h-3.5 w-3.5" />,
+  "Email Status": <Mail className="h-3.5 w-3.5" />,
+  "Lifecycle & Outreach": <Activity className="h-3.5 w-3.5" />,
+  "Location": <MapPin className="h-3.5 w-3.5" />,
+  "Firmographic": <BarChart3 className="h-3.5 w-3.5" />,
+  "Funding": <DollarSign className="h-3.5 w-3.5" />,
+  "Tech & Signals": <Zap className="h-3.5 w-3.5" />,
+  "Created Source": <Tag className="h-3.5 w-3.5" />,
+  "Scores": <Shield className="h-3.5 w-3.5" />,
+  "Ownership": <Users className="h-3.5 w-3.5" />,
+};
 
 interface AdvancedFilterPanelProps {
   entityType: "contact" | "company";
@@ -52,95 +70,70 @@ export function AdvancedFilterPanel({
   onClear,
   className = "",
 }: AdvancedFilterPanelProps) {
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(["quick"]));
+  const [filterSearch, setFilterSearch] = useState("");
+  const [expandedFilters, setExpandedFilters] = useState<Set<string>>(new Set());
   const [saveName, setSaveName] = useState("");
   const [showSaveInput, setShowSaveInput] = useState(false);
+
   const fields = getFieldsForEntity(entityType);
   const categories = getCategories(entityType);
+  const pinnedKeys = getPinnedFilters(entityType);
   const activeCount = countActiveConditions(value);
 
-  const toggleCategory = (cat: string) => {
-    setExpandedCategories((prev) => {
+  // Get active condition for a field
+  const getActiveCondition = useCallback((fieldKey: string): FilterCondition | undefined => {
+    return value.conditions.find((c) => c.field === fieldKey);
+  }, [value.conditions]);
+
+  // Count active filters per field
+  const activeFieldKeys = useMemo(() => {
+    const keys = new Set<string>();
+    value.conditions.forEach((c) => { if (c.field) keys.add(c.field); });
+    return keys;
+  }, [value.conditions]);
+
+  // Filter fields by search
+  const filteredFields = useMemo(() => {
+    if (!filterSearch.trim()) return null; // null = show categories
+    const q = filterSearch.toLowerCase();
+    return fields.filter(
+      (f) => f.label.toLowerCase().includes(q) || f.key.toLowerCase().includes(q) || f.category.toLowerCase().includes(q)
+    );
+  }, [fields, filterSearch]);
+
+  const toggleFilter = (fieldKey: string) => {
+    setExpandedFilters((prev) => {
       const next = new Set(prev);
-      next.has(cat) ? next.delete(cat) : next.add(cat);
+      next.has(fieldKey) ? next.delete(fieldKey) : next.add(fieldKey);
       return next;
     });
   };
 
-  // ─── Condition CRUD ────────────────────────────────────────
-  const addCondition = () => {
-    onChange({
-      ...value,
-      conditions: [...value.conditions, createEmptyCondition()],
-    });
+  // Set or update a condition for a field
+  const setFieldCondition = (fieldKey: string, patch: Partial<FilterCondition>) => {
+    const existing = value.conditions.find((c) => c.field === fieldKey);
+    if (existing) {
+      onChange({
+        ...value,
+        conditions: value.conditions.map((c) =>
+          c.id === existing.id ? { ...c, ...patch } : c
+        ),
+      });
+    } else {
+      const newCond = { ...createEmptyCondition(fieldKey), ...patch, field: fieldKey };
+      onChange({ ...value, conditions: [...value.conditions, newCond] });
+    }
   };
 
-  const updateCondition = (id: string, patch: Partial<FilterCondition>) => {
+  const removeFieldCondition = (fieldKey: string) => {
     onChange({
       ...value,
-      conditions: value.conditions.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+      conditions: value.conditions.filter((c) => c.field !== fieldKey),
     });
-  };
-
-  const removeCondition = (id: string) => {
-    onChange({
-      ...value,
-      conditions: value.conditions.filter((c) => c.id !== id),
-    });
-  };
-
-  // ─── Group CRUD ────────────────────────────────────────────
-  const addGroup = () => {
-    onChange({
-      ...value,
-      groups: [...value.groups, createEmptyGroup()],
-    });
-  };
-
-  const updateGroup = (id: string, patch: Partial<FilterGroup>) => {
-    onChange({
-      ...value,
-      groups: value.groups.map((g) => (g.id === id ? { ...g, ...patch } : g)),
-    });
-  };
-
-  const removeGroup = (id: string) => {
-    onChange({
-      ...value,
-      groups: value.groups.filter((g) => g.id !== id),
-    });
-  };
-
-  const addConditionToGroup = (groupId: string) => {
-    onChange({
-      ...value,
-      groups: value.groups.map((g) =>
-        g.id === groupId
-          ? { ...g, conditions: [...g.conditions, createEmptyCondition()] }
-          : g
-      ),
-    });
-  };
-
-  const updateConditionInGroup = (groupId: string, condId: string, patch: Partial<FilterCondition>) => {
-    onChange({
-      ...value,
-      groups: value.groups.map((g) =>
-        g.id === groupId
-          ? { ...g, conditions: g.conditions.map((c) => (c.id === condId ? { ...c, ...patch } : c)) }
-          : g
-      ),
-    });
-  };
-
-  const removeConditionFromGroup = (groupId: string, condId: string) => {
-    onChange({
-      ...value,
-      groups: value.groups.map((g) =>
-        g.id === groupId
-          ? { ...g, conditions: g.conditions.filter((c) => c.id !== condId) }
-          : g
-      ),
+    setExpandedFilters((prev) => {
+      const next = new Set(prev);
+      next.delete(fieldKey);
+      return next;
     });
   };
 
@@ -152,406 +145,431 @@ export function AdvancedFilterPanel({
     }
   };
 
+  // Pinned fields
+  const pinnedFields = useMemo(
+    () => pinnedKeys.map((k) => fields.find((f) => f.key === k)).filter(Boolean) as FilterFieldMeta[],
+    [pinnedKeys, fields]
+  );
+
+  // Grouped by category (excluding pinned from their categories to avoid duplication)
+  const categorizedFields = useMemo(() => {
+    const map = new Map<string, FilterFieldMeta[]>();
+    categories.forEach((cat) => {
+      const catFields = fields.filter((f) => f.category === cat);
+      if (catFields.length > 0) map.set(cat, catFields);
+    });
+    return map;
+  }, [fields, categories]);
+
   return (
-    <div className={`flex flex-col h-full ${className}`}>
+    <div className={cn("flex flex-col h-full", className)}>
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold">Filters</span>
-          {activeCount > 0 && (
-            <Badge variant="default" className="h-5 text-[10px] px-1.5">{activeCount}</Badge>
-          )}
+      <div className="px-3 py-2.5 border-b border-border">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <span className="text-[13px] font-semibold text-foreground tracking-tight">Filters</span>
+            {activeCount > 0 && (
+              <Badge className="h-[18px] text-[10px] px-1.5 rounded-full bg-primary text-primary-foreground">
+                {activeCount}
+              </Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-0.5">
+            {onSave && activeCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-[11px] px-2 text-muted-foreground hover:text-foreground"
+                onClick={() => setShowSaveInput(!showSaveInput)}
+              >
+                <Save className="h-3 w-3 mr-1" /> Save
+              </Button>
+            )}
+            {activeCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-[11px] px-2 text-muted-foreground hover:text-destructive"
+                onClick={onClear}
+              >
+                Clear
+              </Button>
+            )}
+          </div>
         </div>
-        <div className="flex items-center gap-1">
-          {onSave && activeCount > 0 && (
-            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setShowSaveInput(!showSaveInput)}>
-              <Save className="h-3 w-3 mr-1" /> Save
+
+        {/* Save input */}
+        {showSaveInput && (
+          <div className="flex gap-1.5 mb-2">
+            <Input
+              className="h-7 text-xs bg-secondary/50 border-border"
+              placeholder="Search name..."
+              value={saveName}
+              onChange={(e) => setSaveName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSave()}
+              autoFocus
+            />
+            <Button size="sm" className="h-7 text-xs px-3" onClick={handleSave} disabled={!saveName.trim()}>
+              Save
             </Button>
-          )}
-          {activeCount > 0 && (
-            <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground" onClick={onClear}>
-              <X className="h-3 w-3 mr-1" /> Clear
-            </Button>
+          </div>
+        )}
+
+        {/* Search filters */}
+        <div className="relative">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            className="h-7 pl-7 text-xs bg-secondary/50 border-border placeholder:text-muted-foreground/60"
+            placeholder="Search filters..."
+            value={filterSearch}
+            onChange={(e) => setFilterSearch(e.target.value)}
+          />
+          {filterSearch && (
+            <button
+              className="absolute right-2 top-1/2 -translate-y-1/2"
+              onClick={() => setFilterSearch("")}
+            >
+              <X className="h-3 w-3 text-muted-foreground" />
+            </button>
           )}
         </div>
       </div>
 
-      {/* Save input */}
-      {showSaveInput && (
-        <div className="px-3 py-2 border-b flex gap-2">
-          <Input
-            className="h-7 text-xs"
-            placeholder="Search name..."
-            value={saveName}
-            onChange={(e) => setSaveName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSave()}
-          />
-          <Button size="sm" className="h-7 text-xs" onClick={handleSave} disabled={!saveName.trim()}>
-            Save
-          </Button>
-        </div>
-      )}
-
+      {/* Filter body */}
       <ScrollArea className="flex-1">
-        <div className="p-3 space-y-3">
-          {/* Top-level logic toggle */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Match</span>
-            <Button
-              variant={value.logic === "and" ? "default" : "outline"}
-              size="sm" className="h-6 text-[10px] px-2"
-              onClick={() => onChange({ ...value, logic: "and" })}
-            >
-              ALL
-            </Button>
-            <Button
-              variant={value.logic === "or" ? "default" : "outline"}
-              size="sm" className="h-6 text-[10px] px-2"
-              onClick={() => onChange({ ...value, logic: "or" })}
-            >
-              ANY
-            </Button>
-            <span className="text-xs text-muted-foreground">conditions</span>
-          </div>
-
-          {/* Top-level conditions */}
-          {value.conditions.map((cond) => (
-            <ConditionRow
-              key={cond.id}
-              condition={cond}
-              fields={fields}
-              entityType={entityType}
-              onChange={(patch) => updateCondition(cond.id, patch)}
-              onRemove={() => removeCondition(cond.id)}
-            />
-          ))}
-
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={addCondition}>
-              <Plus className="h-3 w-3" /> Condition
-            </Button>
-            <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={addGroup}>
-              <Plus className="h-3 w-3" /> Group
-            </Button>
-          </div>
-
-          {/* Nested groups */}
-          {value.groups.map((group) => (
-            <GroupBlock
-              key={group.id}
-              group={group}
-              fields={fields}
-              entityType={entityType}
-              onUpdateGroup={(patch) => updateGroup(group.id, patch)}
-              onRemoveGroup={() => removeGroup(group.id)}
-              onAddCondition={() => addConditionToGroup(group.id)}
-              onUpdateCondition={(condId, patch) => updateConditionInGroup(group.id, condId, patch)}
-              onRemoveCondition={(condId) => removeConditionFromGroup(group.id, condId)}
-            />
-          ))}
-
-          {/* Domain / Website include/exclude */}
-          <Separator />
-          <ListFilter
-            label="Include Domains"
-            values={value.includeDomains ?? []}
-            onChange={(v) => onChange({ ...value, includeDomains: v })}
-            placeholder="e.g. google.com"
-          />
-          <ListFilter
-            label="Exclude Domains"
-            values={value.excludeDomains ?? []}
-            onChange={(v) => onChange({ ...value, excludeDomains: v })}
-            placeholder="e.g. competitor.com"
-          />
-          <ListFilter
-            label="Include Websites"
-            values={value.includeWebsites ?? []}
-            onChange={(v) => onChange({ ...value, includeWebsites: v })}
-            placeholder="e.g. https://example.com"
-          />
-          <ListFilter
-            label="Exclude Websites"
-            values={value.excludeWebsites ?? []}
-            onChange={(v) => onChange({ ...value, excludeWebsites: v })}
-            placeholder="e.g. https://exclude.com"
-          />
-        </div>
-      </ScrollArea>
-    </div>
-  );
-}
-
-// ─── Condition Row ──────────────────────────────────────────
-function ConditionRow({
-  condition,
-  fields,
-  entityType,
-  onChange,
-  onRemove,
-}: {
-  condition: FilterCondition;
-  fields: FilterFieldMeta[];
-  entityType: "contact" | "company";
-  onChange: (patch: Partial<FilterCondition>) => void;
-  onRemove: () => void;
-}) {
-  const fieldMeta = condition.field ? getFieldMeta(entityType, condition.field) : undefined;
-  const operators = fieldMeta ? getOperatorsForType(fieldMeta.type) : [];
-  const opMeta = OPERATORS.find((o) => o.value === condition.operator);
-  const hasOptions = fieldMeta?.options && fieldMeta.options.length > 0;
-
-  // Group fields by category for the selector
-  const categorized = new Map<string, FilterFieldMeta[]>();
-  fields.forEach((f) => {
-    if (!categorized.has(f.category)) categorized.set(f.category, []);
-    categorized.get(f.category)!.push(f);
-  });
-
-  return (
-    <div className="border rounded-md p-2 space-y-2 bg-muted/30">
-      <div className="flex items-center gap-1">
-        {/* Include / Exclude toggle */}
-        <Button
-          variant={condition.conditionType === "include" ? "default" : "destructive"}
-          size="sm"
-          className="h-6 text-[10px] px-2 min-w-[60px]"
-          onClick={() =>
-            onChange({ conditionType: condition.conditionType === "include" ? "exclude" : "include" })
-          }
-        >
-          {condition.conditionType === "include" ? "Include" : "Exclude"}
-        </Button>
-
-        {/* Field selector */}
-        <Select
-          value={condition.field || ""}
-          onValueChange={(v) => onChange({ field: v, operator: "eq", value: "" })}
-        >
-          <SelectTrigger className="h-6 text-[10px] flex-1 min-w-[100px]">
-            <SelectValue placeholder="Select field" />
-          </SelectTrigger>
-          <SelectContent className="max-h-[300px]">
-            {Array.from(categorized.entries()).map(([cat, catFields]) => (
-              <div key={cat}>
-                <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{cat}</div>
-                {catFields.map((f) => (
-                  <SelectItem key={f.key} value={f.key} className="text-xs">{f.label}</SelectItem>
+        <div className="py-1">
+          {/* Search results mode */}
+          {filteredFields ? (
+            <div className="px-1">
+              {filteredFields.length === 0 ? (
+                <div className="px-3 py-6 text-center text-xs text-muted-foreground">
+                  No filters match "{filterSearch}"
+                </div>
+              ) : (
+                filteredFields.map((field) => (
+                  <FilterRow
+                    key={field.key}
+                    field={field}
+                    isExpanded={expandedFilters.has(field.key)}
+                    isActive={activeFieldKeys.has(field.key)}
+                    condition={getActiveCondition(field.key)}
+                    onToggle={() => toggleFilter(field.key)}
+                    onSetCondition={(patch) => setFieldCondition(field.key, patch)}
+                    onRemoveCondition={() => removeFieldCondition(field.key)}
+                    entityType={entityType}
+                  />
+                ))
+              )}
+            </div>
+          ) : (
+            <>
+              {/* Pinned filters */}
+              <div className="px-1 pb-1">
+                <div className="px-3 pt-2 pb-1">
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">
+                    Pinned Filters
+                  </span>
+                </div>
+                {pinnedFields.map((field) => (
+                  <FilterRow
+                    key={field.key}
+                    field={field}
+                    isExpanded={expandedFilters.has(field.key)}
+                    isActive={activeFieldKeys.has(field.key)}
+                    condition={getActiveCondition(field.key)}
+                    onToggle={() => toggleFilter(field.key)}
+                    onSetCondition={(patch) => setFieldCondition(field.key, patch)}
+                    onRemoveCondition={() => removeFieldCondition(field.key)}
+                    entityType={entityType}
+                    isPinned
+                  />
                 ))}
               </div>
-            ))}
-          </SelectContent>
-        </Select>
 
-        <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={onRemove}>
-          <Trash2 className="h-3 w-3 text-muted-foreground" />
-        </Button>
-      </div>
+              <div className="mx-3 border-t border-border" />
 
-      {condition.field && (
-        <div className="flex items-center gap-1">
-          {/* Operator */}
-          <Select
-            value={condition.operator}
-            onValueChange={(v) => onChange({ operator: v as FilterOperator })}
-          >
-            <SelectTrigger className="h-6 text-[10px] w-[120px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {operators.map((op) => {
-                const meta = OPERATORS.find((o) => o.value === op);
-                return (
-                  <SelectItem key={op} value={op} className="text-xs">
-                    {meta?.label ?? op}
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
-
-          {/* Value input */}
-          {opMeta?.needsValue && (
-            hasOptions ? (
-              <Select
-                value={String(condition.value ?? "")}
-                onValueChange={(v) => onChange({ value: v })}
-              >
-                <SelectTrigger className="h-6 text-[10px] flex-1">
-                  <SelectValue placeholder="Select..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {fieldMeta!.options!.map((o) => (
-                    <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : (
-              <Input
-                className="h-6 text-[10px] flex-1"
-                placeholder="Value..."
-                value={String(condition.value ?? "")}
-                onChange={(e) => onChange({ value: e.target.value })}
-              />
-            )
+              {/* Category groups */}
+              {Array.from(categorizedFields.entries()).map(([category, catFields]) => (
+                <CategorySection
+                  key={category}
+                  category={category}
+                  fields={catFields}
+                  expandedFilters={expandedFilters}
+                  activeFieldKeys={activeFieldKeys}
+                  getActiveCondition={getActiveCondition}
+                  onToggleFilter={toggleFilter}
+                  onSetCondition={setFieldCondition}
+                  onRemoveCondition={removeFieldCondition}
+                  entityType={entityType}
+                />
+              ))}
+            </>
           )}
+        </div>
+      </ScrollArea>
 
-          {opMeta?.needsTwoValues && (
-            <div className="flex gap-1 flex-1">
-              <Input
-                className="h-6 text-[10px]"
-                placeholder="From"
-                value={Array.isArray(condition.value) ? String(condition.value[0] ?? "") : ""}
-                onChange={(e) => {
-                  const cur = Array.isArray(condition.value) ? condition.value : ["", ""];
-                  onChange({ value: [e.target.value, cur[1]] as unknown as [number, number] });
-                }}
-              />
-              <Input
-                className="h-6 text-[10px]"
-                placeholder="To"
-                value={Array.isArray(condition.value) ? String(condition.value[1] ?? "") : ""}
-                onChange={(e) => {
-                  const cur = Array.isArray(condition.value) ? condition.value : ["", ""];
-                  onChange({ value: [cur[0], e.target.value] as unknown as [number, number] });
-                }}
-              />
-            </div>
-          )}
-
-          {opMeta?.needsMultiValue && (
-            <Input
-              className="h-6 text-[10px] flex-1"
-              placeholder="val1, val2, val3"
-              value={Array.isArray(condition.value) ? condition.value.join(", ") : String(condition.value ?? "")}
-              onChange={(e) =>
-                onChange({
-                  value: e.target.value.split(",").map((s) => s.trim()).filter(Boolean),
-                })
-              }
-            />
-          )}
+      {/* Apply footer */}
+      {activeCount > 0 && (
+        <div className="px-3 py-2 border-t border-border bg-secondary/30">
+          <div className="text-[11px] text-muted-foreground text-center">
+            {activeCount} filter{activeCount !== 1 ? "s" : ""} active
+          </div>
         </div>
       )}
     </div>
   );
 }
 
-// ─── Group Block ────────────────────────────────────────────
-function GroupBlock({
-  group,
+// ─── Category Section ─────────────────────────────────────────
+function CategorySection({
+  category,
   fields,
-  entityType,
-  onUpdateGroup,
-  onRemoveGroup,
-  onAddCondition,
-  onUpdateCondition,
+  expandedFilters,
+  activeFieldKeys,
+  getActiveCondition,
+  onToggleFilter,
+  onSetCondition,
   onRemoveCondition,
+  entityType,
 }: {
-  group: FilterGroup;
+  category: string;
   fields: FilterFieldMeta[];
+  expandedFilters: Set<string>;
+  activeFieldKeys: Set<string>;
+  getActiveCondition: (key: string) => FilterCondition | undefined;
+  onToggleFilter: (key: string) => void;
+  onSetCondition: (key: string, patch: Partial<FilterCondition>) => void;
+  onRemoveCondition: (key: string) => void;
   entityType: "contact" | "company";
-  onUpdateGroup: (patch: Partial<FilterGroup>) => void;
-  onRemoveGroup: () => void;
-  onAddCondition: () => void;
-  onUpdateCondition: (condId: string, patch: Partial<FilterCondition>) => void;
-  onRemoveCondition: (condId: string) => void;
 }) {
+  const [collapsed, setCollapsed] = useState(false);
+  const activeInCategory = fields.filter((f) => activeFieldKeys.has(f.key)).length;
+  const icon = CATEGORY_ICONS[category] || <Tag className="h-3.5 w-3.5" />;
+
   return (
-    <div className="border-2 border-dashed border-muted-foreground/20 rounded-lg p-2 space-y-2 bg-muted/10">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] text-muted-foreground font-semibold uppercase">Group</span>
-          <Button
-            variant={group.logic === "and" ? "default" : "outline"}
-            size="sm" className="h-5 text-[10px] px-1.5"
-            onClick={() => onUpdateGroup({ logic: "and" })}
-          >
-            AND
-          </Button>
-          <Button
-            variant={group.logic === "or" ? "default" : "outline"}
-            size="sm" className="h-5 text-[10px] px-1.5"
-            onClick={() => onUpdateGroup({ logic: "or" })}
-          >
-            OR
-          </Button>
+    <div className="px-1">
+      <button
+        className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-accent/50 transition-colors rounded-sm"
+        onClick={() => setCollapsed(!collapsed)}
+      >
+        <span className="text-muted-foreground">{icon}</span>
+        <span className="text-[11px] font-semibold text-foreground tracking-tight flex-1">
+          {category}
+        </span>
+        {activeInCategory > 0 && (
+          <Badge variant="secondary" className="h-4 text-[9px] px-1.5 rounded-full bg-primary/10 text-primary border-0">
+            {activeInCategory}
+          </Badge>
+        )}
+        {collapsed ? (
+          <ChevronRight className="h-3 w-3 text-muted-foreground" />
+        ) : (
+          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+        )}
+      </button>
+      {!collapsed && (
+        <div className="pb-1">
+          {fields.map((field) => (
+            <FilterRow
+              key={field.key}
+              field={field}
+              isExpanded={expandedFilters.has(field.key)}
+              isActive={activeFieldKeys.has(field.key)}
+              condition={getActiveCondition(field.key)}
+              onToggle={() => onToggleFilter(field.key)}
+              onSetCondition={(patch) => onSetCondition(field.key, patch)}
+              onRemoveCondition={() => onRemoveCondition(field.key)}
+              entityType={entityType}
+            />
+          ))}
         </div>
-        <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={onRemoveGroup}>
-          <Trash2 className="h-3 w-3 text-muted-foreground" />
-        </Button>
-      </div>
-
-      {group.conditions.map((cond) => (
-        <ConditionRow
-          key={cond.id}
-          condition={cond}
-          fields={fields}
-          entityType={entityType}
-          onChange={(patch) => onUpdateCondition(cond.id, patch)}
-          onRemove={() => onRemoveCondition(cond.id)}
-        />
-      ))}
-
-      <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1" onClick={onAddCondition}>
-        <Plus className="h-3 w-3" /> Add condition
-      </Button>
+      )}
     </div>
   );
 }
 
-// ─── List Filter (domains, websites) ─────────────────────────
-function ListFilter({
-  label,
-  values,
-  onChange,
-  placeholder,
+// ─── Single Filter Row ────────────────────────────────────────
+function FilterRow({
+  field,
+  isExpanded,
+  isActive,
+  condition,
+  onToggle,
+  onSetCondition,
+  onRemoveCondition,
+  entityType,
+  isPinned = false,
 }: {
-  label: string;
-  values: string[];
-  onChange: (values: string[]) => void;
-  placeholder: string;
+  field: FilterFieldMeta;
+  isExpanded: boolean;
+  isActive: boolean;
+  condition?: FilterCondition;
+  onToggle: () => void;
+  onSetCondition: (patch: Partial<FilterCondition>) => void;
+  onRemoveCondition: () => void;
+  entityType: "contact" | "company";
+  isPinned?: boolean;
 }) {
-  const [input, setInput] = useState("");
-
-  const add = () => {
-    const trimmed = input.trim();
-    if (trimmed && !values.includes(trimmed)) {
-      onChange([...values, trimmed]);
-      setInput("");
-    }
-  };
+  const operators = getOperatorsForType(field.type);
+  const currentOp = condition?.operator ?? "eq";
+  const opMeta = OPERATORS.find((o) => o.value === currentOp);
+  const hasOptions = field.options && field.options.length > 0;
 
   return (
-    <div className="space-y-1.5">
-      <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-        {label}
-      </Label>
-      <div className="flex gap-1">
-        <Input
-          className="h-6 text-[10px] flex-1"
-          placeholder={placeholder}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && add()}
-        />
-        <Button variant="outline" size="sm" className="h-6 text-[10px] px-2" onClick={add} disabled={!input.trim()}>
-          Add
-        </Button>
-      </div>
-      {values.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {values.map((v) => (
-            <Badge
-              key={v}
-              variant="secondary"
-              className="text-[10px] cursor-pointer gap-1 hover:bg-destructive/10"
-              onClick={() => onChange(values.filter((x) => x !== v))}
+    <div className="group">
+      {/* Row header */}
+      <button
+        className={cn(
+          "w-full flex items-center gap-1.5 px-3 py-[5px] text-left transition-colors rounded-sm",
+          "hover:bg-accent/50",
+          isActive && "bg-primary/5",
+          isExpanded && "bg-accent/30"
+        )}
+        onClick={onToggle}
+      >
+        {isPinned && (
+          <Pin className="h-2.5 w-2.5 text-muted-foreground/50 shrink-0" />
+        )}
+        <GripVertical className="h-3 w-3 text-muted-foreground/30 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+        <span className={cn(
+          "text-[12px] flex-1 truncate",
+          isActive ? "text-foreground font-medium" : "text-foreground/80"
+        )}>
+          {field.label}
+        </span>
+        {isActive && (
+          <Badge variant="secondary" className="h-4 text-[9px] px-1 rounded bg-primary/10 text-primary border-0 shrink-0">
+            ✓
+          </Badge>
+        )}
+        <ChevronDown className={cn(
+          "h-3 w-3 text-muted-foreground/50 shrink-0 transition-transform",
+          isExpanded && "rotate-180"
+        )} />
+      </button>
+
+      {/* Expanded filter controls */}
+      {isExpanded && (
+        <div className="px-3 pb-2 pt-1 ml-4 border-l-2 border-primary/20">
+          <div className="space-y-1.5">
+            {/* Include / Exclude toggle */}
+            <div className="flex items-center gap-1">
+              <button
+                className={cn(
+                  "text-[10px] px-2 py-0.5 rounded-sm border transition-colors",
+                  (!condition || condition.conditionType === "include")
+                    ? "bg-primary/10 text-primary border-primary/30"
+                    : "text-muted-foreground border-border hover:bg-accent"
+                )}
+                onClick={() => onSetCondition({ conditionType: "include" })}
+              >
+                Include
+              </button>
+              <button
+                className={cn(
+                  "text-[10px] px-2 py-0.5 rounded-sm border transition-colors",
+                  condition?.conditionType === "exclude"
+                    ? "bg-destructive/10 text-destructive border-destructive/30"
+                    : "text-muted-foreground border-border hover:bg-accent"
+                )}
+                onClick={() => onSetCondition({ conditionType: "exclude" })}
+              >
+                Exclude
+              </button>
+            </div>
+
+            {/* Operator */}
+            <Select
+              value={currentOp}
+              onValueChange={(v) => onSetCondition({ operator: v as FilterOperator })}
             >
-              {v}
-              <X className="h-2 w-2" />
-            </Badge>
-          ))}
+              <SelectTrigger className="h-6 text-[11px] w-full bg-secondary/50 border-border">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {operators.map((op) => {
+                  const meta = OPERATORS.find((o) => o.value === op);
+                  return (
+                    <SelectItem key={op} value={op} className="text-xs">
+                      {meta?.label ?? op}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+
+            {/* Value input */}
+            {opMeta?.needsValue && (
+              hasOptions ? (
+                <Select
+                  value={String(condition?.value ?? "")}
+                  onValueChange={(v) => onSetCondition({ value: v })}
+                >
+                  <SelectTrigger className="h-6 text-[11px] w-full bg-secondary/50 border-border">
+                    <SelectValue placeholder="Select..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {field.options!.map((o) => (
+                      <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  className="h-6 text-[11px] bg-secondary/50 border-border"
+                  placeholder={`Enter ${field.label.toLowerCase()}...`}
+                  value={String(condition?.value ?? "")}
+                  onChange={(e) => onSetCondition({ value: e.target.value })}
+                />
+              )
+            )}
+
+            {opMeta?.needsTwoValues && (
+              <div className="flex gap-1">
+                <Input
+                  className="h-6 text-[11px] bg-secondary/50 border-border"
+                  placeholder="From"
+                  value={Array.isArray(condition?.value) ? String(condition.value[0] ?? "") : ""}
+                  onChange={(e) => {
+                    const cur = Array.isArray(condition?.value) ? condition.value : ["", ""];
+                    onSetCondition({ value: [e.target.value, cur[1]] as unknown as [number, number] });
+                  }}
+                />
+                <Input
+                  className="h-6 text-[11px] bg-secondary/50 border-border"
+                  placeholder="To"
+                  value={Array.isArray(condition?.value) ? String(condition.value[1] ?? "") : ""}
+                  onChange={(e) => {
+                    const cur = Array.isArray(condition?.value) ? condition.value : ["", ""];
+                    onSetCondition({ value: [cur[0], e.target.value] as unknown as [number, number] });
+                  }}
+                />
+              </div>
+            )}
+
+            {opMeta?.needsMultiValue && (
+              <Input
+                className="h-6 text-[11px] bg-secondary/50 border-border"
+                placeholder="val1, val2, val3"
+                value={Array.isArray(condition?.value) ? condition.value.join(", ") : String(condition?.value ?? "")}
+                onChange={(e) =>
+                  onSetCondition({
+                    value: e.target.value.split(",").map((s) => s.trim()).filter(Boolean),
+                  })
+                }
+              />
+            )}
+
+            {/* Clear this filter */}
+            {isActive && (
+              <button
+                className="text-[10px] text-destructive/70 hover:text-destructive transition-colors"
+                onClick={onRemoveCondition}
+              >
+                Remove filter
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -577,11 +595,12 @@ export function ActiveAdvancedFilters({
       const meta = getFieldMeta(entityType, c.field);
       const opLabel = OPERATORS.find((o) => o.value === c.operator)?.label ?? c.operator;
       return (
-        <Badge key={c.id} variant="secondary" className="text-[10px] gap-1">
-          {c.conditionType === "exclude" && <span className="text-destructive">NOT</span>}
-          {meta?.label ?? c.field} {opLabel}{" "}
+        <Badge key={c.id} variant="secondary" className="text-[10px] gap-1 bg-secondary border-border">
+          {c.conditionType === "exclude" && <span className="text-destructive font-medium">NOT</span>}
+          <span className="text-muted-foreground">{meta?.label ?? c.field}</span>
+          <span className="text-foreground/60">{opLabel}</span>
           {c.value !== undefined && c.value !== "" && (
-            <span className="font-medium">{Array.isArray(c.value) ? c.value.join(", ") : String(c.value)}</span>
+            <span className="font-medium text-foreground">{Array.isArray(c.value) ? c.value.join(", ") : String(c.value)}</span>
           )}
         </Badge>
       );
@@ -591,19 +610,19 @@ export function ActiveAdvancedFilters({
     <div className="flex flex-wrap gap-1.5 items-center">
       {conditionBadges}
       {definition.groups.length > 0 && (
-        <Badge variant="outline" className="text-[10px]">
+        <Badge variant="outline" className="text-[10px] border-border">
           +{definition.groups.length} group{definition.groups.length > 1 ? "s" : ""}
         </Badge>
       )}
       {(definition.includeDomains?.length ?? 0) > 0 && (
-        <Badge variant="outline" className="text-[10px]">Domains: +{definition.includeDomains!.length}</Badge>
+        <Badge variant="outline" className="text-[10px] border-border">Domains: +{definition.includeDomains!.length}</Badge>
       )}
       {(definition.excludeDomains?.length ?? 0) > 0 && (
-        <Badge variant="outline" className="text-[10px]">Excluded domains: {definition.excludeDomains!.length}</Badge>
+        <Badge variant="outline" className="text-[10px] border-border">Excluded: {definition.excludeDomains!.length}</Badge>
       )}
       <Badge
         variant="outline"
-        className="text-[10px] cursor-pointer hover:bg-muted"
+        className="text-[10px] cursor-pointer hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 border-border transition-colors"
         onClick={onClear}
       >
         Clear all ({count})
