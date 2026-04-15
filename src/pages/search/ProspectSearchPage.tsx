@@ -294,7 +294,9 @@ export default function ProspectSearchPage() {
           {/* Bulk actions */}
           <SearchBulkActionsBar
             selectedCount={state.selectedRows.size}
+            selectedIds={Array.from(state.selectedRows)}
             entityType={state.entityType}
+            workspaceId=""
             onClear={state.clearSelection}
           />
         </div>
