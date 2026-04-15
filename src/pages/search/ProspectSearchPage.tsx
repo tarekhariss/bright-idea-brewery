@@ -58,7 +58,20 @@ const CONTACT_COLUMNS: ColDef[] = [
   { key: "job_title", label: "Title", render: (r) => <span className="text-xs truncate max-w-[160px] block">{r.job_title || "—"}</span> },
   {
     key: "company_name_raw", label: "Company",
-    render: (r) => <span className="text-xs truncate max-w-[140px] block">{r.company_name_raw || "—"}</span>,
+    render: (r) => (
+      <div className="min-w-[120px]">
+        <span className="text-xs truncate max-w-[140px] block font-medium">{r.company_name_raw || r.companies?.name || "—"}</span>
+        {r.companies?.domain && <span className="text-[10px] text-muted-foreground truncate block">{r.companies.domain}</span>}
+      </div>
+    ),
+  },
+  {
+    key: "industry", label: "Industry",
+    render: (r) => <span className="text-xs truncate max-w-[130px] block">{r.companies?.industry || "—"}</span>,
+  },
+  {
+    key: "department", label: "Department",
+    render: (r) => <span className="text-xs truncate max-w-[120px] block">{r.department || "—"}</span>,
   },
   {
     key: "email_validity_status", label: "Email", sortable: true,
@@ -72,9 +85,15 @@ const CONTACT_COLUMNS: ColDef[] = [
   {
     key: "phone_status", label: "Phone", sortable: true,
     render: (r) => {
+      const phone = r.phone || r.mobile_phone || r.corporate_phone || r.work_direct_phone;
+      if (!phone) return <span className="text-xs text-muted-foreground">—</span>;
       const s = r.phone_status;
-      if (!s || s === "unknown") return <span className="text-xs text-muted-foreground">—</span>;
-      return <Badge variant="outline" className="text-[10px]">{s}</Badge>;
+      return (
+        <div>
+          <span className="text-xs truncate block max-w-[110px]">{phone}</span>
+          {s && s !== "unknown" && <Badge variant="outline" className="text-[9px] mt-0.5">{s}</Badge>}
+        </div>
+      );
     },
   },
   {
@@ -87,6 +106,10 @@ const CONTACT_COLUMNS: ColDef[] = [
   {
     key: "seniority_level", label: "Seniority",
     render: (r) => <span className="text-xs">{r.seniority_level || "—"}</span>,
+  },
+  {
+    key: "employees", label: "Employees",
+    render: (r) => <span className="text-xs">{r.companies?.employee_count?.toLocaleString() ?? r.companies?.employee_range ?? "—"}</span>,
   },
   {
     key: "lifecycle_status", label: "Stage", sortable: true,
