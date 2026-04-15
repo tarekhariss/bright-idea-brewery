@@ -279,6 +279,9 @@ export default function ImportWizardPage() {
         "external_account_id",
       ]);
 
+      // Cache for company name → company_id within this import
+      const companyCache = new Map<string, string>();
+
       for (let i = 0; i < allRows.length; i += BATCH_SIZE) {
         const batch = allRows.slice(i, i + BATCH_SIZE);
         const jobRows: any[] = [];
@@ -328,10 +331,76 @@ export default function ImportWizardPage() {
               source_file: file.name,
             };
 
+            // Collect company fields for auto-creation
+            const companyData: Record<string, unknown> = {};
+            let hasCompanyFields = false;
+
             for (const [key, val] of Object.entries(normalized)) {
               if (val === null || val === undefined) continue;
               if (CONTACT_FIELDS.has(key)) {
                 contact[key] = val;
+              }
+              if (COMPANY_FIELDS.has(key)) {
+                // Map company_city → city, company_state → state, company_country → country for the companies table
+                const companyKey = key.replace(/^company_/, "");
+                companyData[key] = val;
+                hasCompanyFields = true;
+              }
+            }
+
+            // Also copy company location fields to the contact if contact doesn't have them
+            if (!contact.city && normalized.company_city) contact.city = normalized.company_city;
+            if (!contact.state && normalized.company_state) contact.state = normalized.company_state;
+            if (!contact.country && normalized.company_country) contact.country = normalized.company_country;
+
+            // Auto-create/match company if we have company fields
+            const companyName = (contact.company_name_raw as string) || "";
+            if (companyName && hasCompanyFields) {
+              const cacheKey = companyName.toLowerCase().trim();
+              let companyId = companyCache.get(cacheKey);
+
+              if (!companyId) {
+                // Try to find existing company by name
+                const { data: existing } = await (supabase.from("companies") as any)
+                  .select("id")
+                  .eq("workspace_id", workspaceId || null)
+                  .ilike("name", companyName)
+                  .limit(1)
+                  .maybeSingle();
+
+                if (existing?.id) {
+                  companyId = existing.id;
+                  // Update with any new fields
+                  const updateFields: Record<string, unknown> = {};
+                  for (const [k, v] of Object.entries(companyData)) {
+                    if (v !== null && v !== undefined) updateFields[k] = v;
+                  }
+                  if (Object.keys(updateFields).length > 0) {
+                    await (supabase.from("companies") as any)
+                      .update(updateFields)
+                      .eq("id", companyId);
+                  }
+                } else {
+                  // Create new company
+                  const newCompany: Record<string, unknown> = {
+                    name: companyName,
+                    workspace_id: workspaceId || null,
+                    created_by: user.id,
+                    ...companyData,
+                  };
+                  const { data: created } = await (supabase.from("companies") as any)
+                    .insert(newCompany)
+                    .select("id")
+                    .single();
+                  if (created?.id) {
+                    companyId = created.id;
+                  }
+                }
+                if (companyId) companyCache.set(cacheKey, companyId);
+              }
+
+              if (companyId) {
+                contact.company_id = companyId;
               }
             }
 
