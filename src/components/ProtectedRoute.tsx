@@ -18,10 +18,5 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
     return <Navigate to="/login" replace />;
   }
 
-  // If user has no workspace, redirect to onboarding
-  if (!workspaceId && workspaces.length === 0) {
-    return <Navigate to="/onboarding" replace />;
-  }
-
   return <>{children}</>;
 }
