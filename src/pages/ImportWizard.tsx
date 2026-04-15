@@ -195,6 +195,12 @@ export default function ImportWizardPage() {
     setSubmitting(true);
 
     try {
+      if (!workspaceId) {
+        toast.error("No active workspace. Please create or select a workspace before importing.");
+        setSubmitting(false);
+        return;
+      }
+
       // Re-parse the full file (no row limit) for import processing
       const fullText = await file.text();
       const fullParsed = parseCSVText(fullText);
