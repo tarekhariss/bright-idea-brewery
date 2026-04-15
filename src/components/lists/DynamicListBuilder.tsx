@@ -193,9 +193,9 @@ export function DynamicListBuilder({ open, onOpenChange, existingList, onSuccess
             </div>
             <div className="border rounded-lg p-3 bg-muted/20">
               <AdvancedFilterPanel
-                filterDefinition={filterDef}
-                onFilterChange={setFilterDef}
-                fields={CONTACT_FILTER_FIELDS}
+                value={filterDef}
+                onChange={setFilterDef}
+                onClear={() => setFilterDef(createEmptyFilterDefinition())}
                 entityType="contact"
               />
             </div>
