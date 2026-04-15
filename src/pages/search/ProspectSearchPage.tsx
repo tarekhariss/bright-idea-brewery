@@ -28,6 +28,7 @@ import { ProspectMetricsBar } from "@/components/search/ProspectMetricsBar";
 import { SearchBulkActionsBar } from "@/components/search/SearchBulkActionsBar";
 import { ProspectPreviewDrawer } from "@/components/search/ProspectPreviewDrawer";
 import { useProspectSearch, useProspectSearchState, type EntityType } from "@/hooks/use-prospect-search";
+import { useAuth } from "@/contexts/AuthContext";
 import { useSavedSearches, type SavedSearch } from "@/hooks/use-saved-searches";
 import { countActiveConditions } from "@/lib/advanced-filter-engine";
 import type { FilterDefinition } from "@/lib/advanced-filter-types";
@@ -167,8 +168,8 @@ export default function ProspectSearchPage() {
   const [showFilters, setShowFilters] = useState(true);
   const [previewRecord, setPreviewRecord] = useState<any>(null);
 
-  // TODO: replace with real workspace_id from context when available
-  const workspaceId = "00000000-0000-0000-0000-000000000000";
+  const { workspaceId: authWorkspaceId } = useAuth();
+  const workspaceId = authWorkspaceId || "";
 
   const { searches, create: createSearch, isCreating } = useSavedSearches(state.entityType, workspaceId);
 
