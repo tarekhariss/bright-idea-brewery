@@ -1,12 +1,12 @@
 /**
  * Deduplication + Merge Engine hooks.
+ * Large scans use the run-dedup-scan edge function for server-side processing.
  */
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { normalizeCompanyName } from "@/lib/csv-utils";
 
 export interface DuplicateGroup {
   id: string;
@@ -49,14 +49,17 @@ export interface MergeHistoryEntry {
 // ─── Duplicate Groups Hook ─────────────────────────────────────────────────────
 
 export function useDuplicateGroups(entityType: "contact" | "company", statusFilter = "all") {
+  const { workspaceId } = useAuth();
   const queryClient = useQueryClient();
 
   const { data: groups, isLoading } = useQuery({
-    queryKey: ["duplicate-groups", entityType, statusFilter],
+    queryKey: ["duplicate-groups", entityType, statusFilter, workspaceId],
+    enabled: !!workspaceId,
     queryFn: async () => {
       let query = (supabase.from("duplicate_groups") as any)
         .select("*")
         .eq("entity_type", entityType)
+        .eq("workspace_id", workspaceId)
         .order("confidence_score", { ascending: false })
         .limit(200);
       if (statusFilter !== "all") query = query.eq("status", statusFilter);
@@ -67,7 +70,6 @@ export function useDuplicateGroups(entityType: "contact" | "company", statusFilt
   });
 
   const refetch = () => queryClient.invalidateQueries({ queryKey: ["duplicate-groups"] });
-
   return { groups, isLoading, refetch };
 }
 
@@ -87,147 +89,67 @@ export function useDuplicateCandidates(groupId: string | null) {
     },
     enabled: !!groupId,
   });
-
   return { candidates, isLoading };
 }
 
 // ─── Merge History Hook ────────────────────────────────────────────────────────
 
 export function useMergeHistory() {
+  const { workspaceId } = useAuth();
   const { data: history, isLoading } = useQuery({
-    queryKey: ["merge-history"],
+    queryKey: ["merge-history", workspaceId],
+    enabled: !!workspaceId,
     queryFn: async () => {
       const { data, error } = await (supabase.from("merge_history") as any)
         .select("*")
+        .eq("workspace_id", workspaceId)
         .order("created_at", { ascending: false })
         .limit(100);
       if (error) throw error;
       return (data ?? []) as MergeHistoryEntry[];
     },
   });
-
   return { history, isLoading };
 }
 
-// ─── Run Duplicate Scan ────────────────────────────────────────────────────────
+// ─── Run Duplicate Scan (server-side via edge function) ────────────────────────
 
 export function useDuplicateScan() {
-  const { user } = useAuth();
+  const { user, workspaceId } = useAuth();
   const queryClient = useQueryClient();
   const [scanning, setScanning] = useState(false);
 
-  const scanContacts = useCallback(async (workspaceId: string) => {
+  const scanContacts = useCallback(async (wsId?: string) => {
     if (!user) return;
+    const targetWs = wsId || workspaceId;
+    if (!targetWs) return;
+    
     setScanning(true);
     try {
-      // Fetch all contacts for dedup
-      const { data: contacts, error } = await supabase
-        .from("contacts")
-        .select("id, email, secondary_email, linkedin_url, phone, first_name, last_name, company_name_raw")
-        .eq("workspace_id", workspaceId)
-        .limit(50000);
+      const { data: { session } } = await supabase.auth.getSession();
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      
+      const res = await fetch(`${supabaseUrl}/functions/v1/run-dedup-scan`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({ workspace_id: targetWs, entity_type: "contact" }),
+      });
 
-      if (error) throw error;
-      if (!contacts || contacts.length < 2) {
-        toast.info("Not enough contacts for duplicate detection");
-        return;
-      }
-
-      // Build indices
-      const emailMap = new Map<string, string[]>();
-      const linkedinMap = new Map<string, string[]>();
-      const nameCompanyMap = new Map<string, string[]>();
-
-      for (const c of contacts) {
-        const id = c.id;
-        if (c.email) {
-          const key = c.email.toLowerCase();
-          emailMap.set(key, [...(emailMap.get(key) ?? []), id]);
-        }
-        if (c.secondary_email) {
-          const key = c.secondary_email.toLowerCase();
-          emailMap.set(key, [...(emailMap.get(key) ?? []), id]);
-        }
-        if (c.linkedin_url) {
-          const key = c.linkedin_url.toLowerCase().replace(/\/+$/, "");
-          linkedinMap.set(key, [...(linkedinMap.get(key) ?? []), id]);
-        }
-        const fullName = [c.first_name, c.last_name].filter(Boolean).join(" ").toLowerCase().trim();
-        const companyNorm = c.company_name_raw ? normalizeCompanyName(c.company_name_raw) : "";
-        if (fullName && companyNorm) {
-          const key = `${fullName}|${companyNorm}`;
-          nameCompanyMap.set(key, [...(nameCompanyMap.get(key) ?? []), id]);
-        }
-      }
-
-      // Find groups (sets of 2+ matching IDs)
-      const seen = new Set<string>();
-      const dupGroups: { ids: string[]; rules: string[]; confidence: number }[] = [];
-
-      const addGroup = (ids: string[], rule: string, confidence: number) => {
-        const key = ids.sort().join(",");
-        if (seen.has(key)) return;
-        seen.add(key);
-        dupGroups.push({ ids, rules: [rule], confidence });
-      };
-
-      for (const [, ids] of emailMap) {
-        const unique = [...new Set(ids)];
-        if (unique.length >= 2) addGroup(unique.slice(0, 5), "email_match", 95);
-      }
-      for (const [, ids] of linkedinMap) {
-        const unique = [...new Set(ids)];
-        if (unique.length >= 2) addGroup(unique.slice(0, 5), "linkedin_match", 90);
-      }
-      for (const [, ids] of nameCompanyMap) {
-        const unique = [...new Set(ids)];
-        if (unique.length >= 2) addGroup(unique.slice(0, 5), "name_company_match", 70);
-      }
-
-      if (dupGroups.length === 0) {
-        toast.info("No duplicates found");
-        return;
-      }
-
-      // Insert groups and candidates
-      for (const g of dupGroups.slice(0, 200)) {
-        const { data: group, error: gErr } = await (supabase.from("duplicate_groups") as any)
-          .insert({
-            workspace_id: workspaceId,
-            entity_type: "contact",
-            status: "pending",
-            record_count: g.ids.length,
-            primary_record_id: g.ids[0],
-            confidence_score: g.confidence,
-            match_rules: g.rules,
-          })
-          .select("id")
-          .single();
-
-        if (gErr || !group) continue;
-
-        const candidates = g.ids.map((id, idx) => ({
-          group_id: group.id,
-          record_id: id,
-          entity_type: "contact",
-          match_score: g.confidence,
-          match_reasons: g.rules,
-          is_primary: idx === 0,
-          merge_status: "candidate",
-        }));
-
-        await (supabase.from("duplicate_candidates") as any).insert(candidates);
-      }
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "Scan failed");
 
       queryClient.invalidateQueries({ queryKey: ["duplicate-groups"] });
-      toast.success(`Found ${dupGroups.length} duplicate group(s)`);
-    } catch (err) {
+      toast.success(`Scan complete — found ${body.groups_created ?? 0} duplicate group(s)`);
+    } catch (err: any) {
       console.error(err);
-      toast.error("Duplicate scan failed");
+      toast.error("Duplicate scan failed: " + (err.message || "Unknown error"));
     } finally {
       setScanning(false);
     }
-  }, [user, queryClient]);
+  }, [user, workspaceId, queryClient]);
 
   return { scanContacts, scanning };
 }
@@ -249,7 +171,6 @@ export function useMergeRecords() {
     if (!user) return;
     setMerging(true);
     try {
-      // Load all records
       const allIds = [survivingId, ...mergedIds];
       const { data: records, error } = await supabase
         .from("contacts")
@@ -261,7 +182,6 @@ export function useMergeRecords() {
       const surviving = records.find((r) => r.id === survivingId);
       if (!surviving) throw new Error("Surviving record not found");
 
-      // Build merged record from field selections
       const updateData: Record<string, unknown> = {};
       for (const [field, sourceId] of Object.entries(fieldSelections)) {
         const source = records.find((r) => r.id === sourceId);
@@ -270,68 +190,36 @@ export function useMergeRecords() {
         }
       }
 
-      // Update surviving record
       if (Object.keys(updateData).length > 0) {
-        const { error: upErr } = await (supabase.from("contacts") as any)
-          .update(updateData)
-          .eq("id", survivingId);
+        const { error: upErr } = await (supabase.from("contacts") as any).update(updateData).eq("id", survivingId);
         if (upErr) throw upErr;
       }
 
-      // Reassign related data from merged records to surviving
       for (const mergedId of mergedIds) {
-        // Move activities
-        await (supabase.from("activities") as any)
-          .update({ contact_id: survivingId })
-          .eq("contact_id", mergedId);
-
-        // Move contact tags
-        await (supabase.from("contact_tags") as any)
-          .update({ contact_id: survivingId })
-          .eq("contact_id", mergedId);
-
-        // Move campaign contacts
-        await (supabase.from("campaign_contacts") as any)
-          .update({ contact_id: survivingId })
-          .eq("contact_id", mergedId);
-
-        // Move contact activity log
-        await (supabase.from("contact_activity_log") as any)
-          .update({ contact_id: survivingId })
-          .eq("contact_id", mergedId);
-
-        // Soft-delete merged record (mark as archived)
+        await (supabase.from("activities") as any).update({ contact_id: survivingId }).eq("contact_id", mergedId);
+        await (supabase.from("contact_tags") as any).update({ contact_id: survivingId }).eq("contact_id", mergedId);
+        await (supabase.from("campaign_contacts") as any).update({ contact_id: survivingId }).eq("contact_id", mergedId);
+        await (supabase.from("contact_activity_log") as any).update({ contact_id: survivingId }).eq("contact_id", mergedId);
         await (supabase.from("contacts") as any)
           .update({ lifecycle_status: "archived", notes: `Merged into ${survivingId}` })
           .eq("id", mergedId);
       }
 
-      // Record merge history
       await (supabase.from("merge_history") as any).insert({
         workspace_id: workspaceId,
         entity_type: "contact",
         surviving_record_id: survivingId,
         merged_record_ids: mergedIds,
         field_selections: fieldSelections,
-        merge_summary: {
-          fields_updated: Object.keys(updateData),
-          records_merged: mergedIds.length,
-        },
+        merge_summary: { fields_updated: Object.keys(updateData), records_merged: mergedIds.length },
         duplicate_group_id: groupId ?? null,
         performed_by: user.id,
       });
 
-      // Update group status if provided
       if (groupId) {
         await (supabase.from("duplicate_groups") as any)
-          .update({
-            status: "resolved",
-            resolved_by: user.id,
-            resolved_at: new Date().toISOString(),
-          })
+          .update({ status: "resolved", resolved_by: user.id, resolved_at: new Date().toISOString() })
           .eq("id", groupId);
-
-        // Update candidate statuses
         await (supabase.from("duplicate_candidates") as any)
           .update({ merge_status: "merged" })
           .eq("group_id", groupId)

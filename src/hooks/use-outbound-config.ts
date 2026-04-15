@@ -9,10 +9,15 @@ const from = (table: string) => (supabase as any).from(table);
 
 // ── Email Templates ──
 export function useEmailTemplates() {
+  const { workspaceId } = useAuth();
   return useQuery({
-    queryKey: ["email_templates"],
+    queryKey: ["email_templates", workspaceId],
+    enabled: !!workspaceId,
     queryFn: async () => {
-      const { data, error } = await from("email_templates").select("*, email_variants(*)").order("created_at", { ascending: false });
+      const { data, error } = await from("email_templates")
+        .select("*, email_variants(*)")
+        .eq("workspace_id", workspaceId)
+        .order("created_at", { ascending: false });
       if (error) throw error;
       return data as (Tables["email_templates"]["Row"] & { email_variants: Tables["email_variants"]["Row"][] })[];
     },
@@ -21,10 +26,10 @@ export function useEmailTemplates() {
 
 export function useCreateEmailTemplate() {
   const qc = useQueryClient();
-  const { user } = useAuth();
+  const { user, workspaceId } = useAuth();
   return useMutation({
     mutationFn: async (vals: { name: string; subject?: string; body?: string }) => {
-      const { data, error } = await from("email_templates").insert({ ...vals, created_by: user?.id }).select().single();
+      const { data, error } = await from("email_templates").insert({ ...vals, created_by: user?.id, workspace_id: workspaceId }).select().single();
       if (error) throw error;
       return data;
     },
@@ -60,10 +65,15 @@ export function useDeleteEmailTemplate() {
 
 // ── Sending Windows ──
 export function useSendingWindows() {
+  const { workspaceId } = useAuth();
   return useQuery({
-    queryKey: ["sending_windows"],
+    queryKey: ["sending_windows", workspaceId],
+    enabled: !!workspaceId,
     queryFn: async () => {
-      const { data, error } = await from("sending_windows").select("*").order("created_at", { ascending: false });
+      const { data, error } = await from("sending_windows")
+        .select("*")
+        .eq("workspace_id", workspaceId)
+        .order("created_at", { ascending: false });
       if (error) throw error;
       return data as Tables["sending_windows"]["Row"][];
     },
@@ -72,9 +82,10 @@ export function useSendingWindows() {
 
 export function useCreateSendingWindow() {
   const qc = useQueryClient();
+  const { workspaceId } = useAuth();
   return useMutation({
     mutationFn: async (vals: Partial<Tables["sending_windows"]["Insert"]>) => {
-      const { data, error } = await from("sending_windows").insert(vals).select().single();
+      const { data, error } = await from("sending_windows").insert({ ...vals, workspace_id: workspaceId }).select().single();
       if (error) throw error;
       return data;
     },
@@ -97,10 +108,15 @@ export function useDeleteSendingWindow() {
 
 // ── ESP Routing ──
 export function useEspRoutingRules() {
+  const { workspaceId } = useAuth();
   return useQuery({
-    queryKey: ["esp_routing_rules"],
+    queryKey: ["esp_routing_rules", workspaceId],
+    enabled: !!workspaceId,
     queryFn: async () => {
-      const { data, error } = await from("esp_routing_rules").select("*").order("priority");
+      const { data, error } = await from("esp_routing_rules")
+        .select("*")
+        .eq("workspace_id", workspaceId)
+        .order("priority");
       if (error) throw error;
       return data as Tables["esp_routing_rules"]["Row"][];
     },
@@ -109,9 +125,10 @@ export function useEspRoutingRules() {
 
 export function useCreateEspRule() {
   const qc = useQueryClient();
+  const { workspaceId } = useAuth();
   return useMutation({
     mutationFn: async (vals: Partial<Tables["esp_routing_rules"]["Insert"]>) => {
-      const { data, error } = await from("esp_routing_rules").insert(vals).select().single();
+      const { data, error } = await from("esp_routing_rules").insert({ ...vals, workspace_id: workspaceId }).select().single();
       if (error) throw error;
       return data;
     },
@@ -134,10 +151,15 @@ export function useDeleteEspRule() {
 
 // ── Suppression ──
 export function useContactSuppression() {
+  const { workspaceId } = useAuth();
   return useQuery({
-    queryKey: ["contact_suppression"],
+    queryKey: ["contact_suppression", workspaceId],
+    enabled: !!workspaceId,
     queryFn: async () => {
-      const { data, error } = await from("contact_suppression").select("*, contacts(id, first_name, last_name, email)").order("created_at", { ascending: false });
+      const { data, error } = await from("contact_suppression")
+        .select("*, contacts(id, first_name, last_name, email)")
+        .eq("workspace_id", workspaceId)
+        .order("created_at", { ascending: false });
       if (error) throw error;
       return data as any[];
     },
@@ -145,10 +167,15 @@ export function useContactSuppression() {
 }
 
 export function useDomainSuppression() {
+  const { workspaceId } = useAuth();
   return useQuery({
-    queryKey: ["domain_suppression"],
+    queryKey: ["domain_suppression", workspaceId],
+    enabled: !!workspaceId,
     queryFn: async () => {
-      const { data, error } = await from("domain_suppression").select("*").order("created_at", { ascending: false });
+      const { data, error } = await from("domain_suppression")
+        .select("*")
+        .eq("workspace_id", workspaceId)
+        .order("created_at", { ascending: false });
       if (error) throw error;
       return data as Tables["domain_suppression"]["Row"][];
     },
@@ -157,10 +184,10 @@ export function useDomainSuppression() {
 
 export function useCreateContactSuppression() {
   const qc = useQueryClient();
-  const { user } = useAuth();
+  const { user, workspaceId } = useAuth();
   return useMutation({
     mutationFn: async (vals: { contact_id: string; reason?: string }) => {
-      const { error } = await from("contact_suppression").insert({ ...vals, suppressed_by: user?.id });
+      const { error } = await from("contact_suppression").insert({ ...vals, suppressed_by: user?.id, workspace_id: workspaceId });
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["contact_suppression"] }); toast.success("Contact suppressed"); },
@@ -170,10 +197,10 @@ export function useCreateContactSuppression() {
 
 export function useCreateDomainSuppression() {
   const qc = useQueryClient();
-  const { user } = useAuth();
+  const { user, workspaceId } = useAuth();
   return useMutation({
     mutationFn: async (vals: { domain: string; reason?: string }) => {
-      const { error } = await from("domain_suppression").insert({ ...vals, suppressed_by: user?.id });
+      const { error } = await from("domain_suppression").insert({ ...vals, suppressed_by: user?.id, workspace_id: workspaceId });
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["domain_suppression"] }); toast.success("Domain suppressed"); },
@@ -207,10 +234,14 @@ export function useDeleteDomainSuppression() {
 
 // ── Mailbox Health ──
 export function useMailboxHealth() {
+  const { workspaceId } = useAuth();
   return useQuery({
-    queryKey: ["mailbox_health"],
+    queryKey: ["mailbox_health", workspaceId],
+    enabled: !!workspaceId,
     queryFn: async () => {
-      const { data, error } = await from("mailbox_health").select("*, mailboxes(id, email, display_name, provider_type, connection_status)");
+      const { data, error } = await from("mailbox_health")
+        .select("*, mailboxes!inner(id, email, display_name, provider_type, connection_status, workspace_id)")
+        .eq("mailboxes.workspace_id", workspaceId);
       if (error) throw error;
       return data as any[];
     },
@@ -219,10 +250,15 @@ export function useMailboxHealth() {
 
 // ── Domain Send Limits ──
 export function useDomainSendLimits() {
+  const { workspaceId } = useAuth();
   return useQuery({
-    queryKey: ["domain_send_limits"],
+    queryKey: ["domain_send_limits", workspaceId],
+    enabled: !!workspaceId,
     queryFn: async () => {
-      const { data, error } = await from("domain_send_limits").select("*").order("domain");
+      const { data, error } = await from("domain_send_limits")
+        .select("*")
+        .eq("workspace_id", workspaceId)
+        .order("domain");
       if (error) throw error;
       return data as Tables["domain_send_limits"]["Row"][];
     },
@@ -231,11 +267,14 @@ export function useDomainSendLimits() {
 
 // ── Inbox Threads ──
 export function useInboxThreads() {
+  const { workspaceId } = useAuth();
   return useQuery({
-    queryKey: ["inbox_threads"],
+    queryKey: ["inbox_threads", workspaceId],
+    enabled: !!workspaceId,
     queryFn: async () => {
       const { data, error } = await from("inbox_threads")
         .select("*, contacts(id, first_name, last_name, email), mailboxes(id, email), inbox_messages(id, direction, subject, body_text, timestamp)")
+        .eq("workspace_id", workspaceId)
         .order("last_message_at", { ascending: false })
         .limit(100);
       if (error) throw error;

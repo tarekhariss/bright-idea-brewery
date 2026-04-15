@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
 export type ProviderType = "google" | "microsoft" | "smtp" | "linkedin";
@@ -32,12 +33,15 @@ export interface ProviderConnection {
 }
 
 export function useProviderConnections() {
+  const { workspaceId } = useAuth();
   return useQuery({
-    queryKey: ["provider-connections"],
+    queryKey: ["provider-connections", workspaceId],
+    enabled: !!workspaceId,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("provider_connections")
         .select("*")
+        .eq("workspace_id", workspaceId)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data || []) as ProviderConnection[];
@@ -46,12 +50,15 @@ export function useProviderConnections() {
 }
 
 export function useProviderConnectionsByType(type: ProviderType) {
+  const { workspaceId } = useAuth();
   return useQuery({
-    queryKey: ["provider-connections", type],
+    queryKey: ["provider-connections", type, workspaceId],
+    enabled: !!workspaceId,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("provider_connections")
         .select("*")
+        .eq("workspace_id", workspaceId)
         .eq("provider_type", type)
         .order("created_at", { ascending: false });
       if (error) throw error;

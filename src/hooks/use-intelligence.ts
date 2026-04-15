@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
 const from = (table: string) => (supabase as any).from(table);
@@ -22,9 +23,10 @@ export function useResearchProfile(contactId?: string | null, companyId?: string
 
 export function useCreateResearchProfile() {
   const qc = useQueryClient();
+  const { workspaceId } = useAuth();
   return useMutation({
-    mutationFn: async (vals: { contact_id?: string; company_id?: string; workspace_id?: string; summary?: string; pain_points?: string; value_props?: string; recent_signals?: string; research_status?: string }) => {
-      const { data, error } = await from("prospect_research_profiles").insert(vals).select().single();
+    mutationFn: async (vals: { contact_id?: string; company_id?: string; summary?: string; pain_points?: string; value_props?: string; recent_signals?: string; research_status?: string }) => {
+      const { data, error } = await from("prospect_research_profiles").insert({ ...vals, workspace_id: workspaceId }).select().single();
       if (error) throw error;
       return data;
     },
@@ -44,10 +46,7 @@ export function useUpdateResearchProfile() {
       if (error) throw error;
       return data;
     },
-    onSuccess: (d: any) => {
-      qc.invalidateQueries({ queryKey: ["research_profile"] });
-      toast.success("Research updated");
-    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["research_profile"] }); toast.success("Research updated"); },
     onError: (e: any) => toast.error(e.message),
   });
 }
@@ -84,16 +83,14 @@ export function usePersonalizationVariables(contactId?: string | null, companyId
 
 export function useUpsertPersonalizationVariable() {
   const qc = useQueryClient();
+  const { workspaceId } = useAuth();
   return useMutation({
-    mutationFn: async (vals: { workspace_id?: string; contact_id?: string; company_id?: string; variable_key: string; variable_value: string; confidence_score?: number; source?: string }) => {
-      const { data, error } = await from("personalization_variables").insert(vals).select().single();
+    mutationFn: async (vals: { contact_id?: string; company_id?: string; variable_key: string; variable_value: string; confidence_score?: number; source?: string }) => {
+      const { data, error } = await from("personalization_variables").insert({ ...vals, workspace_id: workspaceId }).select().single();
       if (error) throw error;
       return data;
     },
-    onSuccess: (d: any) => {
-      qc.invalidateQueries({ queryKey: ["personalization_variables"] });
-      toast.success("Variable saved");
-    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["personalization_variables"] }); toast.success("Variable saved"); },
     onError: (e: any) => toast.error(e.message),
   });
 }
@@ -128,9 +125,10 @@ export function useGeneratedContent(contactId?: string | null, companyId?: strin
 
 export function useCreateGeneratedContent() {
   const qc = useQueryClient();
+  const { workspaceId } = useAuth();
   return useMutation({
-    mutationFn: async (vals: { workspace_id?: string; contact_id?: string; company_id?: string; campaign_id?: string; content_type: string; generated_text?: string; generation_status?: string }) => {
-      const { data, error } = await from("generated_content").insert(vals).select().single();
+    mutationFn: async (vals: { contact_id?: string; company_id?: string; campaign_id?: string; content_type: string; generated_text?: string; generation_status?: string }) => {
+      const { data, error } = await from("generated_content").insert({ ...vals, workspace_id: workspaceId }).select().single();
       if (error) throw error;
       return data;
     },
@@ -166,10 +164,16 @@ export function useCompanyInsights(companyId?: string | null) {
 
 // ── AI Prompt Templates ──
 export function useAIPromptTemplates() {
+  const { workspaceId } = useAuth();
   return useQuery({
-    queryKey: ["ai_prompt_templates"],
+    queryKey: ["ai_prompt_templates", workspaceId],
+    enabled: !!workspaceId,
     queryFn: async () => {
-      const { data, error } = await from("ai_prompt_templates").select("*").eq("is_active", true).order("name");
+      const { data, error } = await from("ai_prompt_templates")
+        .select("*")
+        .eq("workspace_id", workspaceId)
+        .eq("is_active", true)
+        .order("name");
       if (error) throw error;
       return data as any[];
     },
@@ -178,9 +182,10 @@ export function useAIPromptTemplates() {
 
 export function useCreateAIPromptTemplate() {
   const qc = useQueryClient();
+  const { workspaceId } = useAuth();
   return useMutation({
-    mutationFn: async (vals: { workspace_id?: string; name: string; prompt_type: string; system_prompt?: string; user_prompt_template?: string }) => {
-      const { data, error } = await from("ai_prompt_templates").insert(vals).select().single();
+    mutationFn: async (vals: { name: string; prompt_type: string; system_prompt?: string; user_prompt_template?: string }) => {
+      const { data, error } = await from("ai_prompt_templates").insert({ ...vals, workspace_id: workspaceId }).select().single();
       if (error) throw error;
       return data;
     },

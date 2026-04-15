@@ -1,16 +1,20 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
 const from = (table: string) => (supabase as any).from(table);
 
 // ── LinkedIn Accounts ──
 export function useLinkedinAccounts() {
+  const { workspaceId } = useAuth();
   return useQuery({
-    queryKey: ["linkedin_accounts"],
+    queryKey: ["linkedin_accounts", workspaceId],
+    enabled: !!workspaceId,
     queryFn: async () => {
       const { data, error } = await from("linkedin_accounts")
         .select("*, linkedin_account_health(*)")
+        .eq("workspace_id", workspaceId)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as any[];
@@ -20,11 +24,11 @@ export function useLinkedinAccounts() {
 
 export function useCreateLinkedinAccount() {
   const qc = useQueryClient();
+  const { workspaceId } = useAuth();
   return useMutation({
-    mutationFn: async (vals: { profile_name: string; profile_url?: string; daily_connect_limit?: number; daily_message_limit?: number; workspace_id?: string }) => {
-      const { data, error } = await from("linkedin_accounts").insert(vals).select().single();
+    mutationFn: async (vals: { profile_name: string; profile_url?: string; daily_connect_limit?: number; daily_message_limit?: number }) => {
+      const { data, error } = await from("linkedin_accounts").insert({ ...vals, workspace_id: workspaceId }).select().single();
       if (error) throw error;
-      // Create health record
       await from("linkedin_account_health").insert({ account_id: data.id });
       return data;
     },
@@ -59,10 +63,15 @@ export function useDeleteLinkedinAccount() {
 
 // ── LinkedIn Message Templates ──
 export function useLinkedinMessageTemplates() {
+  const { workspaceId } = useAuth();
   return useQuery({
-    queryKey: ["linkedin_message_templates"],
+    queryKey: ["linkedin_message_templates", workspaceId],
+    enabled: !!workspaceId,
     queryFn: async () => {
-      const { data, error } = await from("linkedin_message_templates").select("*").order("name");
+      const { data, error } = await from("linkedin_message_templates")
+        .select("*")
+        .eq("workspace_id", workspaceId)
+        .order("name");
       if (error) throw error;
       return data as any[];
     },
@@ -71,9 +80,10 @@ export function useLinkedinMessageTemplates() {
 
 export function useCreateLinkedinMessageTemplate() {
   const qc = useQueryClient();
+  const { workspaceId } = useAuth();
   return useMutation({
-    mutationFn: async (vals: { name: string; message_body?: string; variables?: any; workspace_id?: string }) => {
-      const { data, error } = await from("linkedin_message_templates").insert(vals).select().single();
+    mutationFn: async (vals: { name: string; message_body?: string; variables?: any }) => {
+      const { data, error } = await from("linkedin_message_templates").insert({ ...vals, workspace_id: workspaceId }).select().single();
       if (error) throw error;
       return data;
     },
@@ -147,10 +157,15 @@ export function useUnlinkLinkedinAccount() {
 
 // ── LinkedIn Safety Rules ──
 export function useLinkedinSafetyRules() {
+  const { workspaceId } = useAuth();
   return useQuery({
-    queryKey: ["linkedin_safety_rules"],
+    queryKey: ["linkedin_safety_rules", workspaceId],
+    enabled: !!workspaceId,
     queryFn: async () => {
-      const { data, error } = await from("linkedin_safety_rules").select("*").limit(1).maybeSingle();
+      const { data, error } = await from("linkedin_safety_rules")
+        .select("*")
+        .eq("workspace_id", workspaceId)
+        .limit(1).maybeSingle();
       if (error) throw error;
       return data as any;
     },
@@ -159,14 +174,15 @@ export function useLinkedinSafetyRules() {
 
 export function useUpsertLinkedinSafetyRules() {
   const qc = useQueryClient();
+  const { workspaceId } = useAuth();
   return useMutation({
     mutationFn: async (vals: { max_connects_per_day: number; max_messages_per_day: number; min_delay_minutes: number; max_delay_minutes: number }) => {
-      const { data: existing } = await from("linkedin_safety_rules").select("id").limit(1).maybeSingle();
+      const { data: existing } = await from("linkedin_safety_rules").select("id").eq("workspace_id", workspaceId).limit(1).maybeSingle();
       if (existing) {
         const { error } = await from("linkedin_safety_rules").update({ ...vals, updated_at: new Date().toISOString() }).eq("id", existing.id);
         if (error) throw error;
       } else {
-        const { error } = await from("linkedin_safety_rules").insert(vals);
+        const { error } = await from("linkedin_safety_rules").insert({ ...vals, workspace_id: workspaceId });
         if (error) throw error;
       }
     },

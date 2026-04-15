@@ -11,16 +11,18 @@ type Email = Tables["emails"]["Row"];
 type Task = Tables["tasks"]["Row"];
 type Call = Tables["calls"]["Row"];
 
-// Helper to bypass strict table typing for tables not yet in live DB
 const from = (table: string) => (supabase as any).from(table);
 
 // ── Sequences ──
 export function useSequences() {
+  const { workspaceId } = useAuth();
   return useQuery({
-    queryKey: ["sequences"],
+    queryKey: ["sequences", workspaceId],
+    enabled: !!workspaceId,
     queryFn: async () => {
       const { data, error } = await from("sequences")
         .select("*")
+        .eq("workspace_id", workspaceId)
         .order("updated_at", { ascending: false });
       if (error) throw error;
       return data as Sequence[];
@@ -60,11 +62,11 @@ export function useSequenceEnrollments(sequenceId: string | null) {
 
 export function useCreateSequence() {
   const qc = useQueryClient();
-  const { user } = useAuth();
+  const { user, workspaceId } = useAuth();
   return useMutation({
     mutationFn: async (vals: { name: string; description?: string }) => {
       const { data, error } = await from("sequences")
-        .insert({ name: vals.name, description: vals.description, owner_id: user?.id, created_by: user?.id })
+        .insert({ name: vals.name, description: vals.description, owner_id: user?.id, created_by: user?.id, workspace_id: workspaceId })
         .select()
         .single();
       if (error) throw error;
@@ -154,7 +156,6 @@ export function useEnrollContact() {
         .select()
         .single();
       if (error) throw error;
-      // Queue first step
       await from("message_queue").insert({
         queue_type: "email",
         payload: { enrollment_id: data!.id, sequence_id: sequenceId, contact_id: contactId, step_order: 1 },
@@ -176,11 +177,14 @@ export function useEnrollContact() {
 
 // ── Emails ──
 export function useEmails() {
+  const { workspaceId } = useAuth();
   return useQuery({
-    queryKey: ["emails"],
+    queryKey: ["emails", workspaceId],
+    enabled: !!workspaceId,
     queryFn: async () => {
       const { data, error } = await from("emails")
         .select("*, contacts(id, first_name, last_name, email)")
+        .eq("workspace_id", workspaceId)
         .order("created_at", { ascending: false })
         .limit(200);
       if (error) throw error;
@@ -191,11 +195,11 @@ export function useEmails() {
 
 export function useCreateEmail() {
   const qc = useQueryClient();
-  const { user } = useAuth();
+  const { user, workspaceId } = useAuth();
   return useMutation({
     mutationFn: async (vals: { subject: string; body_html?: string; to_address: string; contact_id?: string; scheduled_at?: string }) => {
       const { data, error } = await from("emails")
-        .insert({ ...vals, owner_id: user?.id, status: "draft" })
+        .insert({ ...vals, owner_id: user?.id, status: "draft", workspace_id: workspaceId })
         .select()
         .single();
       if (error) throw error;
@@ -245,11 +249,14 @@ export function useMockSendEmail() {
 
 // ── Tasks ──
 export function useTasks() {
+  const { workspaceId } = useAuth();
   return useQuery({
-    queryKey: ["tasks"],
+    queryKey: ["tasks", workspaceId],
+    enabled: !!workspaceId,
     queryFn: async () => {
       const { data, error } = await from("tasks")
         .select("*, contacts(id, first_name, last_name, email)")
+        .eq("workspace_id", workspaceId)
         .order("due_date", { ascending: true, nullsFirst: false })
         .limit(200);
       if (error) throw error;
@@ -260,11 +267,11 @@ export function useTasks() {
 
 export function useCreateTask() {
   const qc = useQueryClient();
-  const { user } = useAuth();
+  const { user, workspaceId } = useAuth();
   return useMutation({
     mutationFn: async (vals: { title: string; description?: string; task_type?: string; priority?: string; due_date?: string; contact_id?: string; company_id?: string; assigned_to?: string }) => {
       const { data, error } = await from("tasks")
-        .insert({ ...vals, owner_id: user?.id, created_by: user?.id })
+        .insert({ ...vals, owner_id: user?.id, created_by: user?.id, workspace_id: workspaceId })
         .select()
         .single();
       if (error) throw error;
@@ -294,11 +301,14 @@ export function useUpdateTask() {
 
 // ── Calls ──
 export function useCalls() {
+  const { workspaceId } = useAuth();
   return useQuery({
-    queryKey: ["calls"],
+    queryKey: ["calls", workspaceId],
+    enabled: !!workspaceId,
     queryFn: async () => {
       const { data, error } = await from("calls")
         .select("*, contacts(id, first_name, last_name, email)")
+        .eq("workspace_id", workspaceId)
         .order("created_at", { ascending: false })
         .limit(200);
       if (error) throw error;
@@ -309,11 +319,11 @@ export function useCalls() {
 
 export function useCreateCall() {
   const qc = useQueryClient();
-  const { user } = useAuth();
+  const { user, workspaceId } = useAuth();
   return useMutation({
     mutationFn: async (vals: { direction?: string; phone_number?: string; contact_id?: string; company_id?: string; notes?: string; scheduled_at?: string }) => {
       const { data, error } = await from("calls")
-        .insert({ ...vals, owner_id: user?.id, created_by: user?.id })
+        .insert({ ...vals, owner_id: user?.id, created_by: user?.id, workspace_id: workspaceId })
         .select()
         .single();
       if (error) throw error;

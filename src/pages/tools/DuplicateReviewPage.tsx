@@ -66,11 +66,7 @@ export default function DuplicateReviewPage() {
   const resolvedCount = groups?.filter((g) => g.status === "resolved").length ?? 0;
 
   const handleScan = async () => {
-    // We need a workspace_id — get from first contact
-    const { data } = await supabase.from("contacts").select("workspace_id").limit(1).single();
-    if (data?.workspace_id) {
-      await scanContacts(data.workspace_id);
-    }
+    await scanContacts();
   };
 
   return (

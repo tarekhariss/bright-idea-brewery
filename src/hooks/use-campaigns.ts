@@ -14,11 +14,14 @@ type CampaignStats = Tables["campaign_stats"]["Row"];
 const from = (table: string) => (supabase as any).from(table);
 
 export function useCampaigns() {
+  const { workspaceId } = useAuth();
   return useQuery({
-    queryKey: ["campaigns"],
+    queryKey: ["campaigns", workspaceId],
+    enabled: !!workspaceId,
     queryFn: async () => {
       const { data, error } = await from("campaigns")
         .select("*, campaign_stats(*)")
+        .eq("workspace_id", workspaceId)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as (Campaign & { campaign_stats: CampaignStats[] })[];
@@ -58,11 +61,11 @@ export function useCampaignContacts(campaignId: string | null) {
 
 export function useCreateCampaign() {
   const qc = useQueryClient();
-  const { user } = useAuth();
+  const { user, workspaceId } = useAuth();
   return useMutation({
-    mutationFn: async (vals: Omit<CampaignInsert, "owner_id" | "created_by">) => {
+    mutationFn: async (vals: Omit<CampaignInsert, "owner_id" | "created_by" | "workspace_id">) => {
       const { data, error } = await from("campaigns")
-        .insert({ ...vals, owner_id: user?.id, created_by: user?.id })
+        .insert({ ...vals, owner_id: user?.id, created_by: user?.id, workspace_id: workspaceId })
         .select()
         .single();
       if (error) throw error;
