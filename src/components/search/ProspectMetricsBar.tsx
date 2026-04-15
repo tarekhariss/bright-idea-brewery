@@ -30,6 +30,11 @@ function Metric({ label, value, loading, active }: MetricProps) {
   );
 }
 
+function applyOwnerFilter(query: any, workspaceId: string | null, userId: string) {
+  if (workspaceId) return query.eq("workspace_id", workspaceId);
+  return query.is("workspace_id", null).eq("created_by", userId);
+}
+
 interface ProspectMetricsBarProps {
   entityType: EntityType;
   filteredCount: number;
@@ -37,41 +42,40 @@ interface ProspectMetricsBarProps {
 }
 
 export function ProspectMetricsBar({ entityType, filteredCount, filteredLoading }: ProspectMetricsBarProps) {
-  const { workspaceId } = useAuth();
+  const { workspaceId, user } = useAuth();
   const table = entityType === "contact" ? "contacts" : "companies";
+  const userId = user?.id;
 
   const { data: globalCount, isLoading: globalLoading } = useQuery({
-    queryKey: ["prospect-metrics-global", table, workspaceId],
-    enabled: !!workspaceId,
+    queryKey: ["prospect-metrics-global", table, workspaceId, userId],
+    enabled: !!userId,
     staleTime: 30_000,
     queryFn: async () => {
-      const { count } = await (supabase as any)
-        .from(table)
-        .select("*", { count: "exact", head: true })
-        .eq("workspace_id", workspaceId);
+      let q = (supabase as any).from(table).select("*", { count: "exact", head: true });
+      q = applyOwnerFilter(q, workspaceId, userId!);
+      const { count } = await q;
       return count ?? 0;
     },
   });
 
   const { data: netNewCount, isLoading: netNewLoading } = useQuery({
-    queryKey: ["prospect-metrics-netnew", table, workspaceId],
-    enabled: !!workspaceId,
+    queryKey: ["prospect-metrics-netnew", table, workspaceId, userId],
+    enabled: !!userId,
     staleTime: 30_000,
     queryFn: async () => {
       const since = new Date();
       since.setDate(since.getDate() - 7);
-      const { count } = await (supabase as any)
-        .from(table)
-        .select("*", { count: "exact", head: true })
-        .eq("workspace_id", workspaceId)
-        .gte("created_at", since.toISOString());
+      let q = (supabase as any).from(table).select("*", { count: "exact", head: true });
+      q = applyOwnerFilter(q, workspaceId, userId!);
+      q = q.gte("created_at", since.toISOString());
+      const { count } = await q;
       return count ?? 0;
     },
   });
 
   const { data: savedCount, isLoading: savedLoading } = useQuery({
-    queryKey: ["prospect-metrics-saved", table, workspaceId],
-    enabled: !!workspaceId,
+    queryKey: ["prospect-metrics-saved", table, workspaceId, userId],
+    enabled: !!userId,
     staleTime: 30_000,
     queryFn: async () => {
       const joinTable = entityType === "contact" ? "contact_tags" : "company_tags";
