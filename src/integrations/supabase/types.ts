@@ -1140,12 +1140,15 @@ export type Database = {
           description: string | null
           domain: string | null
           employee_count: number | null
+          employee_count_by_department: Json | null
           employee_range: string | null
           enrichment_data: Json | null
           enrichment_source: string | null
           external_account_id: string | null
           facebook_url: string | null
           founded_year: number | null
+          funding_stage: string | null
+          headcount_growth_pct: number | null
           headquarters: string | null
           id: string
           industry: string | null
@@ -1157,19 +1160,24 @@ export type Database = {
           latest_funding_amount: number | null
           linkedin_url: string | null
           logo_url: string | null
+          market_segments: string[] | null
           naics_code: string | null
           name: string
+          news_summary: string | null
           normalized_name: string | null
           notes: string | null
           owner_id: string | null
           parent_company_id: string | null
           postal_code: string | null
+          retail_location_count: number | null
           revenue_range: string | null
           sic_code: string | null
+          signals: Json | null
           specialties: string[] | null
           state: string | null
           stock_ticker: string | null
           technologies: string[] | null
+          territories: string[] | null
           timezone: string | null
           total_funding: number | null
           twitter_url: string | null
@@ -1196,12 +1204,15 @@ export type Database = {
           description?: string | null
           domain?: string | null
           employee_count?: number | null
+          employee_count_by_department?: Json | null
           employee_range?: string | null
           enrichment_data?: Json | null
           enrichment_source?: string | null
           external_account_id?: string | null
           facebook_url?: string | null
           founded_year?: number | null
+          funding_stage?: string | null
+          headcount_growth_pct?: number | null
           headquarters?: string | null
           id?: string
           industry?: string | null
@@ -1213,19 +1224,24 @@ export type Database = {
           latest_funding_amount?: number | null
           linkedin_url?: string | null
           logo_url?: string | null
+          market_segments?: string[] | null
           naics_code?: string | null
           name: string
+          news_summary?: string | null
           normalized_name?: string | null
           notes?: string | null
           owner_id?: string | null
           parent_company_id?: string | null
           postal_code?: string | null
+          retail_location_count?: number | null
           revenue_range?: string | null
           sic_code?: string | null
+          signals?: Json | null
           specialties?: string[] | null
           state?: string | null
           stock_ticker?: string | null
           technologies?: string[] | null
+          territories?: string[] | null
           timezone?: string | null
           total_funding?: number | null
           twitter_url?: string | null
@@ -1252,12 +1268,15 @@ export type Database = {
           description?: string | null
           domain?: string | null
           employee_count?: number | null
+          employee_count_by_department?: Json | null
           employee_range?: string | null
           enrichment_data?: Json | null
           enrichment_source?: string | null
           external_account_id?: string | null
           facebook_url?: string | null
           founded_year?: number | null
+          funding_stage?: string | null
+          headcount_growth_pct?: number | null
           headquarters?: string | null
           id?: string
           industry?: string | null
@@ -1269,19 +1288,24 @@ export type Database = {
           latest_funding_amount?: number | null
           linkedin_url?: string | null
           logo_url?: string | null
+          market_segments?: string[] | null
           naics_code?: string | null
           name?: string
+          news_summary?: string | null
           normalized_name?: string | null
           notes?: string | null
           owner_id?: string | null
           parent_company_id?: string | null
           postal_code?: string | null
+          retail_location_count?: number | null
           revenue_range?: string | null
           sic_code?: string | null
+          signals?: Json | null
           specialties?: string[] | null
           state?: string | null
           stock_ticker?: string | null
           technologies?: string[] | null
+          territories?: string[] | null
           timezone?: string | null
           total_funding?: number | null
           twitter_url?: string | null
@@ -1680,6 +1704,7 @@ export type Database = {
           country: string | null
           created_at: string | null
           created_by: string | null
+          current_role_start_date: string | null
           custom_fields: Json | null
           data_quality_score: number | null
           department: string | null
@@ -1698,6 +1723,8 @@ export type Database = {
           headline: string | null
           home_phone: string | null
           id: string
+          import_tag: string | null
+          job_change_date: string | null
           job_title: string | null
           languages: string[] | null
           last_contacted_at: string | null
@@ -1711,8 +1738,10 @@ export type Database = {
           other_phone: string | null
           outreach_status: Database["public"]["Enums"]["outreach_status"]
           owner_id: string | null
+          persona: string | null
           personal_email: string | null
           phone: string | null
+          phone_status: Database["public"]["Enums"]["phone_status"] | null
           photo_url: string | null
           postal_code: string | null
           primary_email_source: string | null
@@ -1743,6 +1772,7 @@ export type Database = {
           country?: string | null
           created_at?: string | null
           created_by?: string | null
+          current_role_start_date?: string | null
           custom_fields?: Json | null
           data_quality_score?: number | null
           department?: string | null
@@ -1761,6 +1791,8 @@ export type Database = {
           headline?: string | null
           home_phone?: string | null
           id?: string
+          import_tag?: string | null
+          job_change_date?: string | null
           job_title?: string | null
           languages?: string[] | null
           last_contacted_at?: string | null
@@ -1774,8 +1806,10 @@ export type Database = {
           other_phone?: string | null
           outreach_status?: Database["public"]["Enums"]["outreach_status"]
           owner_id?: string | null
+          persona?: string | null
           personal_email?: string | null
           phone?: string | null
+          phone_status?: Database["public"]["Enums"]["phone_status"] | null
           photo_url?: string | null
           postal_code?: string | null
           primary_email_source?: string | null
@@ -1806,6 +1840,7 @@ export type Database = {
           country?: string | null
           created_at?: string | null
           created_by?: string | null
+          current_role_start_date?: string | null
           custom_fields?: Json | null
           data_quality_score?: number | null
           department?: string | null
@@ -1824,6 +1859,8 @@ export type Database = {
           headline?: string | null
           home_phone?: string | null
           id?: string
+          import_tag?: string | null
+          job_change_date?: string | null
           job_title?: string | null
           languages?: string[] | null
           last_contacted_at?: string | null
@@ -1837,8 +1874,10 @@ export type Database = {
           other_phone?: string | null
           outreach_status?: Database["public"]["Enums"]["outreach_status"]
           owner_id?: string | null
+          persona?: string | null
           personal_email?: string | null
           phone?: string | null
+          phone_status?: Database["public"]["Enums"]["phone_status"] | null
           photo_url?: string | null
           postal_code?: string | null
           primary_email_source?: string | null
@@ -5439,6 +5478,7 @@ export type Database = {
         | "bounced"
         | "opted_out"
         | "unresponsive"
+      phone_status: "verified" | "invalid" | "unknown" | "do_not_call"
       provider_connection_status:
         | "connected"
         | "disconnected"
@@ -5740,6 +5780,7 @@ export const Constants = {
         "opted_out",
         "unresponsive",
       ],
+      phone_status: ["verified", "invalid", "unknown", "do_not_call"],
       provider_connection_status: [
         "connected",
         "disconnected",
