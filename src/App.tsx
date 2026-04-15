@@ -28,6 +28,7 @@ import ImportJobDetailPage from "./pages/ImportJobDetail";
 import SavedViewsPage from "./pages/SavedViews";
 import DataHealthPage from "./pages/DataHealth";
 import NotFound from "./pages/NotFound";
+import WorkspaceOnboarding from "./pages/WorkspaceOnboarding";
 
 // Search pages
 import ProspectEnrichPage from "./pages/search/ProspectEnrich";
