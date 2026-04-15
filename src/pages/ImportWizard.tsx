@@ -195,6 +195,12 @@ export default function ImportWizardPage() {
     setSubmitting(true);
 
     try {
+      if (!workspaceId) {
+        toast.error("No active workspace. Please create or select a workspace before importing.");
+        setSubmitting(false);
+        return;
+      }
+
       // Re-parse the full file (no row limit) for import processing
       const fullText = await file.text();
       const fullParsed = parseCSVText(fullText);
@@ -240,7 +246,13 @@ export default function ImportWizardPage() {
         .select()
         .single();
 
-      if (jobErr || !job) throw jobErr;
+      if (jobErr || !job) {
+        const msg = jobErr?.message || "Unknown error creating import job";
+        toast.error(`Failed to create import job: ${msg}`);
+        console.error("Import job creation error:", jobErr);
+        setSubmitting(false);
+        return;
+      }
 
       // 2. Process rows in batches: create job rows AND insert actual contacts/companies
       const BATCH_SIZE = 200;
@@ -409,9 +421,10 @@ export default function ImportWizardPage() {
         toast.success(`Import complete: ${actualInserted.toLocaleString()} contacts inserted, ${(dupCount + skippedCount).toLocaleString()} duplicates, ${errorCount.toLocaleString()} errors`);
       }
       navigate(`/imports/${job.id}`);
-    } catch (err) {
-      toast.error("Failed to create import job");
-      console.error(err);
+    } catch (err: any) {
+      const msg = err?.message || "Unknown error";
+      toast.error(`Import failed: ${msg}`);
+      console.error("Import error:", err);
     } finally {
       setSubmitting(false);
     }
