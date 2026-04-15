@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-const SUPABASE_URL = "https://cblpmhzjyqdpytizksmx.supabase.co";
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
 async function callAdminTool(action: string, params: Record<string, any> = {}) {
   const { data: { session } } = await supabase.auth.getSession();
