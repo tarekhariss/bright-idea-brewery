@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
 
 export function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { user, loading, workspaceId, workspaceLoading, workspaces } = useAuth();
+  const { user, loading, workspaceLoading } = useAuth();
 
   if (loading || workspaceLoading) {
     return (
@@ -16,11 +16,6 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
 
   if (!user) {
     return <Navigate to="/login" replace />;
-  }
-
-  // If user has no workspace, redirect to onboarding
-  if (!workspaceId && workspaces.length === 0) {
-    return <Navigate to="/onboarding" replace />;
   }
 
   return <>{children}</>;

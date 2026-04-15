@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -50,12 +51,20 @@ const EMPTY: DashboardStats = {
 
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const { workspaceId, workspaces } = useAuth();
   const [s, setS] = useState<DashboardStats>(EMPTY);
   const [loading, setLoading] = useState(true);
+  const hasWorkspace = !!workspaceId || workspaces.length > 0;
 
   useEffect(() => {
+    if (!hasWorkspace) {
+      setS(EMPTY);
+      setLoading(false);
+      return;
+    }
+
     fetchAll();
-  }, []);
+  }, [hasWorkspace]);
 
   async function fetchAll() {
     const now = new Date();
@@ -170,6 +179,27 @@ export default function DashboardPage() {
 
   const qualityTotal = s.qualityDistribution.high + s.qualityDistribution.medium + s.qualityDistribution.low + s.qualityDistribution.unscored;
   const pct = (v: number) => qualityTotal > 0 ? Math.round((v / qualityTotal) * 100) : 0;
+
+  if (!hasWorkspace) {
+    return (
+      <div className="p-6 animate-fade-in">
+        <Card className="max-w-3xl border-dashed">
+          <CardHeader>
+            <CardTitle className="text-2xl">No workspace yet</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              You can keep exploring the platform now. Create a workspace when you want to start storing contacts, companies, campaigns, and other workspace data.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={() => navigate("/onboarding")}>Create workspace</Button>
+              <Button variant="outline" onClick={() => navigate("/search")}>Browse the app</Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6 animate-fade-in overflow-auto">

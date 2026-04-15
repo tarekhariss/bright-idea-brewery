@@ -115,6 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setWorkspaces(wsList);
 
       if (wsList.length === 0) {
+        setWorkspace(null);
         setWorkspaceLoading(false);
         return;
       }
@@ -150,7 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const user = session?.user;
     if (!user) return null;
 
-    // Use atomic SECURITY DEFINER function to avoid RLS race condition
+    // Use atomic SECURITY DEFINER function so creation stays safe under RLS
     const { data, error } = await (supabase as any).rpc("create_workspace_for_user", {
       p_name: name,
       p_user_id: user.id,

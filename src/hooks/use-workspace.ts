@@ -54,6 +54,7 @@ export function useWorkspaceProvider() {
     setWorkspaces(wsList);
 
     if (wsList.length === 0) {
+      setWorkspace(null);
       setLoading(false);
       return;
     }

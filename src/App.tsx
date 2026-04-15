@@ -119,7 +119,7 @@ const App = () => (
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
-            <Route path="/onboarding" element={<WorkspaceOnboarding />} />
+            <Route path="/onboarding" element={<ProtectedRoute><WorkspaceOnboarding /></ProtectedRoute>} />
 
             {/* Dashboard */}
             <Route path="/" element={<PL><DashboardPage /></PL>} />

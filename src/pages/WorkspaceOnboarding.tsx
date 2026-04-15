@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,11 +10,13 @@ import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function WorkspaceOnboarding() {
-  const { createWorkspace, signOut, user } = useAuth();
+  const navigate = useNavigate();
+  const { createWorkspace, signOut, user, workspaceId, workspaces } = useAuth();
   const [name, setName] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const hasWorkspace = !!workspaceId || workspaces.length > 0;
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,7 +28,7 @@ export default function WorkspaceOnboarding() {
       const ws = await createWorkspace(name.trim());
       if (ws) {
         toast.success(`Workspace "${ws.name}" created`);
-        // Navigation happens automatically via ProtectedRoute
+        navigate("/");
       } else {
         setRetryCount((c) => c + 1);
         setError("Failed to create workspace. Please try again.");
@@ -45,12 +48,20 @@ export default function WorkspaceOnboarding() {
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary">
             <Building2 className="h-6 w-6 text-primary-foreground" />
           </div>
-          <CardTitle className="text-2xl font-semibold">Create Your Workspace</CardTitle>
+          <CardTitle className="text-2xl font-semibold">Workspace Setup</CardTitle>
           <CardDescription>
-            Set up your workspace to start prospecting. All your contacts, companies, campaigns, and data will live here.
+            Creating a workspace is optional right now. You can set one up now, or come back later when you're ready or after someone invites you.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {hasWorkspace && (
+            <Alert>
+              <AlertDescription>
+                You already have access to a workspace. You can go straight back into the app.
+              </AlertDescription>
+            </Alert>
+          )}
+
           {error && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
@@ -58,7 +69,7 @@ export default function WorkspaceOnboarding() {
                 {error}
                 {retryCount >= 2 && (
                   <span className="block mt-1 text-xs">
-                    If this keeps happening, try signing out and back in, or contact support.
+                    You can continue using the app without a workspace for now, then try again later.
                   </span>
                 )}
               </AlertDescription>
@@ -85,6 +96,11 @@ export default function WorkspaceOnboarding() {
               {retryCount > 0 ? "Retry" : "Create Workspace"}
             </Button>
           </form>
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Button variant="outline" onClick={() => navigate("/")}>Skip for now</Button>
+            {hasWorkspace && <Button variant="secondary" onClick={() => navigate("/")}>Go to dashboard</Button>}
+          </div>
 
           <div className="pt-2 border-t">
             <p className="text-xs text-muted-foreground text-center mb-2">
