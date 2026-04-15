@@ -204,12 +204,12 @@ export function DynamicListBuilder({ open, onOpenChange, existingList, onSuccess
           {/* Include/Exclude Lists */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label className="text-xs font-medium text-green-600">Include from Lists</Label>
+              <Label className="text-xs font-medium text-primary">Include from Lists</Label>
               <div className="mt-1 space-y-1">
                 {includeLists.map(lid => {
                   const l = allLists.find(x => x.id === lid);
                   return (
-                    <div key={lid} className="flex items-center justify-between bg-green-50 dark:bg-green-950/20 rounded px-2 py-1">
+                    <div key={lid} className="flex items-center justify-between bg-primary/5 rounded px-2 py-1">
                       <span className="text-xs truncate">{l?.name ?? lid}</span>
                       <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setIncludeLists(prev => prev.filter(x => x !== lid))}>
                         <X className="h-3 w-3" />
@@ -230,12 +230,12 @@ export function DynamicListBuilder({ open, onOpenChange, existingList, onSuccess
               </div>
             </div>
             <div>
-              <Label className="text-xs font-medium text-red-600">Exclude from Lists</Label>
+              <Label className="text-xs font-medium text-destructive">Exclude from Lists</Label>
               <div className="mt-1 space-y-1">
                 {excludeLists.map(lid => {
                   const l = allLists.find(x => x.id === lid);
                   return (
-                    <div key={lid} className="flex items-center justify-between bg-red-50 dark:bg-red-950/20 rounded px-2 py-1">
+                    <div key={lid} className="flex items-center justify-between bg-destructive/5 rounded px-2 py-1">
                       <span className="text-xs truncate">{l?.name ?? lid}</span>
                       <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setExcludeLists(prev => prev.filter(x => x !== lid))}>
                         <X className="h-3 w-3" />
