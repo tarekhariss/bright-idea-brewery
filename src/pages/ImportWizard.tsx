@@ -93,7 +93,7 @@ const STEPS = [
 
 export default function ImportWizardPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, workspaceId } = useAuth();
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
 
