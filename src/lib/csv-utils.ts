@@ -640,6 +640,9 @@ export interface ImportSettings {
   review_company_conflicts: boolean;
   create_if_no_strong_match: boolean;
   unmapped_columns: string[];
+  import_tag: string;
+  source: string;
+  list_id: string | null;
 }
 
 export const DEFAULT_IMPORT_SETTINGS: ImportSettings = {
@@ -650,6 +653,9 @@ export const DEFAULT_IMPORT_SETTINGS: ImportSettings = {
   review_company_conflicts: true,
   create_if_no_strong_match: true,
   unmapped_columns: [],
+  import_tag: "",
+  source: "csv_import",
+  list_id: null,
 };
 
 /** Map duplicate classification to row status based on import settings */
