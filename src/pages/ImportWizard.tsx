@@ -249,6 +249,7 @@ export default function ImportWizardPage() {
       let dupCount = 0;
       let reviewCount = 0;
       let skippedCount = 0;
+      let totalInserted = 0;
 
       // Contact field keys we can map
       const CONTACT_FIELDS = new Set([
