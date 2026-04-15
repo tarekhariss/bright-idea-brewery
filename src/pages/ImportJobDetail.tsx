@@ -187,6 +187,12 @@ export default function ImportJobDetailPage() {
     );
   }
 
+  const progressPct = job.total_rows > 0 ? Math.round((job.processed_rows / job.total_rows) * 100) : 0;
+  const hasErrors = (job.error_rows ?? 0) > 0;
+  const importTag = settingsObj.import_tag as string | undefined;
+  const importSource = settingsObj.source as string | undefined;
+  const importListId = settingsObj.list_id as string | undefined;
+
   return (
     <div className="p-6 space-y-6 animate-fade-in">
       {/* Header */}
@@ -201,13 +207,36 @@ export default function ImportJobDetailPage() {
             <Badge variant="outline" className={`capitalize text-xs ${JOB_STATUS_STYLES[job.status] ?? ""}`}>
               {job.status}
             </Badge>
+            {importTag && (
+              <Badge variant="secondary" className="text-xs gap-1">
+                <Tag className="h-3 w-3" /> {importTag}
+              </Badge>
+            )}
           </div>
           <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
             <span>Created {format(new Date(job.created_at), "MMM d, yyyy 'at' h:mm a")}</span>
             {job.completed_at && <span>· Completed {format(new Date(job.completed_at), "MMM d, yyyy 'at' h:mm a")}</span>}
+            {importSource && <span>· Source: {importSource}</span>}
           </div>
         </div>
+        {hasErrors && job.status === "completed" && (
+          <Button variant="outline" size="sm" className="gap-2" onClick={handleRetryFailed} disabled={retrying}>
+            {retrying ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+            Retry Failed ({job.error_rows})
+          </Button>
+        )}
       </div>
+
+      {/* Progress Bar for in-progress jobs */}
+      {job.status === "processing" && (
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Processing rows…</span>
+            <span className="font-medium">{progressPct}%</span>
+          </div>
+          <Progress value={progressPct} className="h-2" />
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
