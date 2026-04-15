@@ -4,7 +4,7 @@ import {
   Search, Users, Building2, List, Sparkles, Brain,
   Send, Mail, Phone, CheckSquare, Megaphone, FileText, Inbox, Linkedin,
   Handshake, MessageSquare, CalendarCheck, DollarSign,
-  Wrench, GitBranch, BarChart3, Download, GitMerge,
+  Wrench, GitBranch, BarChart3, Download, GitMerge, Pencil,
   Database, Settings, LogOut, ChevronRight,
   Upload, Activity, Bookmark, LayoutDashboard, ShieldCheck,
 } from "lucide-react";
