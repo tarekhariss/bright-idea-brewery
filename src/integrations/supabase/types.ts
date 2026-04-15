@@ -3797,6 +3797,36 @@ export type Database = {
           },
         ]
       }
+      login_audit_log: {
+        Row: {
+          created_at: string
+          email: string
+          error_message: string | null
+          id: string
+          ip_address: string | null
+          success: boolean
+          user_agent: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          error_message?: string | null
+          id?: string
+          ip_address?: string | null
+          success?: boolean
+          user_agent?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          error_message?: string | null
+          id?: string
+          ip_address?: string | null
+          success?: boolean
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       mailbox_health: {
         Row: {
           bounce_rate: number | null
@@ -5731,6 +5761,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      assert_email_allowed: { Args: never; Returns: undefined }
       check_mailbox_readiness: { Args: { p_mailbox_id: string }; Returns: Json }
       create_workspace_for_user: {
         Args: { p_name: string; p_user_id: string }
