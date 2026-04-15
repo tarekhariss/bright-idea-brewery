@@ -55,6 +55,7 @@ import DealsPage from "./pages/deals/DealsPage";
 import WorkflowsListPage from "./pages/tools/WorkflowsPage";
 import AnalyticsPage from "./pages/tools/AnalyticsPage";
 import ExportHistoryPage from "./pages/tools/ExportHistoryPage";
+import BulkUpdatePage from "./pages/tools/BulkUpdatePage";
 import DuplicateReviewPage from "./pages/tools/DuplicateReviewPage";
 
 // Deliverability pages
@@ -153,6 +154,7 @@ const App = () => (
             <Route path="/tools/analytics" element={<PL><AnalyticsPage /></PL>} />
             <Route path="/tools/exports" element={<PL><ExportHistoryPage /></PL>} />
             <Route path="/tools/duplicates" element={<PL><DuplicateReviewPage /></PL>} />
+            <Route path="/tools/bulk-update" element={<PL><BulkUpdatePage /></PL>} />
 
             {/* Records (reuse existing) */}
             <Route path="/records" element={<PL><ContactsPage /></PL>} />

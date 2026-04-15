@@ -18,7 +18,7 @@ import { AdvancedFilterPanel } from "@/components/data-table/AdvancedFilterPanel
 import type { FilterDefinition } from "@/lib/advanced-filter-types";
 import { createEmptyFilterDefinition } from "@/lib/advanced-filter-types";
 import { applyAdvancedFilters, countActiveConditions } from "@/lib/advanced-filter-engine";
-import { CONTACT_FILTER_FIELDS } from "@/lib/filter-field-registry";
+
 import { useDebounce } from "@/hooks/use-debounce";
 
 const db = () => supabase as any;
