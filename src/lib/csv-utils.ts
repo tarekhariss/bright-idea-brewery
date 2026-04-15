@@ -355,7 +355,7 @@ export function normalizeRow(
     // Field-specific normalization
     if (fieldKey === "email" || fieldKey === "secondary_email" || fieldKey === "tertiary_email") {
       val = track(fieldKey, val, normalizeEmail(val), "Email normalized");
-    } else if (fieldKey === "linkedin_url") {
+    } else if (fieldKey === "linkedin_url" || fieldKey === "company_linkedin_url") {
       val = track(fieldKey, val, normalizeLinkedIn(val), "LinkedIn URL standardized");
     } else if (fieldKey === "domain") {
       val = track(fieldKey, val, normalizeDomain(val), "Domain cleaned");
