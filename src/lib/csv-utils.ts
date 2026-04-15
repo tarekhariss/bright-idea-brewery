@@ -199,6 +199,7 @@ const AUTO_MAP_HINTS: Record<string, string[]> = {
   naics_code: ["naics code", "naics"],
   stock_ticker: ["ticker", "stock ticker", "stock symbol"],
   headcount_growth_pct: ["headcount growth", "growth rate", "employee growth"],
+  company_linkedin_url: ["company linkedin", "company linkedin url", "company linkedin profile", "organization linkedin", "org linkedin"],
   external_source: ["source", "lead source", "data source"],
   external_contact_id: ["external id", "contact id", "person id", "apollo id"],
   external_account_id: ["account id", "company id", "external account id"],
