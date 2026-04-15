@@ -115,6 +115,7 @@ export const MAPPABLE_FIELDS: MappableField[] = [
   { key: "company_state", label: "Company State", group: "Company", type: "string" },
   { key: "company_country", label: "Company Country", group: "Company", type: "string" },
   { key: "company_phone", label: "Company Phone", group: "Company", type: "string" },
+  { key: "company_linkedin_url", label: "Company LinkedIn URL", group: "Company", type: "string" },
   { key: "annual_revenue", label: "Annual Revenue", group: "Company", type: "number" },
   { key: "total_funding", label: "Total Funding", group: "Company", type: "number" },
   { key: "latest_funding", label: "Latest Funding", group: "Company", type: "string" },
@@ -198,6 +199,7 @@ const AUTO_MAP_HINTS: Record<string, string[]> = {
   naics_code: ["naics code", "naics"],
   stock_ticker: ["ticker", "stock ticker", "stock symbol"],
   headcount_growth_pct: ["headcount growth", "growth rate", "employee growth"],
+  company_linkedin_url: ["company linkedin", "company linkedin url", "company linkedin profile", "organization linkedin", "org linkedin"],
   external_source: ["source", "lead source", "data source"],
   external_contact_id: ["external id", "contact id", "person id", "apollo id"],
   external_account_id: ["account id", "company id", "external account id"],
@@ -353,7 +355,7 @@ export function normalizeRow(
     // Field-specific normalization
     if (fieldKey === "email" || fieldKey === "secondary_email" || fieldKey === "tertiary_email") {
       val = track(fieldKey, val, normalizeEmail(val), "Email normalized");
-    } else if (fieldKey === "linkedin_url") {
+    } else if (fieldKey === "linkedin_url" || fieldKey === "company_linkedin_url") {
       val = track(fieldKey, val, normalizeLinkedIn(val), "LinkedIn URL standardized");
     } else if (fieldKey === "domain") {
       val = track(fieldKey, val, normalizeDomain(val), "Domain cleaned");
