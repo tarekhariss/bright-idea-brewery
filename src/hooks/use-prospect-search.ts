@@ -34,7 +34,7 @@ export interface ProspectSearchResult<T = any> {
 }
 
 export function useProspectSearch(options: ProspectSearchOptions) {
-  const { user } = useAuth();
+  const { user, workspaceId } = useAuth();
   const debouncedSearch = useDebounce(options.search, 300);
 
   return useQuery({
@@ -47,8 +47,9 @@ export function useProspectSearch(options: ProspectSearchOptions) {
       options.sortDirection,
       options.page,
       options.pageSize,
+      workspaceId,
     ],
-    enabled: !!user,
+    enabled: !!user && !!workspaceId,
     queryFn: async (): Promise<ProspectSearchResult> => {
       const table = options.entityType === "contact" ? "contacts" : "companies";
       const from = options.page * options.pageSize;
@@ -58,7 +59,7 @@ export function useProspectSearch(options: ProspectSearchOptions) {
       const listIds = await resolveListFilters(options.filterDefinition);
 
       // Build count query
-      let countQuery = db().from(table).select("*", { count: "exact", head: true });
+      let countQuery = db().from(table).select("*", { count: "exact", head: true }).eq("workspace_id", workspaceId);
       countQuery = applySearchFilter(countQuery, options.entityType, debouncedSearch);
       countQuery = applyAdvancedFilters(countQuery, options.filterDefinition);
       countQuery = applyListIds(countQuery, listIds);
@@ -72,6 +73,7 @@ export function useProspectSearch(options: ProspectSearchOptions) {
           ? "id,first_name,last_name,email,job_title,company_name_raw,company_id,email_validity_status,phone_status,phone,country,city,state,lifecycle_status,outreach_status,owner_id,linkedin_url,seniority_level,department,source,data_quality_score,last_contacted_at,created_at,updated_at"
           : "id,name,domain,website,industry,employee_count,employee_range,revenue_range,annual_revenue,funding_stage,total_funding,country,city,state,headquarters,technologies,keywords,owner_id,data_quality_score,linkedin_url,created_at,updated_at"
         )
+        .eq("workspace_id", workspaceId)
         .range(from, to)
         .order(options.sortBy, { ascending: options.sortDirection === "asc" });
 

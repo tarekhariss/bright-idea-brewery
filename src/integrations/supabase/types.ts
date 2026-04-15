@@ -5711,6 +5711,10 @@ export type Database = {
     }
     Functions: {
       check_mailbox_readiness: { Args: { p_mailbox_id: string }; Returns: Json }
+      create_workspace_for_user: {
+        Args: { p_name: string; p_user_id: string }
+        Returns: Json
+      }
       has_any_role: {
         Args: {
           _roles: Database["public"]["Enums"]["app_role"][]

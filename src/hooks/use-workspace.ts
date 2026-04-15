@@ -1,6 +1,6 @@
 /**
  * Workspace context hook — provides active workspace_id to the entire app.
- * Loads from user_workspace_preferences, auto-selects first available workspace.
+ * Uses the atomic create_workspace_for_user RPC for safe workspace creation.
  */
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -42,7 +42,6 @@ export function useWorkspaceProvider() {
   const loadWorkspaces = useCallback(async () => {
     if (!user) { setLoading(false); return; }
 
-    // Get user's workspace memberships
     const { data: memberships } = await (supabase as any)
       .from("workspace_members")
       .select("workspace_id, workspaces(id, name, owner_id, created_at)")
@@ -59,7 +58,6 @@ export function useWorkspaceProvider() {
       return;
     }
 
-    // Get saved preference
     const { data: pref } = await (supabase as any)
       .from("user_workspace_preferences")
       .select("active_workspace_id")
@@ -89,31 +87,24 @@ export function useWorkspaceProvider() {
 
   const createWorkspace = useCallback(async (name: string): Promise<Workspace | null> => {
     if (!user) return null;
-    const { data: ws, error } = await (supabase as any)
-      .from("workspaces")
-      .insert({ name, owner_id: user.id })
-      .select()
-      .single();
-    if (error || !ws) return null;
 
-    // Add creator as admin member
-    await (supabase as any)
-      .from("workspace_members")
-      .insert({ workspace_id: ws.id, user_id: user.id, role: "admin" });
+    // Use atomic SECURITY DEFINER function
+    const { data, error } = await (supabase as any).rpc("create_workspace_for_user", {
+      p_name: name,
+      p_user_id: user.id,
+    });
 
-    // Set as active
-    await (supabase as any)
-      .from("user_workspace_preferences")
-      .upsert({ user_id: user.id, active_workspace_id: ws.id }, { onConflict: "user_id" });
+    if (error) {
+      console.error("Workspace creation failed:", error);
+      throw new Error(error.message || "Failed to create workspace");
+    }
 
-    // Add profile if not exists
-    await (supabase as any)
-      .from("profiles")
-      .upsert({ id: user.id, email: user.email }, { onConflict: "id" });
+    if (!data) return null;
 
-    setWorkspaces((prev) => [...prev, ws]);
-    setWorkspace(ws);
-    return ws;
+    const newWs: Workspace = { id: data.id, name: data.name, owner_id: user.id, created_at: new Date().toISOString() };
+    setWorkspaces((prev) => [...prev, newWs]);
+    setWorkspace(newWs);
+    return newWs;
   }, [user]);
 
   return {
