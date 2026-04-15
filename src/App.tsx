@@ -71,6 +71,7 @@ import ESPRoutingPage from "./pages/settings/deliverability/ESPRoutingPage";
 // Admin pages
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import WorkspaceDetailAdmin from "./pages/admin/WorkspaceDetailAdmin";
+import SystemStatusPage from "./pages/admin/SystemStatusPage";
 
 // Settings pages
 import SettingsIndex from "./pages/settings/SettingsIndex";

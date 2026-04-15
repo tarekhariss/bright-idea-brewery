@@ -1,9 +1,10 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuth } from "@/contexts/AuthContext";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Bookmark, Star, Zap, Eye } from "lucide-react";
+import { Loader2, Bookmark, Star, Eye } from "lucide-react";
 import { format } from "date-fns";
 import type { SavedView } from "@/hooks/use-saved-views";
 
@@ -11,26 +12,28 @@ const db = () => supabase as any;
 
 export default function SavedViewsPage() {
   const navigate = useNavigate();
+  const { workspaceId } = useAuth();
   const [views, setViews] = useState<SavedView[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!workspaceId) return;
     async function load() {
       const { data } = await db()
         .from("saved_views")
         .select("*")
+        .eq("workspace_id", workspaceId)
         .order("is_default", { ascending: false })
         .order("updated_at", { ascending: false });
       setViews((data as SavedView[]) ?? []);
       setLoading(false);
     }
     load();
-  }, []);
+  }, [workspaceId]);
 
   const fmtDate = (d: string) => { try { return format(new Date(d), "MMM d, yyyy"); } catch { return "—"; } };
 
   const handleClick = (view: SavedView) => {
-    // Navigate to the appropriate page — the saved views dropdown on the page will handle loading
     const path = view.entity_type === "contact" ? "/contacts" : "/companies";
     navigate(`${path}?view=${view.id}`);
   };
