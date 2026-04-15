@@ -10,7 +10,7 @@ import { SettingsLayout } from "@/components/SettingsLayout";
 
 // Auth pages
 import LoginPage from "./pages/Login";
-import SignupPage from "./pages/Signup";
+// Signup removed — private platform
 import ForgotPasswordPage from "./pages/ForgotPassword";
 import ResetPasswordPage from "./pages/ResetPassword";
 
@@ -116,7 +116,7 @@ const App = () => (
           <Routes>
             {/* Auth */}
             <Route path="/login" element={<LoginPage />} />
-            <Route path="/signup" element={<SignupPage />} />
+            {/* Signup disabled — private platform */}
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/onboarding" element={<ProtectedRoute><WorkspaceOnboarding /></ProtectedRoute>} />
