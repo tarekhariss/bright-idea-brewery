@@ -1,13 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function useWorkspaceKpis() {
+  const { workspaceId } = useAuth();
   return useQuery({
-    queryKey: ["workspace-kpis"],
+    queryKey: ["workspace-kpis", workspaceId],
+    enabled: !!workspaceId,
     queryFn: async () => {
       const { data } = await supabase
         .from("workspace_kpis")
         .select("*")
+        .eq("workspace_id", workspaceId!)
         .order("period_end", { ascending: false })
         .limit(12);
       return data || [];
@@ -87,12 +91,15 @@ export function useContactFunnel(contactId: string | null) {
 }
 
 export function useAllCampaignPerformance() {
+  const { workspaceId } = useAuth();
   return useQuery({
-    queryKey: ["all-campaign-performance"],
+    queryKey: ["all-campaign-performance", workspaceId],
+    enabled: !!workspaceId,
     queryFn: async () => {
       const { data } = await supabase
         .from("campaign_performance_metrics")
         .select("*, campaigns(name)")
+        .eq("workspace_id", workspaceId!)
         .order("updated_at", { ascending: false });
       return data || [];
     },
@@ -100,20 +107,22 @@ export function useAllCampaignPerformance() {
 }
 
 export function useAnalyticsOverview() {
+  const { workspaceId } = useAuth();
   return useQuery({
-    queryKey: ["analytics-unified-overview"],
+    queryKey: ["analytics-unified-overview", workspaceId],
+    enabled: !!workspaceId,
     queryFn: async () => {
       const [
         contactsRes, companiesRes, dealsRes, campaignsRes,
         emailsRes, meetingsRes, attributionRes,
       ] = await Promise.all([
-        supabase.from("contacts").select("id", { count: "exact", head: true }),
-        supabase.from("companies").select("id", { count: "exact", head: true }),
-        supabase.from("deals").select("id,amount,status").limit(50000),
-        supabase.from("campaigns").select("id,status").limit(50000),
-        supabase.from("emails").select("id,status,sent_at").limit(50000),
-        supabase.from("meetings").select("id,status").limit(50000),
-        supabase.from("campaign_attribution").select("attributed_revenue").limit(50000),
+        supabase.from("contacts").select("id", { count: "exact", head: true }).eq("workspace_id", workspaceId!),
+        supabase.from("companies").select("id", { count: "exact", head: true }).eq("workspace_id", workspaceId!),
+        (supabase as any).from("deals").select("id,amount,status").eq("workspace_id", workspaceId!).limit(50000),
+        (supabase as any).from("campaigns").select("id,status").eq("workspace_id", workspaceId!).limit(50000),
+        (supabase as any).from("emails").select("id,status,sent_at").eq("workspace_id", workspaceId!).limit(50000),
+        (supabase as any).from("meetings").select("id,status").eq("workspace_id", workspaceId!).limit(50000),
+        (supabase as any).from("campaign_attribution").select("attributed_revenue").eq("workspace_id", workspaceId!).limit(50000),
       ]);
 
       const deals = dealsRes.data || [];
@@ -122,12 +131,12 @@ export function useAnalyticsOverview() {
       const meetings = meetingsRes.data || [];
       const attributions = attributionRes.data || [];
 
-      const sentEmails = emails.filter(e => e.status === "sent" || e.status === "sent_mock");
-      const activeCampaigns = campaigns.filter(c => c.status === "active");
-      const wonDeals = deals.filter(d => d.status === "won");
-      const totalRevenue = wonDeals.reduce((sum, d) => sum + (d.amount || 0), 0);
-      const attributedRevenue = attributions.reduce((sum, a) => sum + (Number(a.attributed_revenue) || 0), 0);
-      const completedMeetings = meetings.filter(m => m.status === "completed" || m.status === "scheduled");
+      const sentEmails = emails.filter((e: any) => e.status === "sent" || e.status === "sent_mock");
+      const activeCampaigns = campaigns.filter((c: any) => c.status === "active");
+      const wonDeals = deals.filter((d: any) => d.status === "won");
+      const totalRevenue = wonDeals.reduce((sum: number, d: any) => sum + (d.amount || 0), 0);
+      const attributedRevenue = attributions.reduce((sum: number, a: any) => sum + (Number(a.attributed_revenue) || 0), 0);
+      const completedMeetings = meetings.filter((m: any) => m.status === "completed" || m.status === "scheduled");
 
       return {
         totalContacts: contactsRes.count || 0,

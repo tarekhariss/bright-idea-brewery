@@ -150,10 +150,15 @@ export function useContactOutreachHistory(contactId: string | null) {
 
 // ── Safety Rules ──
 export function useSequenceSafetyRules() {
+  const { workspaceId } = useAuth();
   return useQuery({
-    queryKey: ["sequence_safety_rules"],
+    queryKey: ["sequence_safety_rules", workspaceId],
+    enabled: !!workspaceId,
     queryFn: async () => {
-      const { data, error } = await from("sequence_safety_rules").select("*").limit(1).maybeSingle();
+      const { data, error } = await from("sequence_safety_rules")
+        .select("*")
+        .eq("workspace_id", workspaceId)
+        .limit(1).maybeSingle();
       if (error) throw error;
       return data as any;
     },
@@ -162,14 +167,15 @@ export function useSequenceSafetyRules() {
 
 export function useUpsertSafetyRules() {
   const qc = useQueryClient();
+  const { workspaceId } = useAuth();
   return useMutation({
     mutationFn: async (vals: { max_emails_per_contact: number; max_emails_per_domain: number; cooldown_days: number }) => {
-      const { data: existing } = await from("sequence_safety_rules").select("id").limit(1).maybeSingle();
+      const { data: existing } = await from("sequence_safety_rules").select("id").eq("workspace_id", workspaceId).limit(1).maybeSingle();
       if (existing) {
         const { error } = await from("sequence_safety_rules").update({ ...vals, updated_at: new Date().toISOString() }).eq("id", existing.id);
         if (error) throw error;
       } else {
-        const { error } = await from("sequence_safety_rules").insert(vals);
+        const { error } = await from("sequence_safety_rules").insert({ ...vals, workspace_id: workspaceId });
         if (error) throw error;
       }
     },
@@ -180,10 +186,16 @@ export function useUpsertSafetyRules() {
 
 // ── Email Templates (for step selection) ──
 export function useEmailTemplatesList() {
+  const { workspaceId } = useAuth();
   return useQuery({
-    queryKey: ["email_templates_list"],
+    queryKey: ["email_templates_list", workspaceId],
+    enabled: !!workspaceId,
     queryFn: async () => {
-      const { data, error } = await from("email_templates").select("id, name, subject").eq("is_active", true).order("name");
+      const { data, error } = await from("email_templates")
+        .select("id, name, subject")
+        .eq("workspace_id", workspaceId)
+        .eq("is_active", true)
+        .order("name");
       if (error) throw error;
       return data as { id: string; name: string; subject: string | null }[];
     },
