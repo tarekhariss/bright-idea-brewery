@@ -246,7 +246,13 @@ export default function ImportWizardPage() {
         .select()
         .single();
 
-      if (jobErr || !job) throw jobErr;
+      if (jobErr || !job) {
+        const msg = jobErr?.message || "Unknown error creating import job";
+        toast.error(`Failed to create import job: ${msg}`);
+        console.error("Import job creation error:", jobErr);
+        setSubmitting(false);
+        return;
+      }
 
       // 2. Process rows in batches: create job rows AND insert actual contacts/companies
       const BATCH_SIZE = 200;
