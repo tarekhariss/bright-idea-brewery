@@ -163,6 +163,7 @@ export function useProspectSearchState() {
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(25);
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+  const [selectAllMode, setSelectAllMode] = useState(false);
 
   const clearFilters = useCallback(() => {
     setFilterDefinition(createEmptyFilterDefinition());
@@ -170,6 +171,7 @@ export function useProspectSearchState() {
   }, []);
 
   const toggleRow = useCallback((id: string) => {
+    setSelectAllMode(false);
     setSelectedRows((prev) => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
@@ -178,11 +180,17 @@ export function useProspectSearchState() {
   }, []);
 
   const selectAll = useCallback((ids: string[]) => {
+    setSelectAllMode(false);
     setSelectedRows(new Set(ids));
+  }, []);
+
+  const selectAllResults = useCallback(() => {
+    setSelectAllMode(true);
   }, []);
 
   const clearSelection = useCallback(() => {
     setSelectedRows(new Set());
+    setSelectAllMode(false);
   }, []);
 
   return {
@@ -193,7 +201,7 @@ export function useProspectSearchState() {
     sortDirection, setSortDirection,
     page, setPage,
     pageSize, setPageSize,
-    selectedRows, toggleRow, selectAll, clearSelection,
+    selectedRows, toggleRow, selectAll, selectAllResults, selectAllMode, clearSelection,
     clearFilters,
   };
 }
