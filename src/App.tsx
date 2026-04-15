@@ -54,6 +54,8 @@ import DealsPage from "./pages/deals/DealsPage";
 // Tools pages
 import WorkflowsListPage from "./pages/tools/WorkflowsPage";
 import AnalyticsPage from "./pages/tools/AnalyticsPage";
+import ExportHistoryPage from "./pages/tools/ExportHistoryPage";
+import DuplicateReviewPage from "./pages/tools/DuplicateReviewPage";
 
 // Deliverability pages
 import DeliverabilityOverview from "./pages/settings/deliverability/DeliverabilityOverview";
@@ -149,6 +151,8 @@ const App = () => (
             <Route path="/tools" element={<PL><WorkflowsListPage /></PL>} />
             <Route path="/tools/workflows" element={<PL><WorkflowsListPage /></PL>} />
             <Route path="/tools/analytics" element={<PL><AnalyticsPage /></PL>} />
+            <Route path="/tools/exports" element={<PL><ExportHistoryPage /></PL>} />
+            <Route path="/tools/duplicates" element={<PL><DuplicateReviewPage /></PL>} />
 
             {/* Records (reuse existing) */}
             <Route path="/records" element={<PL><ContactsPage /></PL>} />

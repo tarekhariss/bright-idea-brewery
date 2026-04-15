@@ -89,6 +89,8 @@ const navGroups: NavGroup[] = [
     items: [
       { title: "Workflows", url: "/tools/workflows", icon: GitBranch },
       { title: "Analytics", url: "/tools/analytics", icon: BarChart3 },
+      { title: "Export History", url: "/tools/exports", icon: Download },
+      { title: "Duplicate Review", url: "/tools/duplicates", icon: GitMerge },
     ],
   },
   {
