@@ -115,6 +115,7 @@ export const MAPPABLE_FIELDS: MappableField[] = [
   { key: "company_state", label: "Company State", group: "Company", type: "string" },
   { key: "company_country", label: "Company Country", group: "Company", type: "string" },
   { key: "company_phone", label: "Company Phone", group: "Company", type: "string" },
+  { key: "company_linkedin_url", label: "Company LinkedIn URL", group: "Company", type: "string" },
   { key: "annual_revenue", label: "Annual Revenue", group: "Company", type: "number" },
   { key: "total_funding", label: "Total Funding", group: "Company", type: "number" },
   { key: "latest_funding", label: "Latest Funding", group: "Company", type: "string" },

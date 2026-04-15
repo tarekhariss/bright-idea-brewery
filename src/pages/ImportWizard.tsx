@@ -834,11 +834,21 @@ export default function ImportWizardPage() {
 
               <Separator />
 
-              <div className="flex items-center gap-3 p-4 rounded-lg bg-amber-500/10 border border-amber-200 text-sm">
-                <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
-                <p className="text-amber-800">
-                  This will create an import job with {parsed.totalRows.toLocaleString()} rows.
-                  Row-level processing will begin immediately.
+              <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-200 text-sm space-y-2">
+                <div className="flex items-center gap-3">
+                  <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
+                  <p className="font-medium text-amber-800">Import Summary</p>
+                </div>
+                <ul className="ml-8 space-y-1 text-amber-800 list-disc">
+                  <li><strong>{(parsed.totalRows + 1).toLocaleString()}</strong> total lines detected in file (including header row)</li>
+                  <li><strong>1</strong> header row excluded (used for column mapping)</li>
+                  {parsed.errors.length > 0 && (
+                    <li><strong>{parsed.errors.length}</strong> rows had parsing warnings (column count mismatch) — they will still be processed</li>
+                  )}
+                  <li><strong>{parsed.totalRows.toLocaleString()}</strong> usable data rows will be imported</li>
+                </ul>
+                <p className="ml-8 text-xs text-amber-700">
+                  Blank lines were automatically excluded during parsing. Row-level processing will begin immediately after confirmation.
                 </p>
               </div>
             </div>
