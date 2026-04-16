@@ -248,8 +248,8 @@ export default function ImportWizardPage() {
         return;
       }
 
-      // 2. Process rows in batches: create job rows AND insert actual contacts/companies
-      const BATCH_SIZE = 200;
+      // 2. Process rows in batches
+      const BATCH_SIZE = 500;
       let successCount = 0;
       let errorCount = 0;
       let dupCount = 0;
@@ -257,7 +257,6 @@ export default function ImportWizardPage() {
       let skippedCount = 0;
       let totalInserted = 0;
 
-      // Contact field keys we can map
       const CONTACT_FIELDS = new Set([
         "first_name","last_name","email","secondary_email","tertiary_email","personal_email",
         "job_title","seniority_level","department","headline","bio","persona","linkedin_url",
@@ -268,7 +267,6 @@ export default function ImportWizardPage() {
         "external_contact_id",
       ]);
 
-      // Company fields that go into the companies table
       const COMPANY_FIELDS = new Set([
         "domain","website","industry","employee_count","employee_range","revenue_range",
         "annual_revenue","total_funding","latest_funding","latest_funding_amount","funding_stage",
@@ -279,13 +277,25 @@ export default function ImportWizardPage() {
         "external_account_id",
       ]);
 
-      // Cache for company name → company_id within this import
-      const companyCache = new Map<string, string>();
+      // Pre-fetch ALL existing companies in one query to avoid per-row lookups
+      const { data: allExistingCompanies } = await (supabase.from("companies") as any)
+        .select("id, name")
+        .eq("workspace_id", workspaceId || "")
+        .limit(50000);
 
+      const companyCache = new Map<string, string>();
+      for (const c of (allExistingCompanies ?? [])) {
+        companyCache.set((c.name as string).toLowerCase().trim(), c.id as string);
+      }
+
+      let batchNum = 0;
       for (let i = 0; i < allRows.length; i += BATCH_SIZE) {
+        batchNum++;
         const batch = allRows.slice(i, i + BATCH_SIZE);
         const jobRows: any[] = [];
-        const contactsToInsert: any[] = [];
+        // Collect contacts that need companies created
+        const pendingContacts: { contact: Record<string, unknown>; companyData: Record<string, unknown>; cacheKey: string }[] = [];
+        const readyContacts: any[] = [];
 
         for (let idx = 0; idx < batch.length; idx++) {
           const raw = batch[idx];
@@ -307,7 +317,6 @@ export default function ImportWizardPage() {
             duplicateReason = dupDetail.reason;
           }
 
-          // Build job row record
           jobRows.push({
             import_job_id: job.id,
             row_number: rowIndex + 1,
@@ -320,9 +329,7 @@ export default function ImportWizardPage() {
             review_required: reviewRequired,
           });
 
-          // Only insert into contacts if status is "success" and action is create_new
           if (status === "success" && actionTaken === "create_new") {
-            // Build contact record from normalized data
             const contact: Record<string, unknown> = {
               workspace_id: workspaceId || null,
               created_by: user.id,
@@ -330,121 +337,109 @@ export default function ImportWizardPage() {
               source: importSettings.source || null,
               source_file: file.name,
             };
-
-            // Collect company fields for auto-creation
             const companyData: Record<string, unknown> = {};
             let hasCompanyFields = false;
 
             for (const [key, val] of Object.entries(normalized)) {
               if (val === null || val === undefined) continue;
-              if (CONTACT_FIELDS.has(key)) {
-                contact[key] = val;
-              }
-              if (COMPANY_FIELDS.has(key)) {
-                // Map company_city → city, company_state → state, company_country → country for the companies table
-                const companyKey = key.replace(/^company_/, "");
-                companyData[key] = val;
-                hasCompanyFields = true;
-              }
+              if (CONTACT_FIELDS.has(key)) contact[key] = val;
+              if (COMPANY_FIELDS.has(key)) { companyData[key] = val; hasCompanyFields = true; }
             }
 
-            // Also copy company location fields to the contact if contact doesn't have them
             if (!contact.city && normalized.company_city) contact.city = normalized.company_city;
             if (!contact.state && normalized.company_state) contact.state = normalized.company_state;
             if (!contact.country && normalized.company_country) contact.country = normalized.company_country;
 
-            // Auto-create/match company if we have company fields
             const companyName = (contact.company_name_raw as string) || "";
+            const cacheKey = companyName.toLowerCase().trim();
+
             if (companyName && hasCompanyFields) {
-              const cacheKey = companyName.toLowerCase().trim();
-              let companyId = companyCache.get(cacheKey);
-
-              if (!companyId) {
-                // Try to find existing company by name
-                const { data: existing } = await (supabase.from("companies") as any)
-                  .select("id")
-                  .eq("workspace_id", workspaceId || null)
-                  .ilike("name", companyName)
-                  .limit(1)
-                  .maybeSingle();
-
-                if (existing?.id) {
-                  companyId = existing.id;
-                  // Update with any new fields
-                  const updateFields: Record<string, unknown> = {};
-                  for (const [k, v] of Object.entries(companyData)) {
-                    if (v !== null && v !== undefined) updateFields[k] = v;
-                  }
-                  if (Object.keys(updateFields).length > 0) {
-                    await (supabase.from("companies") as any)
-                      .update(updateFields)
-                      .eq("id", companyId);
-                  }
-                } else {
-                  // Create new company
-                  const newCompany: Record<string, unknown> = {
-                    name: companyName,
-                    workspace_id: workspaceId || null,
-                    created_by: user.id,
-                    ...companyData,
-                  };
-                  const { data: created } = await (supabase.from("companies") as any)
-                    .insert(newCompany)
-                    .select("id")
-                    .single();
-                  if (created?.id) {
-                    companyId = created.id;
-                  }
-                }
-                if (companyId) companyCache.set(cacheKey, companyId);
+              const cachedId = companyCache.get(cacheKey);
+              if (cachedId) {
+                contact.company_id = cachedId;
+                if (contact.email || contact.first_name || contact.last_name) readyContacts.push(contact);
+              } else {
+                pendingContacts.push({ contact, companyData, cacheKey });
               }
-
-              if (companyId) {
-                contact.company_id = companyId;
-              }
-            }
-
-            // Only insert if we have at least an email or a name
-            if (contact.email || contact.first_name || contact.last_name) {
-              contactsToInsert.push(contact);
+            } else {
+              if (contact.email || contact.first_name || contact.last_name) readyContacts.push(contact);
             }
           }
 
-          // Count statuses
           switch (status) {
             case "error": errorCount++; break;
             case "skipped": skippedCount++; break;
             case "duplicate": dupCount++; break;
             case "review": reviewCount++; break;
-            case "success":
-            default: successCount++; break;
+            case "success": default: successCount++; break;
           }
         }
 
-        // Insert job rows
-        await (supabase.from("import_job_rows") as any).insert(jobRows);
+        // Batch-create all new companies for this batch in one insert
+        if (pendingContacts.length > 0) {
+          // Deduplicate by cacheKey within this batch
+          const uniqueNew = new Map<string, { companyData: Record<string, unknown>; cacheKey: string }>();
+          for (const pc of pendingContacts) {
+            if (!companyCache.has(pc.cacheKey) && !uniqueNew.has(pc.cacheKey)) {
+              uniqueNew.set(pc.cacheKey, pc);
+            }
+          }
 
-        // Insert actual contacts in sub-batches
-        if (contactsToInsert.length > 0) {
-          const { data: insertedData, error: contactErr } = await supabase
-            .from("contacts")
-            .insert(contactsToInsert as any)
-            .select("id");
-          if (contactErr) {
-            console.error("Contact insert error for batch:", contactErr);
-            const batchSuccesses = contactsToInsert.length;
-            successCount -= batchSuccesses;
-            errorCount += batchSuccesses;
-          } else {
-            totalInserted += (insertedData?.length ?? 0);
+          if (uniqueNew.size > 0) {
+            const companiesToCreate = Array.from(uniqueNew.values()).map(({ companyData, cacheKey }) => ({
+              name: cacheKey, // Use the trimmed lowercase as canonical — will be overridden below
+              workspace_id: workspaceId || null,
+              created_by: user.id,
+              ...companyData,
+            }));
+            // Restore proper casing from the first contact that has this company
+            for (const row of companiesToCreate) {
+              const pc = pendingContacts.find(p => p.cacheKey === (row.name as string));
+              if (pc) row.name = (pc.contact.company_name_raw as string) || row.name;
+            }
+
+            const { data: createdCompanies } = await (supabase.from("companies") as any)
+              .insert(companiesToCreate)
+              .select("id, name");
+
+            for (const c of (createdCompanies ?? [])) {
+              companyCache.set((c.name as string).toLowerCase().trim(), c.id as string);
+            }
+          }
+
+          // Now assign company_id to all pending contacts
+          for (const pc of pendingContacts) {
+            const companyId = companyCache.get(pc.cacheKey);
+            if (companyId) pc.contact.company_id = companyId;
+            if (pc.contact.email || pc.contact.first_name || pc.contact.last_name) {
+              readyContacts.push(pc.contact);
+            }
           }
         }
 
-        // Progress update every batch
-        const processed = Math.min(i + BATCH_SIZE, allRows.length);
-        await (supabase.from("import_jobs") as any)
-          .update({ processed_rows: processed })
-          .eq("id", job.id);
+        // Insert job rows and contacts in parallel
+        const jobRowsPromise = (supabase.from("import_job_rows") as any).insert(jobRows);
+        const contactsPromise = readyContacts.length > 0
+          ? supabase.from("contacts").insert(readyContacts as any).select("id")
+          : Promise.resolve({ data: [], error: null });
+
+        const [, contactsResult] = await Promise.all([jobRowsPromise, contactsPromise]);
+
+        if (contactsResult.error) {
+          console.error("Contact insert error for batch:", contactsResult.error);
+          successCount -= readyContacts.length;
+          errorCount += readyContacts.length;
+        } else {
+          totalInserted += (contactsResult.data?.length ?? 0);
+        }
+
+        // Update progress every 3 batches or on the last batch to reduce DB writes
+        if (batchNum % 3 === 0 || i + BATCH_SIZE >= allRows.length) {
+          const processed = Math.min(i + BATCH_SIZE, allRows.length);
+          await (supabase.from("import_jobs") as any)
+            .update({ processed_rows: processed })
+            .eq("id", job.id);
+        }
       }
 
       // 3. Post-insert verification: count actual contacts with this import's source_file
