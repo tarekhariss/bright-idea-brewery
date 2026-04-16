@@ -67,6 +67,8 @@ export function useProspectSearch(options: ProspectSearchOptions) {
       countQuery = applySearchFilter(countQuery, options.entityType, debouncedSearch);
       countQuery = applyAdvancedFilters(countQuery, options.filterDefinition);
       countQuery = applyListIds(countQuery, listIds);
+      if (options.sourceFile) countQuery = countQuery.eq("source_file", options.sourceFile);
+      if (options.importTag) countQuery = countQuery.eq("import_tag", options.importTag);
       const { count } = await countQuery;
       const totalCount = count ?? 0;
 
