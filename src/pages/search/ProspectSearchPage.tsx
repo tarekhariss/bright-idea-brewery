@@ -168,6 +168,10 @@ export default function ProspectSearchPage() {
   const state = useProspectSearchState();
   const [showFilters, setShowFilters] = useState(true);
   const [previewRecord, setPreviewRecord] = useState<any>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const sourceFile = searchParams.get("source_file") || undefined;
+  const importTag = searchParams.get("import_tag") || undefined;
 
   const { workspaceId: authWorkspaceId } = useAuth();
   const workspaceId = authWorkspaceId || "";
@@ -182,6 +186,8 @@ export default function ProspectSearchPage() {
     sortDirection: state.sortDirection,
     page: state.page,
     pageSize: state.pageSize,
+    sourceFile,
+    importTag,
   });
 
   const columns = state.entityType === "contact" ? CONTACT_COLUMNS : COMPANY_COLUMNS;
