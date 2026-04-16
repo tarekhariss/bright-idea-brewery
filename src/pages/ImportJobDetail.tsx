@@ -19,7 +19,7 @@ import {
 import {
   ArrowLeft, FileSpreadsheet, CheckCircle2, XCircle, AlertTriangle,
   MinusCircle, Eye, ChevronLeft, ChevronRight, GitMerge, Shield,
-  RotateCcw, Loader2, Tag, Clock, Activity, Zap,
+  RotateCcw, Loader2, Tag, Clock, Activity, Zap, ExternalLink,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
