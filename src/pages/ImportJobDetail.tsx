@@ -162,21 +162,17 @@ export default function ImportJobDetailPage() {
     );
   }
 
-  const progressPct = job.total_rows > 0 ? Math.round((job.processed_rows / job.total_rows) * 100) : 0;
+  const totalStaged = diagnostics.total_staged_rows ?? job.total_rows ?? 0;
+  const progressPct = totalStaged > 0 ? Math.min(100, Math.round((job.processed_rows / totalStaged) * 100)) : 0;
   const hasErrors = (job.error_rows ?? 0) > 0;
   const importTag = settingsObj.import_tag as string | undefined;
   const importSource = settingsObj.source as string | undefined;
+  const fieldReport = errorSummary.field_report as Record<string, { inserted: number; blank: number; target: string }> | undefined;
 
-  // Extract diagnostics
-  const errorSummary = job.error_summary && typeof job.error_summary === "object" ? job.error_summary : {};
-  const diagnostics = errorSummary.diagnostics ?? {};
-  const timings = diagnostics.timings ?? {};
-  const recentBatches = diagnostics.recent_batches ?? [];
-  const verifiedDbCount = diagnostics.verified_db_count;
-  const totalBatches = diagnostics.total_batches;
-  const currentPhase = diagnostics.phase ?? "";
-  const verificationWarning = errorSummary.verification_warning;
-  const failReason = errorSummary.reason;
+  // Integrity check
+  const counterSum = (job.success_rows ?? 0) + (job.error_rows ?? 0) + (job.duplicate_rows ?? 0) + (job.review_rows ?? 0);
+  const integrityOk = (job.processed_rows ?? 0) <= totalStaged && counterSum <= totalStaged;
+  const countersInflated = (job.processed_rows ?? 0) > totalStaged * 1.1;
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
@@ -216,9 +212,17 @@ export default function ImportJobDetailPage() {
                currentPhase === "queued_server_processing" ? "Queued for processing…" :
                "Processing…"}
             </span>
-            <span className="font-medium">{progressPct}% ({job.processed_rows?.toLocaleString()}/{job.total_rows?.toLocaleString()})</span>
+            <span className="font-medium">{progressPct}% ({Math.min(job.processed_rows ?? 0, totalStaged).toLocaleString()}/{totalStaged.toLocaleString()})</span>
           </div>
           <Progress value={progressPct} className="h-2" />
+        </div>
+      )}
+
+      {/* Integrity warning */}
+      {countersInflated && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+          <Shield className="h-4 w-4 flex-shrink-0" />
+          <span><strong>Integrity Issue:</strong> Processed count ({(job.processed_rows ?? 0).toLocaleString()}) exceeds file total ({totalStaged.toLocaleString()}). This job had a processing bug — please re-import.</span>
         </div>
       )}
 
@@ -237,33 +241,27 @@ export default function ImportJobDetailPage() {
           <span>{verificationWarning}</span>
         </div>
       )}
-      {job.status === "completed" && job.inserted_rows !== undefined && job.inserted_rows < job.success_rows && !verificationWarning && (
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-200 text-amber-700 text-sm">
-          <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-          <span><strong>Verification warning:</strong> {job.success_rows.toLocaleString()} rows staged OK, but only {job.inserted_rows.toLocaleString()} contacts inserted.</span>
-        </div>
-      )}
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-7 gap-3">
+      {/* Summary Cards — reconciled */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
         {[
-          { label: "Total Rows", value: job.total_rows, icon: FileSpreadsheet, color: "text-foreground" },
-          { label: "Processed", value: job.processed_rows, icon: CheckCircle2, color: "text-foreground" },
-          { label: "Staged OK", value: job.success_rows, icon: CheckCircle2, color: "text-foreground" },
+          { label: "File Total", value: job.total_rows, icon: FileSpreadsheet, color: "text-foreground" },
+          { label: "Staged", value: totalStaged, icon: FileSpreadsheet, color: "text-foreground" },
+          { label: "Processed", value: Math.min(job.processed_rows ?? 0, totalStaged), icon: CheckCircle2, color: "text-foreground" },
           { label: "Inserted", value: job.inserted_rows ?? 0, icon: CheckCircle2, color: "text-emerald-600" },
-          { label: "Errors", value: job.error_rows, icon: XCircle, color: "text-destructive" },
           { label: "Duplicates", value: job.duplicate_rows, icon: MinusCircle, color: "text-amber-600" },
+          { label: "Errors", value: job.error_rows, icon: XCircle, color: "text-destructive" },
           { label: "Review", value: job.review_rows, icon: AlertTriangle, color: "text-primary" },
+          { label: "Verified DB", value: verifiedDbCount ?? "—", icon: Shield, color: "text-foreground" },
         ].map((s) => (
           <Card key={s.label}>
             <CardContent className="p-3">
               <div className="flex items-center gap-2 mb-1"><s.icon className={`h-3.5 w-3.5 ${s.color}`} /><span className="text-xs text-muted-foreground">{s.label}</span></div>
-              <p className={`text-xl font-bold ${s.color}`}>{(s.value ?? 0).toLocaleString()}</p>
+              <p className={`text-xl font-bold ${s.color}`}>{typeof s.value === "number" ? s.value.toLocaleString() : s.value}</p>
             </CardContent>
           </Card>
         ))}
       </div>
-
       {/* Diagnostics Panel */}
       {(Object.keys(timings).length > 0 || recentBatches.length > 0 || verifiedDbCount !== undefined) && (
         <Card>
