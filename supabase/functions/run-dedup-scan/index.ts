@@ -14,6 +14,7 @@ const corsHeaders = {
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 const CHUNK_SIZE = 10000;
 const MAX_GROUPS = 500;
 
@@ -23,16 +24,39 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    // Validate JWT
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
+
+    const token = authHeader.replace("Bearer ", "");
+    const anonClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: authData, error: authError } = await anonClient.auth.getUser(token);
+    if (authError || !authData?.user) {
+      return new Response(JSON.stringify({ error: "Unauthorized: invalid token" }), { status: 401, headers: corsHeaders });
+    }
+    const userId = authData.user.id;
 
     const supabase = createClient(supabaseUrl, serviceKey);
     const { workspace_id, entity_type = "contact" } = await req.json();
 
     if (!workspace_id) {
       return new Response(JSON.stringify({ error: "workspace_id required" }), { status: 400, headers: corsHeaders });
+    }
+
+    // Verify user is a member of the workspace
+    const { data: membership } = await supabase
+      .from("workspace_members")
+      .select("user_id")
+      .eq("user_id", userId)
+      .eq("workspace_id", workspace_id)
+      .maybeSingle();
+
+    if (!membership) {
+      return new Response(JSON.stringify({ error: "Forbidden: not a workspace member" }), { status: 403, headers: corsHeaders });
     }
 
     // Build indices from all contacts in workspace
