@@ -39,24 +39,42 @@ Deno.serve(async (req: Request) => {
 
   try {
     // ── 0. Stuck import job detection ──────────────────────────────
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
     const { data: stuckJobs } = await supabase
       .from("import_jobs")
-      .select("id, started_at, total_rows, processed_rows")
-      .eq("status", "processing")
-      .lt("started_at", oneHourAgo);
+      .select("id, started_at, total_rows, processed_rows, error_summary")
+      .eq("status", "processing");
 
-    for (const job of stuckJobs ?? []) {
+    const definitelyStuck = (stuckJobs ?? []).filter((job) => {
+      const diagnostics = job?.error_summary && typeof job.error_summary === "object"
+        ? (job.error_summary as Record<string, any>).diagnostics
+        : null;
+      const lastProgressAt = diagnostics?.last_progress_at || job.started_at;
+      return lastProgressAt && lastProgressAt < fiveMinutesAgo;
+    });
+
+    for (const job of definitelyStuck) {
+      const diagnostics = job?.error_summary && typeof job.error_summary === "object"
+        ? (job.error_summary as Record<string, any>).diagnostics
+        : null;
       await supabase
         .from("import_jobs")
         .update({
           status: "failed",
-          error_summary: { reason: `Job stuck in processing for over 1 hour. Started at ${job.started_at}. ${job.processed_rows}/${job.total_rows} rows processed before stall.` },
+          error_summary: {
+            ...(job.error_summary && typeof job.error_summary === "object" ? job.error_summary : {}),
+            reason: `Job stalled with no progress heartbeat for over 5 minutes. ${job.processed_rows}/${job.total_rows} rows processed before stall.`,
+            diagnostics: {
+              ...(diagnostics ?? {}),
+              phase: "failed_stuck_job",
+              last_progress_at: diagnostics?.last_progress_at || job.started_at,
+            },
+          },
           completed_at: new Date().toISOString(),
         })
         .eq("id", job.id);
     }
-    results.stuck_jobs_failed = (stuckJobs ?? []).length;
+    results.stuck_jobs_failed = definitelyStuck.length;
 
     // ── 1. Populate admin_platform_kpis ───────────────────────────
     const [

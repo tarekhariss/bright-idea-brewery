@@ -194,45 +194,48 @@ export default function ImportWizardPage() {
     if (!parsed || !file || !user) return;
     setSubmitting(true);
 
+    let createdJobId: string | null = null;
+
     try {
-      // Re-parse the full file (no row limit) for import processing
+      const parseStartedAt = performance.now();
       const fullText = await file.text();
       const fullParsed = parseCSVText(fullText);
       const allRows = fullParsed.rows;
 
-      // Run duplicate check on all rows
-      const { data: existingContacts } = await supabase
-        .from("contacts")
-        .select("id, email, secondary_email, tertiary_email, linkedin_url, external_contact_id, first_name, last_name, company_name_raw, phone")
-        .limit(50000);
-      const { data: existingCompanies } = await (supabase.from("companies") as any)
-        .select("id, domain, normalized_name, external_account_id, website")
-        .limit(50000);
-      const contactIdx = buildContactIndex((existingContacts ?? []) as ExistingContact[]);
-      const companyIdx = buildCompanyIndex((existingCompanies ?? []) as ExistingCompany[]);
-      const normalizedRows = allRows.map((row) => normalizeRow(row, columnMapping).normalized);
-      const fullDupResult = checkDuplicatesAdvanced(normalizedRows, contactIdx, companyIdx);
-
-      // 1. Create import job (with workspace_id)
       const settings: Record<string, unknown> = {
         ...importSettings,
         duplicate_strategy: dupStrategy,
         unmapped_columns: unmappedHeaders,
       };
 
-      const { data: job, error: jobErr } = await (supabase
-        .from("import_jobs") as any)
+      const initialDiagnostics = {
+        diagnostics: {
+          phase: "uploading_rows",
+          uploaded_rows: 0,
+          total_rows: allRows.length,
+          batch_size: 2000,
+          last_progress_at: new Date().toISOString(),
+          timings: {
+            parse_csv_ms: Math.round(performance.now() - parseStartedAt),
+          },
+          recent_batches: [],
+        },
+      };
+
+      const { data: job, error: jobErr } = await (supabase.from("import_jobs") as any)
         .insert({
           file_name: file.name,
-          status: "processing" as const,
+          status: "pending" as const,
           total_rows: allRows.length,
           processed_rows: 0,
           success_rows: 0,
+          inserted_rows: 0,
           error_rows: 0,
           duplicate_rows: 0,
           review_rows: 0,
           column_mapping: columnMapping as unknown as Json,
           settings: settings as unknown as Json,
+          error_summary: initialDiagnostics as unknown as Json,
           started_at: new Date().toISOString(),
           created_by: user.id,
           workspace_id: workspaceId || null,
@@ -241,246 +244,114 @@ export default function ImportWizardPage() {
         .single();
 
       if (jobErr || !job) {
-        const msg = jobErr?.message || "Unknown error creating import job";
-        toast.error(`Failed to create import job: ${msg}`);
-        console.error("Import job creation error:", jobErr);
-        setSubmitting(false);
-        return;
+        throw new Error(jobErr?.message || "Unknown error creating import job");
       }
 
-      // 2. Process rows in batches
-      const BATCH_SIZE = 500;
-      let successCount = 0;
-      let errorCount = 0;
-      let dupCount = 0;
-      let reviewCount = 0;
-      let skippedCount = 0;
-      let totalInserted = 0;
+      createdJobId = job.id;
 
-      const CONTACT_FIELDS = new Set([
-        "first_name","last_name","email","secondary_email","tertiary_email","personal_email",
-        "job_title","seniority_level","department","headline","bio","persona","linkedin_url",
-        "twitter_url","facebook_url","github_url","photo_url","years_experience","skills",
-        "languages","job_change_date","current_role_start_date","phone","work_direct_phone",
-        "mobile_phone","corporate_phone","home_phone","other_phone","country","city","state",
-        "address","postal_code","timezone","company_name_raw","source","external_source",
-        "external_contact_id",
-      ]);
+      const UPLOAD_BATCH_SIZE = 2000;
+      let uploadedRows = 0;
+      for (let i = 0; i < allRows.length; i += UPLOAD_BATCH_SIZE) {
+        const batch = allRows.slice(i, i + UPLOAD_BATCH_SIZE);
+        const rawBatchRows = batch.map((raw, idx) => ({
+          import_job_id: job.id,
+          row_number: i + idx + 1,
+          raw_data: raw as unknown as Json,
+          status: "pending",
+          review_required: false,
+        }));
 
-      const COMPANY_FIELDS = new Set([
-        "domain","website","industry","employee_count","employee_range","revenue_range",
-        "annual_revenue","total_funding","latest_funding","latest_funding_amount","funding_stage",
-        "founded_year","company_type","headquarters","company_address","company_city",
-        "company_state","company_country","company_phone","company_linkedin_url",
-        "technologies","keywords","specialties","market_segments","territories",
-        "sic_code","naics_code","stock_ticker","headcount_growth_pct",
-        "external_account_id",
-      ]);
+        const { error: rowInsertError } = await (supabase.from("import_job_rows") as any).insert(rawBatchRows);
+        if (rowInsertError) throw rowInsertError;
 
-      // Pre-fetch ALL existing companies in one query to avoid per-row lookups
-      const { data: allExistingCompanies } = await (supabase.from("companies") as any)
-        .select("id, name")
-        .eq("workspace_id", workspaceId || "")
-        .limit(50000);
+        uploadedRows += batch.length;
 
-      const companyCache = new Map<string, string>();
-      for (const c of (allExistingCompanies ?? [])) {
-        companyCache.set((c.name as string).toLowerCase().trim(), c.id as string);
-      }
-
-      let batchNum = 0;
-      for (let i = 0; i < allRows.length; i += BATCH_SIZE) {
-        batchNum++;
-        const batch = allRows.slice(i, i + BATCH_SIZE);
-        const jobRows: any[] = [];
-        // Collect contacts that need companies created
-        const pendingContacts: { contact: Record<string, unknown>; companyData: Record<string, unknown>; cacheKey: string }[] = [];
-        const readyContacts: any[] = [];
-
-        for (let idx = 0; idx < batch.length; idx++) {
-          const raw = batch[idx];
-          const rowIndex = i + idx;
-          const norm = normalizeRow(raw, columnMapping);
-          const dupDetail = fullDupResult.details[rowIndex];
-          const normalized = norm.normalized as Record<string, unknown>;
-
-          let status = "success";
-          let duplicateReason: string | null = null;
-          let actionTaken: string | null = "create_new";
-          let reviewRequired = false;
-
-          if (dupDetail) {
-            const rowAction = classifyRowAction(dupDetail.classification, importSettings);
-            status = rowAction.status;
-            actionTaken = rowAction.action;
-            reviewRequired = rowAction.reviewRequired;
-            duplicateReason = dupDetail.reason;
-          }
-
-          jobRows.push({
-            import_job_id: job.id,
-            row_number: rowIndex + 1,
-            raw_data: raw as unknown as Json,
-            normalized_data: normalized as unknown as Json,
-            status,
-            error_message: dupDetail?.classification === "invalid" ? dupDetail.reason : null,
-            duplicate_match_reason: duplicateReason,
-            action_taken: actionTaken,
-            review_required: reviewRequired,
-          });
-
-          if (status === "success" && actionTaken === "create_new") {
-            const contact: Record<string, unknown> = {
-              workspace_id: workspaceId || null,
-              created_by: user.id,
-              import_tag: importSettings.import_tag || null,
-              source: importSettings.source || null,
-              source_file: file.name,
-            };
-            const companyData: Record<string, unknown> = {};
-            let hasCompanyFields = false;
-
-            for (const [key, val] of Object.entries(normalized)) {
-              if (val === null || val === undefined) continue;
-              if (CONTACT_FIELDS.has(key)) contact[key] = val;
-              if (COMPANY_FIELDS.has(key)) { companyData[key] = val; hasCompanyFields = true; }
-            }
-
-            if (!contact.city && normalized.company_city) contact.city = normalized.company_city;
-            if (!contact.state && normalized.company_state) contact.state = normalized.company_state;
-            if (!contact.country && normalized.company_country) contact.country = normalized.company_country;
-
-            const companyName = (contact.company_name_raw as string) || "";
-            const cacheKey = companyName.toLowerCase().trim();
-
-            if (companyName && hasCompanyFields) {
-              const cachedId = companyCache.get(cacheKey);
-              if (cachedId) {
-                contact.company_id = cachedId;
-                if (contact.email || contact.first_name || contact.last_name) readyContacts.push(contact);
-              } else {
-                pendingContacts.push({ contact, companyData, cacheKey });
-              }
-            } else {
-              if (contact.email || contact.first_name || contact.last_name) readyContacts.push(contact);
-            }
-          }
-
-          switch (status) {
-            case "error": errorCount++; break;
-            case "skipped": skippedCount++; break;
-            case "duplicate": dupCount++; break;
-            case "review": reviewCount++; break;
-            case "success": default: successCount++; break;
-          }
-        }
-
-        // Batch-create all new companies for this batch in one insert
-        if (pendingContacts.length > 0) {
-          // Deduplicate by cacheKey within this batch
-          const uniqueNew = new Map<string, { companyData: Record<string, unknown>; cacheKey: string }>();
-          for (const pc of pendingContacts) {
-            if (!companyCache.has(pc.cacheKey) && !uniqueNew.has(pc.cacheKey)) {
-              uniqueNew.set(pc.cacheKey, pc);
-            }
-          }
-
-          if (uniqueNew.size > 0) {
-            const companiesToCreate = Array.from(uniqueNew.values()).map(({ companyData, cacheKey }) => ({
-              name: cacheKey, // Use the trimmed lowercase as canonical — will be overridden below
-              workspace_id: workspaceId || null,
-              created_by: user.id,
-              ...companyData,
-            }));
-            // Restore proper casing from the first contact that has this company
-            for (const row of companiesToCreate) {
-              const pc = pendingContacts.find(p => p.cacheKey === (row.name as string));
-              if (pc) row.name = (pc.contact.company_name_raw as string) || row.name;
-            }
-
-            const { data: createdCompanies } = await (supabase.from("companies") as any)
-              .insert(companiesToCreate)
-              .select("id, name");
-
-            for (const c of (createdCompanies ?? [])) {
-              companyCache.set((c.name as string).toLowerCase().trim(), c.id as string);
-            }
-          }
-
-          // Now assign company_id to all pending contacts
-          for (const pc of pendingContacts) {
-            const companyId = companyCache.get(pc.cacheKey);
-            if (companyId) pc.contact.company_id = companyId;
-            if (pc.contact.email || pc.contact.first_name || pc.contact.last_name) {
-              readyContacts.push(pc.contact);
-            }
-          }
-        }
-
-        // Insert job rows and contacts in parallel
-        const jobRowsPromise = (supabase.from("import_job_rows") as any).insert(jobRows);
-        const contactsPromise = readyContacts.length > 0
-          ? supabase.from("contacts").insert(readyContacts as any).select("id")
-          : Promise.resolve({ data: [], error: null });
-
-        const [, contactsResult] = await Promise.all([jobRowsPromise, contactsPromise]);
-
-        if (contactsResult.error) {
-          console.error("Contact insert error for batch:", contactsResult.error);
-          successCount -= readyContacts.length;
-          errorCount += readyContacts.length;
-        } else {
-          totalInserted += (contactsResult.data?.length ?? 0);
-        }
-
-        // Update progress every 3 batches or on the last batch to reduce DB writes
-        if (batchNum % 3 === 0 || i + BATCH_SIZE >= allRows.length) {
-          const processed = Math.min(i + BATCH_SIZE, allRows.length);
+        if (((i / UPLOAD_BATCH_SIZE) + 1) % 3 === 0 || uploadedRows === allRows.length) {
           await (supabase.from("import_jobs") as any)
-            .update({ processed_rows: processed })
+            .update({
+              error_summary: {
+                diagnostics: {
+                  phase: "uploading_rows",
+                  uploaded_rows: uploadedRows,
+                  total_rows: allRows.length,
+                  batch_size: UPLOAD_BATCH_SIZE,
+                  last_progress_at: new Date().toISOString(),
+                  recent_batches: [
+                    {
+                      phase: "uploading_rows",
+                      uploaded_rows: uploadedRows,
+                      batch_rows: batch.length,
+                      at: new Date().toISOString(),
+                    },
+                  ],
+                },
+              },
+            })
             .eq("id", job.id);
         }
       }
 
-      // 3. Post-insert verification: count actual contacts with this import's source_file
-      const { count: verifiedCount } = await supabase
-        .from("contacts")
-        .select("id", { count: "exact", head: true })
-        .eq("source_file", file.name)
-        .eq("created_by", user.id);
-
-      const actualInserted = verifiedCount ?? totalInserted;
-      const totalProcessed = successCount + errorCount + dupCount + reviewCount + skippedCount;
-
-      // If staged success count doesn't match actual inserts, mark discrepancy
-      const mismatch = successCount > 0 && actualInserted < successCount;
-      const finalStatus = mismatch && actualInserted === 0 ? "failed" : "completed";
-      const errorSummary = mismatch
-        ? { reason: `Verification mismatch: ${successCount} rows staged as success but only ${actualInserted} contacts were actually inserted into the database.` }
-        : null;
-
       await (supabase.from("import_jobs") as any)
         .update({
-          status: finalStatus,
-          processed_rows: totalProcessed,
-          success_rows: successCount,
-          inserted_rows: actualInserted,
-          error_rows: errorCount + (mismatch ? successCount - actualInserted : 0),
-          duplicate_rows: dupCount + skippedCount,
-          review_rows: reviewCount,
-          completed_at: new Date().toISOString(),
-          ...(errorSummary ? { error_summary: errorSummary } : {}),
+          status: "processing",
+          error_summary: {
+            diagnostics: {
+              phase: "queued_server_processing",
+              uploaded_rows: allRows.length,
+              total_rows: allRows.length,
+              batch_size: UPLOAD_BATCH_SIZE,
+              last_progress_at: new Date().toISOString(),
+              recent_batches: [
+                {
+                  phase: "queued_server_processing",
+                  uploaded_rows: allRows.length,
+                  at: new Date().toISOString(),
+                },
+              ],
+            },
+          },
         })
         .eq("id", job.id);
 
-      if (mismatch) {
-        toast.warning(`Import finished with issues: ${actualInserted.toLocaleString()} of ${successCount.toLocaleString()} contacts actually inserted. Check job details for more info.`);
-      } else {
-        toast.success(`Import complete: ${actualInserted.toLocaleString()} contacts inserted, ${(dupCount + skippedCount).toLocaleString()} duplicates, ${errorCount.toLocaleString()} errors`);
-      }
+      void supabase.functions.invoke("run-import-job", {
+        body: { job_id: job.id },
+      }).catch(async (invokeErr) => {
+        await (supabase.from("import_jobs") as any)
+          .update({
+            status: "failed",
+            completed_at: new Date().toISOString(),
+            error_summary: {
+              reason: invokeErr?.message || "Failed to start import processor",
+              diagnostics: {
+                phase: "failed_to_start_processor",
+                uploaded_rows: allRows.length,
+                total_rows: allRows.length,
+                last_progress_at: new Date().toISOString(),
+              },
+            },
+          })
+          .eq("id", job.id);
+      });
+
+      toast.success(`Import started for ${allRows.length.toLocaleString()} rows`);
       navigate(`/imports/${job.id}`);
     } catch (err: any) {
       const msg = err?.message || "Unknown error";
+      if (createdJobId) {
+        await (supabase.from("import_jobs") as any)
+          .update({
+            status: "failed",
+            completed_at: new Date().toISOString(),
+            error_summary: {
+              reason: msg,
+              diagnostics: {
+                phase: "upload_failed",
+                last_progress_at: new Date().toISOString(),
+              },
+            },
+          })
+          .eq("id", createdJobId);
+      }
       toast.error(`Import failed: ${msg}`);
       console.error("Import error:", err);
     } finally {
