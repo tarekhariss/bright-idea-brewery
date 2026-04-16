@@ -2,7 +2,8 @@
  * ProspectSearchPage — Apollo-style prospecting workspace.
  * Left filter sidebar + results table + preview drawer.
  */
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -167,6 +168,10 @@ export default function ProspectSearchPage() {
   const state = useProspectSearchState();
   const [showFilters, setShowFilters] = useState(true);
   const [previewRecord, setPreviewRecord] = useState<any>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const sourceFile = searchParams.get("source_file") || undefined;
+  const importTag = searchParams.get("import_tag") || undefined;
 
   const { workspaceId: authWorkspaceId } = useAuth();
   const workspaceId = authWorkspaceId || "";
@@ -181,6 +186,8 @@ export default function ProspectSearchPage() {
     sortDirection: state.sortDirection,
     page: state.page,
     pageSize: state.pageSize,
+    sourceFile,
+    importTag,
   });
 
   const columns = state.entityType === "contact" ? CONTACT_COLUMNS : COMPANY_COLUMNS;
@@ -228,6 +235,19 @@ export default function ProspectSearchPage() {
 
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
+        {/* Import filter banner */}
+        {sourceFile && (
+          <div className="px-4 py-2 bg-primary/5 border-b flex items-center justify-between">
+            <span className="text-sm text-foreground">
+              Showing contacts imported from <strong>{sourceFile}</strong>
+              {importTag && <> (tag: <strong>{importTag}</strong>)</>}
+            </span>
+            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setSearchParams({})}>
+              Clear filter
+            </Button>
+          </div>
+        )}
+
         {/* Metrics summary bar */}
         <ProspectMetricsBar
           entityType={state.entityType}

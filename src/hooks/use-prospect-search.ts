@@ -23,6 +23,8 @@ interface ProspectSearchOptions {
   sortDirection: "asc" | "desc";
   page: number;
   pageSize: number;
+  sourceFile?: string;
+  importTag?: string;
 }
 
 export interface ProspectSearchResult<T = any> {
@@ -48,6 +50,8 @@ export function useProspectSearch(options: ProspectSearchOptions) {
       options.page,
       options.pageSize,
       workspaceId,
+      options.sourceFile,
+      options.importTag,
     ],
     enabled: !!user,
     queryFn: async (): Promise<ProspectSearchResult> => {
@@ -63,6 +67,8 @@ export function useProspectSearch(options: ProspectSearchOptions) {
       countQuery = applySearchFilter(countQuery, options.entityType, debouncedSearch);
       countQuery = applyAdvancedFilters(countQuery, options.filterDefinition);
       countQuery = applyListIds(countQuery, listIds);
+      if (options.sourceFile) countQuery = countQuery.eq("source_file", options.sourceFile);
+      if (options.importTag) countQuery = countQuery.eq("import_tag", options.importTag);
       const { count } = await countQuery;
       const totalCount = count ?? 0;
 
@@ -80,6 +86,8 @@ export function useProspectSearch(options: ProspectSearchOptions) {
       dataQuery = applySearchFilter(dataQuery, options.entityType, debouncedSearch);
       dataQuery = applyAdvancedFilters(dataQuery, options.filterDefinition);
       dataQuery = applyListIds(dataQuery, listIds);
+      if (options.sourceFile) dataQuery = dataQuery.eq("source_file", options.sourceFile);
+      if (options.importTag) dataQuery = dataQuery.eq("import_tag", options.importTag);
 
       const { data, error } = await dataQuery;
       if (error) throw error;
