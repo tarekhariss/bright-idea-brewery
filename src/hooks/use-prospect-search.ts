@@ -23,6 +23,8 @@ interface ProspectSearchOptions {
   sortDirection: "asc" | "desc";
   page: number;
   pageSize: number;
+  sourceFile?: string;
+  importTag?: string;
 }
 
 export interface ProspectSearchResult<T = any> {
