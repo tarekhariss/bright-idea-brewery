@@ -344,7 +344,43 @@ export default function ImportJobDetailPage() {
         </Card>
       )}
 
-      {/* Mapping & Settings */}
+      {/* Field Mapping Report */}
+      {fieldReport && Object.keys(fieldReport).length > 0 && (
+        <Card>
+          <CardContent className="p-4 space-y-3">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+              <GitMerge className="h-3.5 w-3.5" /> Field Mapping Verification
+            </p>
+            <div className="max-h-[200px] overflow-auto rounded border">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="text-xs">Field</TableHead>
+                    <TableHead className="text-xs">Target Table</TableHead>
+                    <TableHead className="text-xs text-right">Populated</TableHead>
+                    <TableHead className="text-xs text-right">Blank</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {Object.entries(fieldReport).map(([field, info]) => (
+                    <TableRow key={field}>
+                      <TableCell className="text-xs font-mono">{field}</TableCell>
+                      <TableCell className="text-xs">
+                        <Badge variant="outline" className={`text-[10px] ${info.target === "contacts" ? "border-emerald-200 text-emerald-600" : info.target === "companies" ? "border-blue-200 text-blue-600" : "border-amber-200 text-amber-600"}`}>
+                          {info.target}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-right font-medium">{info.inserted.toLocaleString()}</TableCell>
+                      <TableCell className="text-xs text-right text-muted-foreground">{info.blank.toLocaleString()}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
           <CardContent className="p-4">
