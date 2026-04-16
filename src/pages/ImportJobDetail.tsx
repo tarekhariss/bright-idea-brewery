@@ -152,6 +152,16 @@ export default function ImportJobDetailPage() {
       </div>
     );
   }
+  // Extract diagnostics (must be before early returns to avoid hook issues)
+  const errorSummary = job ? (job.error_summary && typeof job.error_summary === "object" ? job.error_summary : {}) : {};
+  const diagnostics = errorSummary.diagnostics ?? {};
+  const timings = diagnostics.timings ?? {};
+  const recentBatches = diagnostics.recent_batches ?? [];
+  const verifiedDbCount = diagnostics.verified_db_count;
+  const totalBatches = diagnostics.total_batches;
+  const currentPhase = diagnostics.phase ?? "";
+  const verificationWarning = errorSummary.verification_warning;
+  const failReason = errorSummary.reason;
 
   if (!job) {
     return (
