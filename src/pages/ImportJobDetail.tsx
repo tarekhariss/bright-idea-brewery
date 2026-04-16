@@ -11,35 +11,15 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  ArrowLeft,
-  FileSpreadsheet,
-  CheckCircle2,
-  XCircle,
-  AlertTriangle,
-  MinusCircle,
-  Eye,
-  ChevronLeft,
-  ChevronRight,
-  GitMerge,
-  Shield,
-  RotateCcw,
-  Loader2,
-  Tag,
+  ArrowLeft, FileSpreadsheet, CheckCircle2, XCircle, AlertTriangle,
+  MinusCircle, Eye, ChevronLeft, ChevronRight, GitMerge, Shield,
+  RotateCcw, Loader2, Tag, Clock, Activity, Zap,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -82,20 +62,17 @@ export default function ImportJobDetailPage() {
     if (!id) return;
     setRetrying(true);
     try {
-      // Reset all error/failed rows back to pending
       const { error, count } = await (supabase.from("import_job_rows") as any)
         .update({ status: "pending", error_message: null, action_taken: null })
         .eq("import_job_id", id)
         .eq("status", "error")
         .select("id", { count: "exact", head: true });
-
       if (error) throw error;
       toast.success(`${count ?? 0} failed row(s) reset for re-processing`);
+      await (supabase.from("import_jobs") as any).update({ status: "processing" }).eq("id", id);
 
-      // Update the job status back to processing
-      await (supabase.from("import_jobs") as any)
-        .update({ status: "processing" })
-        .eq("id", id);
+      // Re-invoke the backend processor
+      void supabase.functions.invoke("run-import-job", { body: { job_id: id } }).catch(() => {});
 
       queryClient.invalidateQueries({ queryKey: ["import-job", id] });
       queryClient.invalidateQueries({ queryKey: ["import-job-rows"] });
@@ -106,15 +83,20 @@ export default function ImportJobDetailPage() {
     }
   }, [id, queryClient]);
 
+  const isActive = (status: string) => status === "processing" || status === "pending";
+
   const { data: job, isLoading: jobLoading } = useQuery({
     queryKey: ["import-job", id],
     queryFn: async () => {
-      const { data, error } = await (supabase.from("import_jobs") as any)
-        .select("*").eq("id", id!).single();
+      const { data, error } = await (supabase.from("import_jobs") as any).select("*").eq("id", id!).single();
       if (error) throw error;
       return data as any;
     },
     enabled: !!id,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return isActive(status) ? 3000 : false;
+    },
   });
 
   const effectiveStatusFilter = activeTab === "review" ? "review" : rowStatusFilter;
@@ -128,19 +110,17 @@ export default function ImportJobDetailPage() {
         .eq("import_job_id", id!)
         .order("row_number", { ascending: true })
         .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
-
       if (effectiveStatusFilter !== "all") query = query.eq("status", effectiveStatusFilter);
       if (effectiveReviewFilter === "yes") query = query.eq("review_required", true);
       if (effectiveReviewFilter === "no") query = query.eq("review_required", false);
-
       const { data, count, error } = await query;
       if (error) throw error;
       return { rows: (data ?? []) as any[], total: (count ?? 0) as number };
     },
     enabled: !!id,
+    refetchInterval: job && isActive(job.status) ? 5000 : false,
   });
 
-  // Review queue count
   const { data: reviewCount } = useQuery({
     queryKey: ["import-job-review-count", id],
     queryFn: async () => {
@@ -155,7 +135,6 @@ export default function ImportJobDetailPage() {
   });
 
   const totalPages = Math.ceil((rowsData?.total ?? 0) / PAGE_SIZE);
-  const mappingObj = (job?.column_mapping ?? {}) as Record<string, string>;
   const settingsObj = (job?.settings ?? {}) as Record<string, unknown>;
 
   const handleReviewResolved = () => {
@@ -168,9 +147,7 @@ export default function ImportJobDetailPage() {
     return (
       <div className="p-6 space-y-6">
         <Skeleton className="h-8 w-[300px]" />
-        <div className="grid grid-cols-4 gap-4">
-          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-[80px]" />)}
-        </div>
+        <div className="grid grid-cols-4 gap-4">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-[80px]" />)}</div>
         <Skeleton className="h-[400px]" />
       </div>
     );
@@ -179,9 +156,7 @@ export default function ImportJobDetailPage() {
   if (!job) {
     return (
       <div className="p-6">
-        <Button variant="ghost" onClick={() => navigate("/imports")} className="gap-2 mb-4">
-          <ArrowLeft className="h-4 w-4" /> Back
-        </Button>
+        <Button variant="ghost" onClick={() => navigate("/imports")} className="gap-2 mb-4"><ArrowLeft className="h-4 w-4" /> Back</Button>
         <p className="text-muted-foreground">Import job not found.</p>
       </div>
     );
@@ -191,27 +166,29 @@ export default function ImportJobDetailPage() {
   const hasErrors = (job.error_rows ?? 0) > 0;
   const importTag = settingsObj.import_tag as string | undefined;
   const importSource = settingsObj.source as string | undefined;
-  const importListId = settingsObj.list_id as string | undefined;
+
+  // Extract diagnostics
+  const errorSummary = job.error_summary && typeof job.error_summary === "object" ? job.error_summary : {};
+  const diagnostics = errorSummary.diagnostics ?? {};
+  const timings = diagnostics.timings ?? {};
+  const recentBatches = diagnostics.recent_batches ?? [];
+  const verifiedDbCount = diagnostics.verified_db_count;
+  const totalBatches = diagnostics.total_batches;
+  const currentPhase = diagnostics.phase ?? "";
+  const verificationWarning = errorSummary.verification_warning;
+  const failReason = errorSummary.reason;
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/imports")}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
+        <Button variant="ghost" size="icon" onClick={() => navigate("/imports")}><ArrowLeft className="h-4 w-4" /></Button>
         <div className="flex-1">
           <div className="flex items-center gap-3">
             <FileSpreadsheet className="h-5 w-5 text-muted-foreground" />
             <h1 className="text-xl font-semibold">{job.file_name}</h1>
-            <Badge variant="outline" className={`capitalize text-xs ${JOB_STATUS_STYLES[job.status] ?? ""}`}>
-              {job.status}
-            </Badge>
-            {importTag && (
-              <Badge variant="secondary" className="text-xs gap-1">
-                <Tag className="h-3 w-3" /> {importTag}
-              </Badge>
-            )}
+            <Badge variant="outline" className={`capitalize text-xs ${JOB_STATUS_STYLES[job.status] ?? ""}`}>{job.status}</Badge>
+            {importTag && <Badge variant="secondary" className="text-xs gap-1"><Tag className="h-3 w-3" /> {importTag}</Badge>}
           </div>
           <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
             <span>Created {format(new Date(job.created_at), "MMM d, yyyy 'at' h:mm a")}</span>
@@ -219,7 +196,7 @@ export default function ImportJobDetailPage() {
             {importSource && <span>· Source: {importSource}</span>}
           </div>
         </div>
-        {hasErrors && job.status === "completed" && (
+        {hasErrors && (job.status === "completed" || job.status === "failed") && (
           <Button variant="outline" size="sm" className="gap-2" onClick={handleRetryFailed} disabled={retrying}>
             {retrying ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
             Retry Failed ({job.error_rows})
@@ -227,25 +204,43 @@ export default function ImportJobDetailPage() {
         )}
       </div>
 
-      {/* Progress Bar for in-progress jobs */}
-      {job.status === "processing" && (
+      {/* Progress Bar */}
+      {isActive(job.status) && (
         <div className="space-y-1">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Processing rows…</span>
-            <span className="font-medium">{progressPct}%</span>
+            <span className="text-muted-foreground flex items-center gap-2">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              {currentPhase === "uploading_rows" ? "Uploading rows…" :
+               currentPhase === "loading_existing_records" ? "Loading existing records…" :
+               currentPhase === "processing_batch" ? `Processing batch ${totalBatches || recentBatches.length}…` :
+               currentPhase === "queued_server_processing" ? "Queued for processing…" :
+               "Processing…"}
+            </span>
+            <span className="font-medium">{progressPct}% ({job.processed_rows?.toLocaleString()}/{job.total_rows?.toLocaleString()})</span>
           </div>
           <Progress value={progressPct} className="h-2" />
         </div>
       )}
 
-      {/* Summary Cards */}
-      {/* Verification mismatch warning */}
-      {job.status === "completed" && job.inserted_rows !== undefined && job.inserted_rows < job.success_rows && (
+      {/* Failure reason */}
+      {job.status === "failed" && failReason && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+          <XCircle className="h-4 w-4 flex-shrink-0" />
+          <span><strong>Failed:</strong> {failReason}</span>
+        </div>
+      )}
+
+      {/* Verification warnings */}
+      {verificationWarning && (
         <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-200 text-amber-700 text-sm">
           <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-          <span>
-            <strong>Verification warning:</strong> {job.success_rows.toLocaleString()} rows were staged as successful, but only {job.inserted_rows.toLocaleString()} contacts were actually inserted into the database.
-          </span>
+          <span>{verificationWarning}</span>
+        </div>
+      )}
+      {job.status === "completed" && job.inserted_rows !== undefined && job.inserted_rows < job.success_rows && !verificationWarning && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-200 text-amber-700 text-sm">
+          <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+          <span><strong>Verification warning:</strong> {job.success_rows.toLocaleString()} rows staged OK, but only {job.inserted_rows.toLocaleString()} contacts inserted.</span>
         </div>
       )}
 
@@ -262,15 +257,84 @@ export default function ImportJobDetailPage() {
         ].map((s) => (
           <Card key={s.label}>
             <CardContent className="p-3">
-              <div className="flex items-center gap-2 mb-1">
-                <s.icon className={`h-3.5 w-3.5 ${s.color}`} />
-                <span className="text-xs text-muted-foreground">{s.label}</span>
-              </div>
+              <div className="flex items-center gap-2 mb-1"><s.icon className={`h-3.5 w-3.5 ${s.color}`} /><span className="text-xs text-muted-foreground">{s.label}</span></div>
               <p className={`text-xl font-bold ${s.color}`}>{(s.value ?? 0).toLocaleString()}</p>
             </CardContent>
           </Card>
         ))}
       </div>
+
+      {/* Diagnostics Panel */}
+      {(Object.keys(timings).length > 0 || recentBatches.length > 0 || verifiedDbCount !== undefined) && (
+        <Card>
+          <CardContent className="p-4 space-y-4">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+              <Activity className="h-3.5 w-3.5" /> Processing Diagnostics
+            </p>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {totalBatches != null && (
+                <div className="p-2 rounded-md bg-muted/50"><p className="text-xs text-muted-foreground">Total Batches</p><p className="text-sm font-semibold">{totalBatches}</p></div>
+              )}
+              {verifiedDbCount != null && (
+                <div className="p-2 rounded-md bg-muted/50"><p className="text-xs text-muted-foreground">Verified in DB</p><p className="text-sm font-semibold">{verifiedDbCount.toLocaleString()}</p></div>
+              )}
+              {timings.preload_existing_ms != null && (
+                <div className="p-2 rounded-md bg-muted/50"><p className="text-xs text-muted-foreground">Preload Time</p><p className="text-sm font-semibold">{(timings.preload_existing_ms / 1000).toFixed(1)}s</p></div>
+              )}
+              {currentPhase && (
+                <div className="p-2 rounded-md bg-muted/50"><p className="text-xs text-muted-foreground">Current Phase</p><p className="text-sm font-semibold capitalize">{currentPhase.replace(/_/g, " ")}</p></div>
+              )}
+            </div>
+
+            {/* Timing breakdown */}
+            {Object.keys(timings).length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1"><Clock className="h-3 w-3" /> Cumulative Timings</p>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  {Object.entries(timings).filter(([k]) => k !== "preload_existing_ms").map(([key, ms]) => (
+                    <div key={key} className="flex items-center justify-between text-xs p-1.5 rounded bg-muted/30">
+                      <span className="text-muted-foreground capitalize">{key.replace(/_ms$/, "").replace(/_/g, " ")}</span>
+                      <span className="font-mono font-medium">{Number(ms) >= 1000 ? `${(Number(ms) / 1000).toFixed(1)}s` : `${ms}ms`}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Recent batches */}
+            {recentBatches.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1"><Zap className="h-3 w-3" /> Recent Batches ({recentBatches.length})</p>
+                <div className="max-h-[160px] overflow-auto rounded border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead className="text-xs w-[60px]">#</TableHead>
+                        <TableHead className="text-xs">Rows</TableHead>
+                        <TableHead className="text-xs">Inserted</TableHead>
+                        <TableHead className="text-xs">Errors</TableHead>
+                        <TableHead className="text-xs">Time</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {recentBatches.map((b: any, i: number) => (
+                        <TableRow key={i}>
+                          <TableCell className="text-xs font-mono">{b.batch ?? i + 1}</TableCell>
+                          <TableCell className="text-xs">{b.rows ?? "—"}</TableCell>
+                          <TableCell className="text-xs text-emerald-600">{b.inserted ?? b.inserted_rows ?? "—"}</TableCell>
+                          <TableCell className="text-xs text-destructive">{b.errors ?? b.error_rows ?? b.failed_retries ?? "—"}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground">{b.at ? format(new Date(b.at), "HH:mm:ss") : "—"}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Mapping & Settings */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -278,17 +342,15 @@ export default function ImportJobDetailPage() {
           <CardContent className="p-4">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Column Mapping</p>
             <div className="space-y-1.5 max-h-[200px] overflow-auto">
-              {Object.entries(mappingObj).length > 0 ? (
-                Object.entries(mappingObj).map(([csv, field]) => (
+              {Object.entries(job.column_mapping ?? {}).length > 0 ? (
+                Object.entries(job.column_mapping ?? {}).map(([csv, field]) => (
                   <div key={csv} className="flex items-center text-sm gap-2">
                     <span className="text-muted-foreground truncate w-[120px]">{csv}</span>
                     <span className="text-muted-foreground">→</span>
-                    <span className="font-medium">{field}</span>
+                    <span className="font-medium">{String(field)}</span>
                   </div>
                 ))
-              ) : (
-                <p className="text-sm text-muted-foreground">No mapping data</p>
-              )}
+              ) : <p className="text-sm text-muted-foreground">No mapping data</p>}
             </div>
           </CardContent>
         </Card>
@@ -299,9 +361,7 @@ export default function ImportJobDetailPage() {
               {settingsObj.duplicate_strategy && (
                 <div className="flex items-center text-sm gap-2">
                   <span className="text-muted-foreground">Strategy</span>
-                  <Badge variant="outline" className="text-xs capitalize">
-                    {String(settingsObj.duplicate_strategy).replace(/_/g, " ")}
-                  </Badge>
+                  <Badge variant="outline" className="text-xs capitalize">{String(settingsObj.duplicate_strategy).replace(/_/g, " ")}</Badge>
                 </div>
               )}
               {settingsObj.skip_exact_duplicates !== undefined && (
@@ -321,9 +381,7 @@ export default function ImportJobDetailPage() {
                 </div>
               )}
               {Array.isArray(settingsObj.unmapped_columns) && (
-                <div className="text-sm">
-                  <span className="text-muted-foreground">{(settingsObj.unmapped_columns as string[]).length} unmapped columns</span>
-                </div>
+                <div className="text-sm"><span className="text-muted-foreground">{(settingsObj.unmapped_columns as string[]).length} unmapped columns</span></div>
               )}
             </div>
           </CardContent>
@@ -336,25 +394,16 @@ export default function ImportJobDetailPage() {
       <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setPage(0); }}>
         <div className="flex items-center justify-between flex-wrap gap-3">
           <TabsList>
-            <TabsTrigger value="all" className="gap-1.5">
-              <FileSpreadsheet className="h-3.5 w-3.5" /> All Rows
-            </TabsTrigger>
+            <TabsTrigger value="all" className="gap-1.5"><FileSpreadsheet className="h-3.5 w-3.5" /> All Rows</TabsTrigger>
             <TabsTrigger value="review" className="gap-1.5">
               <Shield className="h-3.5 w-3.5" /> Review Queue
-              {(reviewCount ?? 0) > 0 && (
-                <Badge variant="secondary" className="ml-1 text-xs h-5 px-1.5">
-                  {reviewCount}
-                </Badge>
-              )}
+              {(reviewCount ?? 0) > 0 && <Badge variant="secondary" className="ml-1 text-xs h-5 px-1.5">{reviewCount}</Badge>}
             </TabsTrigger>
           </TabsList>
-
           {activeTab === "all" && (
             <div className="flex items-center gap-3">
               <Select value={rowStatusFilter} onValueChange={(v) => { setRowStatusFilter(v); setPage(0); }}>
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue placeholder="All statuses" />
-                </SelectTrigger>
+                <SelectTrigger className="w-[140px]"><SelectValue placeholder="All statuses" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Statuses</SelectItem>
                   {["pending", "success", "error", "skipped", "duplicate", "review"].map((s) => (
@@ -363,9 +412,7 @@ export default function ImportJobDetailPage() {
                 </SelectContent>
               </Select>
               <Select value={reviewFilter} onValueChange={(v) => { setReviewFilter(v); setPage(0); }}>
-                <SelectTrigger className="w-[160px]">
-                  <SelectValue placeholder="Review filter" />
-                </SelectTrigger>
+                <SelectTrigger className="w-[160px]"><SelectValue placeholder="Review filter" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Rows</SelectItem>
                   <SelectItem value="yes">Needs Review</SelectItem>
@@ -377,32 +424,16 @@ export default function ImportJobDetailPage() {
         </div>
 
         <TabsContent value="all" className="mt-4">
-          <RowTable
-            rows={rowsData?.rows}
-            loading={rowsLoading}
-            onViewRow={setSelectedRow}
-            onReviewRow={setReviewRow}
-            showReviewButton={false}
-          />
+          <RowTable rows={rowsData?.rows} loading={rowsLoading} onViewRow={setSelectedRow} onReviewRow={setReviewRow} showReviewButton={false} />
         </TabsContent>
-
         <TabsContent value="review" className="mt-4">
           {(reviewCount ?? 0) === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center py-12 text-center">
-                <CheckCircle2 className="h-10 w-10 text-emerald-500 mb-3" />
-                <h3 className="font-medium">All clear</h3>
-                <p className="text-sm text-muted-foreground mt-1">No rows require review.</p>
-              </CardContent>
-            </Card>
+            <Card><CardContent className="flex flex-col items-center py-12 text-center">
+              <CheckCircle2 className="h-10 w-10 text-emerald-500 mb-3" /><h3 className="font-medium">All clear</h3>
+              <p className="text-sm text-muted-foreground mt-1">No rows require review.</p>
+            </CardContent></Card>
           ) : (
-            <RowTable
-              rows={rowsData?.rows}
-              loading={rowsLoading}
-              onViewRow={setSelectedRow}
-              onReviewRow={setReviewRow}
-              showReviewButton
-            />
+            <RowTable rows={rowsData?.rows} loading={rowsLoading} onViewRow={setSelectedRow} onReviewRow={setReviewRow} showReviewButton />
           )}
         </TabsContent>
       </Tabs>
@@ -414,179 +445,87 @@ export default function ImportJobDetailPage() {
             Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, rowsData?.total ?? 0)} of {rowsData?.total?.toLocaleString()}
           </p>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
+            <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage((p) => p - 1)}><ChevronLeft className="h-4 w-4" /></Button>
             <span className="text-sm font-medium">{page + 1} / {totalPages}</span>
-            <Button variant="outline" size="sm" disabled={page >= totalPages - 1} onClick={() => setPage((p) => p + 1)}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+            <Button variant="outline" size="sm" disabled={page >= totalPages - 1} onClick={() => setPage((p) => p + 1)}><ChevronRight className="h-4 w-4" /></Button>
           </div>
         </div>
       )}
 
-      {/* Row Detail Sheet (view-only) */}
-      {selectedRow && (
-        <RowDetailSheet
-          row={selectedRow}
-          open={!!selectedRow}
-          onOpenChange={(open) => !open && setSelectedRow(null)}
-        />
-      )}
-
-      {/* Review Panel */}
-      <ImportReviewPanel
-        open={!!reviewRow}
-        onOpenChange={(open) => !open && setReviewRow(null)}
-        row={reviewRow}
-        importJobId={id!}
-        onResolved={handleReviewResolved}
-      />
+      {selectedRow && <RowDetailSheet row={selectedRow} open={!!selectedRow} onOpenChange={(open) => !open && setSelectedRow(null)} />}
+      <ImportReviewPanel open={!!reviewRow} onOpenChange={(open) => !open && setReviewRow(null)} row={reviewRow} importJobId={id!} onResolved={handleReviewResolved} />
     </div>
   );
 }
 
-// ─── Sub-components ─────────────────────────────────────────────────────────────
-
-function RowTable({
-  rows,
-  loading,
-  onViewRow,
-  onReviewRow,
-  showReviewButton,
-}: {
-  rows: any[] | undefined;
-  loading: boolean;
-  onViewRow: (row: any) => void;
-  onReviewRow: (row: any) => void;
-  showReviewButton: boolean;
+function RowTable({ rows, loading, onViewRow, onReviewRow, showReviewButton }: {
+  rows: any[] | undefined; loading: boolean;
+  onViewRow: (row: any) => void; onReviewRow: (row: any) => void; showReviewButton: boolean;
 }) {
-  if (loading) {
-    return (
-      <Card>
-        <CardContent className="p-4 space-y-3">
-          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (!rows?.length) {
-    return (
-      <Card>
-        <CardContent className="flex flex-col items-center py-12 text-center text-muted-foreground">
-          <p className="text-sm">No rows match the current filters.</p>
-        </CardContent>
-      </Card>
-    );
-  }
+  if (loading) return <Card><CardContent className="p-4 space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</CardContent></Card>;
+  if (!rows?.length) return <Card><CardContent className="flex flex-col items-center py-12 text-center text-muted-foreground"><p className="text-sm">No rows match the current filters.</p></CardContent></Card>;
 
   return (
-    <Card>
-      <CardContent className="p-0">
-        <Table>
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="text-xs w-[70px]">Row #</TableHead>
-              <TableHead className="text-xs">Status</TableHead>
-              <TableHead className="text-xs">Match Reason</TableHead>
-              <TableHead className="text-xs">Action</TableHead>
-              <TableHead className="text-xs">Error</TableHead>
-              <TableHead className="text-xs w-[60px]">Review</TableHead>
-              <TableHead className="text-xs w-[90px]"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((row: any) => (
-              <TableRow key={row.id}>
-                <TableCell className="font-mono text-xs">{row.row_number}</TableCell>
-                <TableCell>
-                  <Badge variant="outline" className={`capitalize text-xs ${STATUS_STYLES[row.status] ?? ""}`}>
-                    {row.status}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-xs text-muted-foreground truncate max-w-[180px]">
-                  {row.duplicate_match_reason || "—"}
-                </TableCell>
-                <TableCell className="text-xs capitalize">
-                  {row.action_taken?.replace(/_/g, " ") || "—"}
-                </TableCell>
-                <TableCell className="text-xs text-destructive truncate max-w-[180px]">
-                  {row.error_message || "—"}
-                </TableCell>
-                <TableCell className="text-center">
-                  {row.review_required && (
-                    <Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-600 border-amber-200">!</Badge>
+    <Card><CardContent className="p-0">
+      <Table>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="text-xs w-[70px]">Row #</TableHead>
+            <TableHead className="text-xs">Status</TableHead>
+            <TableHead className="text-xs">Match Reason</TableHead>
+            <TableHead className="text-xs">Action</TableHead>
+            <TableHead className="text-xs">Error</TableHead>
+            <TableHead className="text-xs w-[60px]">Review</TableHead>
+            <TableHead className="text-xs w-[90px]"></TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((row: any) => (
+            <TableRow key={row.id}>
+              <TableCell className="font-mono text-xs">{row.row_number}</TableCell>
+              <TableCell><Badge variant="outline" className={`capitalize text-xs ${STATUS_STYLES[row.status] ?? ""}`}>{row.status}</Badge></TableCell>
+              <TableCell className="text-xs text-muted-foreground truncate max-w-[180px]">{row.duplicate_match_reason || "—"}</TableCell>
+              <TableCell className="text-xs capitalize">{row.action_taken?.replace(/_/g, " ") || "—"}</TableCell>
+              <TableCell className="text-xs text-destructive truncate max-w-[180px]">{row.error_message || "—"}</TableCell>
+              <TableCell className="text-center">{row.review_required && <Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-600 border-amber-200">!</Badge>}</TableCell>
+              <TableCell>
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onViewRow(row)}><Eye className="h-3.5 w-3.5" /></Button>
+                  {(row.review_required || showReviewButton) && row.status === "review" && (
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-primary" onClick={() => onReviewRow(row)}><GitMerge className="h-3.5 w-3.5" /></Button>
                   )}
-                </TableCell>
-                <TableCell>
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onViewRow(row)}>
-                      <Eye className="h-3.5 w-3.5" />
-                    </Button>
-                    {(row.review_required || showReviewButton) && row.status === "review" && (
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-primary" onClick={() => onReviewRow(row)}>
-                        <GitMerge className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </CardContent></Card>
   );
 }
 
 function RowDetailSheet({ row, open, onOpenChange }: { row: any; open: boolean; onOpenChange: (open: boolean) => void }) {
-  // Using Sheet components already imported at top level
-
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="sm:max-w-lg overflow-auto">
-        <SheetHeader>
-          <SheetTitle>Row #{row.row_number} Details</SheetTitle>
-        </SheetHeader>
+        <SheetHeader><SheetTitle>Row #{row.row_number} Details</SheetTitle></SheetHeader>
         <div className="space-y-6 mt-4">
           <div className="flex items-center gap-3">
-            <Badge variant="outline" className={`capitalize text-xs ${STATUS_STYLES[row.status] ?? ""}`}>
-              {row.status}
-            </Badge>
-            {row.review_required && (
-              <Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-600 border-amber-200">
-                Needs Review
-              </Badge>
-            )}
+            <Badge variant="outline" className={`capitalize text-xs ${STATUS_STYLES[row.status] ?? ""}`}>{row.status}</Badge>
+            {row.review_required && <Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-600 border-amber-200">Needs Review</Badge>}
           </div>
-
-          {row.error_message && (
-            <div className="p-3 rounded-md bg-destructive/10 text-destructive text-sm">{row.error_message}</div>
-          )}
-
-          {row.duplicate_match_reason && (
-            <div className="p-3 rounded-md bg-amber-500/10 text-amber-800 text-sm">
-              <strong>Match:</strong> {row.duplicate_match_reason}
-            </div>
-          )}
-
+          {row.error_message && <div className="p-3 rounded-md bg-destructive/10 text-destructive text-sm">{row.error_message}</div>}
+          {row.duplicate_match_reason && <div className="p-3 rounded-md bg-amber-500/10 text-amber-800 text-sm"><strong>Match:</strong> {row.duplicate_match_reason}</div>}
           <div>
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Raw Data</p>
-            <pre className="text-xs bg-muted p-3 rounded-md overflow-auto max-h-[250px]">
-              {JSON.stringify(row.raw_data, null, 2)}
-            </pre>
+            <pre className="text-xs bg-muted p-3 rounded-md overflow-auto max-h-[250px]">{JSON.stringify(row.raw_data, null, 2)}</pre>
           </div>
-
           {row.normalized_data && (
             <div>
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Normalized Data</p>
-              <pre className="text-xs bg-muted p-3 rounded-md overflow-auto max-h-[250px]">
-                {JSON.stringify(row.normalized_data, null, 2)}
-              </pre>
+              <pre className="text-xs bg-muted p-3 rounded-md overflow-auto max-h-[250px]">{JSON.stringify(row.normalized_data, null, 2)}</pre>
             </div>
           )}
-
           {row.action_taken && (
             <div>
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Action</p>
