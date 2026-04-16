@@ -14,6 +14,7 @@ const corsHeaders = {
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 const BATCH_SIZE = 5000;
 
 Deno.serve(async (req: Request) => {
@@ -22,11 +23,21 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    // Auth
+    // Validate JWT
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
+
+    const token = authHeader.replace("Bearer ", "");
+    const anonClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: authData, error: authError } = await anonClient.auth.getUser(token);
+    if (authError || !authData?.user) {
+      return new Response(JSON.stringify({ error: "Unauthorized: invalid token" }), { status: 401, headers: corsHeaders });
+    }
+    const userId = authData.user.id;
 
     const supabase = createClient(supabaseUrl, serviceKey);
     const { job_id } = await req.json();
@@ -44,6 +55,22 @@ Deno.serve(async (req: Request) => {
 
     if (jobErr || !job) {
       return new Response(JSON.stringify({ error: "Job not found" }), { status: 404, headers: corsHeaders });
+    }
+
+    // Verify user is a member of the job's workspace
+    if (job.workspace_id) {
+      const { data: membership } = await supabase
+        .from("workspace_members")
+        .select("user_id")
+        .eq("user_id", userId)
+        .eq("workspace_id", job.workspace_id)
+        .maybeSingle();
+
+      if (!membership) {
+        return new Response(JSON.stringify({ error: "Forbidden: not a workspace member" }), { status: 403, headers: corsHeaders });
+      }
+    } else if (job.created_by !== userId) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: corsHeaders });
     }
 
     // Update to processing
@@ -130,7 +157,7 @@ Deno.serve(async (req: Request) => {
         processed_rows: processedRows,
         total_rows: processedRows,
         completed_at: new Date().toISOString(),
-        error_message: `Storage upload failed: ${uploadErr.message}. CSV was ${csvContent.length} bytes.`,
+        error_message: `Storage upload failed. CSV was ${csvContent.length} bytes.`,
       }).eq("id", job_id);
     } else {
       const { data: urlData } = await supabase.storage.from(bucketName).createSignedUrl(filePath, 86400);
@@ -149,7 +176,7 @@ Deno.serve(async (req: Request) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message }), {
+    return new Response(JSON.stringify({ error: "An error occurred processing the export" }), {
       status: 500,
       headers: corsHeaders,
     });
