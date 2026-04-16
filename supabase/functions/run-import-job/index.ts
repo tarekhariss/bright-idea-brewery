@@ -692,42 +692,92 @@ Deno.serve(async (req: Request) => {
       console.log(`[import] Batch ${batchIndex} done: +${rowUpdates.length} processed (${processedRows}/${totalStagedRows}), +${inserted.length} inserted, +${batchError + failedEntries.length} errors, +${batchDuplicate} dupes`);
     }
 
-    // Final validation
-    const [{ count: pendingCount }, { count: totalJobRowsCount }] = await Promise.all([
+    // ── Final reconciliation ──────────────────────────────────
+    // Query actual row-status counts from the DB (source of truth)
+    const [
+      { count: pendingCount },
+      { count: totalJobRowsCount },
+      { count: dbSuccess },
+      { count: dbError },
+      { count: dbSkipped },
+      { count: dbReview },
+    ] = await Promise.all([
       (supabase.from("import_job_rows") as any).select("id", { count: "exact", head: true }).eq("import_job_id", job_id).eq("status", "pending"),
       (supabase.from("import_job_rows") as any).select("id", { count: "exact", head: true }).eq("import_job_id", job_id),
+      (supabase.from("import_job_rows") as any).select("id", { count: "exact", head: true }).eq("import_job_id", job_id).eq("status", "success"),
+      (supabase.from("import_job_rows") as any).select("id", { count: "exact", head: true }).eq("import_job_id", job_id).eq("status", "error"),
+      (supabase.from("import_job_rows") as any).select("id", { count: "exact", head: true }).eq("import_job_id", job_id).in("status", ["skipped", "duplicate"]),
+      (supabase.from("import_job_rows") as any).select("id", { count: "exact", head: true }).eq("import_job_id", job_id).eq("status", "review"),
     ]);
 
     const actualTotal = totalJobRowsCount ?? 0;
+    const reconSuccess = dbSuccess ?? 0;
+    const reconError = dbError ?? 0;
+    const reconDupes = dbSkipped ?? 0;
+    const reconReview = dbReview ?? 0;
+    const reconPending = pendingCount ?? 0;
+    const reconSum = reconSuccess + reconError + reconDupes + reconReview + reconPending;
 
-    // INTEGRITY: final counter check
-    const counterSum = successRows + errorRows + duplicateRows + reviewRows;
-    const integrityOk = processedRows <= actualTotal && counterSum <= actualTotal;
+    // Use DB-authoritative counts instead of in-memory accumulators
+    processedRows = reconSuccess + reconError + reconDupes + reconReview;
+    successRows = reconSuccess;
+    errorRows = reconError;
+    duplicateRows = reconDupes;
+    reviewRows = reconReview;
 
-    if (!integrityOk) {
-      const reason = `Counter integrity failure: processed=${processedRows}, success=${successRows}, errors=${errorRows}, dupes=${duplicateRows}, review=${reviewRows}, sum=${counterSum}, staged=${actualTotal}`;
+    const reconciliation = {
+      staged: actualTotal,
+      success: reconSuccess,
+      errors: reconError,
+      duplicates: reconDupes,
+      review: reconReview,
+      pending: reconPending,
+      sum: reconSum,
+      matches_staged: reconSum === actualTotal,
+    };
+
+    console.log(`[import] Reconciliation: staged=${actualTotal}, success=${reconSuccess}, errors=${reconError}, dupes=${reconDupes}, review=${reconReview}, pending=${reconPending}, sum=${reconSum}`);
+
+    // RULE: sum of all statuses must equal staged total
+    if (reconSum !== actualTotal) {
+      const reason = `Reconciliation failure: status sum (${reconSum}) ≠ staged rows (${actualTotal}). success=${reconSuccess}, errors=${reconError}, dupes=${reconDupes}, review=${reconReview}, pending=${reconPending}`;
       console.error(`[import] ${reason}`);
-      updateDiag({ phase: "failed_integrity", last_progress_at: nowIso() });
+      updateDiag({ phase: "failed_reconciliation", last_progress_at: nowIso(), reconciliation });
       await supabase.from("import_jobs").update({
         status: "failed", processed_rows: processedRows, success_rows: successRows,
         inserted_rows: insertedRows, error_rows: errorRows, duplicate_rows: duplicateRows,
         review_rows: reviewRows, completed_at: nowIso(),
-        error_summary: { ...diag, reason, field_report: fieldReport },
+        error_summary: { ...diag, reason, reconciliation, field_report: fieldReport },
       }).eq("id", job_id);
-      return new Response(JSON.stringify({ success: false, job_id, reason }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ success: false, job_id, reason, reconciliation }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    if ((pendingCount ?? 0) > 0) {
-      const reason = `${pendingCount} rows still pending after all batches processed.`;
+    // RULE: no pending rows allowed
+    if (reconPending > 0) {
+      const reason = `${reconPending} rows still pending after all batches processed.`;
       console.error(`[import] ${reason}`);
-      updateDiag({ phase: "failed_pending_remaining", last_progress_at: nowIso() });
+      updateDiag({ phase: "failed_pending_remaining", last_progress_at: nowIso(), reconciliation });
       await supabase.from("import_jobs").update({
         status: "failed", processed_rows: processedRows, success_rows: successRows,
         inserted_rows: insertedRows, error_rows: errorRows, duplicate_rows: duplicateRows,
         review_rows: reviewRows, completed_at: nowIso(),
-        error_summary: { ...diag, reason, field_report: fieldReport },
+        error_summary: { ...diag, reason, reconciliation, field_report: fieldReport },
       }).eq("id", job_id);
-      return new Response(JSON.stringify({ success: false, job_id, reason }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ success: false, job_id, reason, reconciliation }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // RULE: processed must not exceed staged
+    if (processedRows > actualTotal) {
+      const reason = `Counter integrity failure: processed (${processedRows}) > staged (${actualTotal})`;
+      console.error(`[import] ${reason}`);
+      updateDiag({ phase: "failed_integrity", last_progress_at: nowIso(), reconciliation });
+      await supabase.from("import_jobs").update({
+        status: "failed", processed_rows: processedRows, success_rows: successRows,
+        inserted_rows: insertedRows, error_rows: errorRows, duplicate_rows: duplicateRows,
+        review_rows: reviewRows, completed_at: nowIso(),
+        error_summary: { ...diag, reason, reconciliation, field_report: fieldReport },
+      }).eq("id", job_id);
+      return new Response(JSON.stringify({ success: false, job_id, reason, reconciliation }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // Verify inserted count in DB
@@ -744,6 +794,7 @@ Deno.serve(async (req: Request) => {
       verified_db_count: verifiedCount,
       total_staged_rows: actualTotal,
       expected_rows: Number(job.total_rows ?? 0),
+      reconciliation,
     });
 
     const mismatchWarning = verifiedCount > 0 && verifiedCount !== insertedRows
@@ -759,6 +810,7 @@ Deno.serve(async (req: Request) => {
       error_summary: {
         ...diag,
         ...(mismatchWarning ? { verification_warning: mismatchWarning } : {}),
+        reconciliation,
         field_report: fieldReport,
       },
     }).eq("id", job_id);
