@@ -201,7 +201,7 @@ export default function ImportsPage() {
                         <Badge variant="outline" className={`capitalize text-xs ${STATUS_STYLES[job.status] ?? ""}`}>
                           {job.status}
                         </Badge>
-                        {job.status === "processing" && job.started_at && (Date.now() - new Date(job.started_at).getTime() > 3600000) && (
+                        {job.status === "processing" && job.started_at && (Date.now() - new Date(((job.error_summary as any)?.diagnostics?.last_progress_at || job.started_at)).getTime() > 300000) && (
                           <span title="This job may be stuck"><AlertTriangle className="h-3.5 w-3.5 text-amber-500" /></span>
                         )}
                         {job.status === "failed" && job.error_summary && (
