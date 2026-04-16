@@ -202,12 +202,28 @@ export default function ImportJobDetailPage() {
             {importSource && <span>· Source: {importSource}</span>}
           </div>
         </div>
-        {hasErrors && (job.status === "completed" || job.status === "failed") && (
-          <Button variant="outline" size="sm" className="gap-2" onClick={handleRetryFailed} disabled={retrying}>
-            {retrying ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
-            Retry Failed ({job.error_rows})
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {job.status === "completed" && (job.inserted_rows ?? 0) > 0 && (
+            <Button
+              variant="default" size="sm" className="gap-2"
+              onClick={() => {
+                const params = new URLSearchParams();
+                params.set("source_file", job.file_name);
+                if (job.settings?.import_tag) params.set("import_tag", job.settings.import_tag);
+                navigate(`/search/prospects?${params.toString()}`);
+              }}
+            >
+              <ExternalLink className="h-4 w-4" />
+              View Imported Contacts
+            </Button>
+          )}
+          {hasErrors && (job.status === "completed" || job.status === "failed") && (
+            <Button variant="outline" size="sm" className="gap-2" onClick={handleRetryFailed} disabled={retrying}>
+              {retrying ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+              Retry Failed ({job.error_rows})
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Progress Bar */}
