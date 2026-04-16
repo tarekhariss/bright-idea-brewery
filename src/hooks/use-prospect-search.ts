@@ -86,6 +86,8 @@ export function useProspectSearch(options: ProspectSearchOptions) {
       dataQuery = applySearchFilter(dataQuery, options.entityType, debouncedSearch);
       dataQuery = applyAdvancedFilters(dataQuery, options.filterDefinition);
       dataQuery = applyListIds(dataQuery, listIds);
+      if (options.sourceFile) dataQuery = dataQuery.eq("source_file", options.sourceFile);
+      if (options.importTag) dataQuery = dataQuery.eq("import_tag", options.importTag);
 
       const { data, error } = await dataQuery;
       if (error) throw error;
