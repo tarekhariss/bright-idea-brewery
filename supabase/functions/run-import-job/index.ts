@@ -257,6 +257,45 @@ const COMPANY_FIELDS = new Set([
   "sic_code","naics_code","stock_ticker","headcount_growth_pct","external_account_id",
 ]);
 
+/** Update import_job_rows status in bulk using individual updates grouped by status */
+async function updateRowStatuses(
+  supabase: ReturnType<typeof createClient>,
+  rowUpdates: any[],
+  jobId: string,
+): Promise<number> {
+  let failCount = 0;
+  // Process in chunks to avoid payload limits
+  for (let i = 0; i < rowUpdates.length; i += 100) {
+    const chunk = rowUpdates.slice(i, i + 100);
+    // Use individual updates for each row to avoid upsert NOT NULL issues
+    const promises = chunk.map((u: any) => {
+      const updatePayload: any = {
+        status: u.status,
+        normalized_data: u.normalized_data ?? null,
+        error_message: u.error_message ?? null,
+        duplicate_match_reason: u.duplicate_match_reason ?? null,
+        action_taken: u.action_taken ?? null,
+        review_required: u.review_required ?? false,
+        company_id: u.company_id ?? null,
+        contact_id: u.contact_id ?? null,
+      };
+      return supabase
+        .from("import_job_rows")
+        .update(updatePayload)
+        .eq("id", u.id)
+        .eq("import_job_id", jobId);
+    });
+    const results = await Promise.all(promises);
+    for (const r of results) {
+      if ((r as any).error) {
+        failCount++;
+        console.error(`[import] Row update error: ${(r as any).error.message}`);
+      }
+    }
+  }
+  return failCount;
+}
+
 /** Insert contacts with automatic sub-batch retry on failure */
 async function insertContactsWithRetry(
   supabase: ReturnType<typeof createClient>,
@@ -272,14 +311,12 @@ async function insertContactsWithRetry(
     .select("id, email, secondary_email, tertiary_email, linkedin_url, external_contact_id, first_name, last_name, company_name_raw, phone");
 
   if (!error && data) {
-    // Success - link contact IDs back
     data.forEach((contact: any, idx: number) => {
       if (contacts[idx]) contacts[idx].rowUpdate.contact_id = contact.id;
     });
     return { inserted: data as ExistingContact[], failedEntries: [] };
   }
 
-  // Bulk failed — retry in sub-batches
   console.warn(`Bulk insert of ${contacts.length} contacts failed: ${error?.message}. Retrying in sub-batches of ${RETRY_SUB_BATCH}.`);
   const allInserted: ExistingContact[] = [];
   const allFailed: typeof contacts = [];
@@ -305,7 +342,6 @@ async function insertContactsWithRetry(
       }
 
       if (attempt === MAX_RETRIES - 1) {
-        // Final attempt failed — try one-by-one
         for (const entry of subBatch) {
           const { data: singleData, error: singleErr } = await supabase
             .from("contacts")
@@ -323,7 +359,7 @@ async function insertContactsWithRetry(
             allFailed.push(entry);
           }
         }
-        retrySuccess = true; // handled individually
+        retrySuccess = true;
       }
     }
 
@@ -370,7 +406,6 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    // Auth
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     const token = authHeader.replace("Bearer ", "");
@@ -379,17 +414,14 @@ Deno.serve(async (req: Request) => {
     if (authError || !authData?.user) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     const userId = authData.user.id;
 
-    // Validate input
     const parsedBody = RequestSchema.safeParse(await req.json());
     if (!parsedBody.success) return new Response(JSON.stringify({ error: parsedBody.error.flatten().fieldErrors }), { status: 400, headers: corsHeaders });
     const { job_id } = parsedBody.data;
 
-    // Fetch job
     const { data: fetchedJob, error: jobErr } = await supabase.from("import_jobs").select("*").eq("id", job_id).single();
     if (jobErr || !fetchedJob) return new Response(JSON.stringify({ error: "Job not found" }), { status: 404, headers: corsHeaders });
     job = fetchedJob;
 
-    // Workspace membership check
     if (job.workspace_id) {
       const { data: membership } = await supabase.from("workspace_members").select("user_id").eq("user_id", userId).eq("workspace_id", job.workspace_id).maybeSingle();
       if (!membership) return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: corsHeaders });
@@ -399,15 +431,26 @@ Deno.serve(async (req: Request) => {
 
     console.log(`[import] Starting job ${job_id}, total_rows=${job.total_rows}`);
 
-    diag = job.error_summary && typeof job.error_summary === "object" ? { ...job.error_summary } : {};
+    // Reset counters fresh — never carry over stale counters from a previous broken run
+    diag = {};
     updateDiag({ phase: "loading_existing_records", last_progress_at: nowIso(), total_rows: job.total_rows, batch_size: BATCH_SIZE });
 
-    await supabase.from("import_jobs").update({ status: "processing", started_at: job.started_at ?? nowIso(), error_summary: diag }).eq("id", job_id);
+    await supabase.from("import_jobs").update({
+      status: "processing", started_at: nowIso(),
+      processed_rows: 0, success_rows: 0, inserted_rows: 0,
+      error_rows: 0, duplicate_rows: 0, review_rows: 0,
+      error_summary: diag,
+    }).eq("id", job_id);
+
+    // Count actual staged rows (source of truth)
+    const { count: stagedRowCount } = await (supabase.from("import_job_rows") as any)
+      .select("id", { count: "exact", head: true }).eq("import_job_id", job_id);
+    const totalStagedRows = stagedRowCount ?? 0;
+
+    console.log(`[import] Staged rows in DB: ${totalStagedRows}, declared total: ${job.total_rows}`);
 
     // Preload existing data for dedup
     const preloadStart = performance.now();
-    const wsFilter = job.workspace_id ? `.eq("workspace_id","${job.workspace_id}")` : "";
-
     let contactsQuery = supabase.from("contacts").select("id, email, secondary_email, tertiary_email, linkedin_url, external_contact_id, first_name, last_name, company_name_raw, phone").limit(100000);
     let companiesQuery = supabase.from("companies").select("id, name, normalized_name, domain, external_account_id, website").limit(100000);
     if (job.workspace_id) {
@@ -428,17 +471,23 @@ Deno.serve(async (req: Request) => {
     const settings = (job.settings ?? {}) as ImportSettings;
     const mapping = (job.column_mapping ?? {}) as Record<string, string>;
 
-    let processedRows = Number(job.processed_rows ?? 0);
-    let successRows = Number(job.success_rows ?? 0);
-    let insertedRows = Number(job.inserted_rows ?? 0);
-    let errorRows = Number(job.error_rows ?? 0);
-    let duplicateRows = Number(job.duplicate_rows ?? 0);
-    let reviewRows = Number(job.review_rows ?? 0);
+    // Field mapping report tracker
+    const fieldReport: Record<string, { inserted: number; blank: number; target: string }> = {};
+    for (const [, fieldKey] of Object.entries(mapping)) {
+      const target = CONTACT_FIELDS.has(fieldKey) ? "contacts" : COMPANY_FIELDS.has(fieldKey) ? "companies" : "metadata";
+      fieldReport[fieldKey] = { inserted: 0, blank: 0, target };
+    }
+
+    let processedRows = 0;
+    let successRows = 0;
+    let insertedRows = 0;
+    let errorRows = 0;
+    let duplicateRows = 0;
+    let reviewRows = 0;
     let batchIndex = 0;
 
-    // Main processing loop
+    // Main processing loop — fetch only PENDING rows, ordered by row_number
     while (true) {
-      const batchFetchStart = performance.now();
       const { data: pendingRows, error: pendingErr } = await supabase
         .from("import_job_rows")
         .select("id, row_number, raw_data")
@@ -451,13 +500,30 @@ Deno.serve(async (req: Request) => {
       if (!pendingRows || pendingRows.length === 0) break;
 
       batchIndex += 1;
-      console.log(`[import] Batch ${batchIndex}: processing ${pendingRows.length} rows (rows ${pendingRows[0]?.row_number}-${pendingRows[pendingRows.length - 1]?.row_number})`);
+      const firstRow = (pendingRows[0] as any)?.row_number;
+      const lastRow = (pendingRows[pendingRows.length - 1] as any)?.row_number;
+      console.log(`[import] Batch ${batchIndex}: processing ${pendingRows.length} rows (rows ${firstRow}-${lastRow})`);
+
+      // INTEGRITY CHECK: if we've processed more rows than exist, something is wrong
+      if (processedRows >= totalStagedRows) {
+        console.error(`[import] INTEGRITY ERROR: processedRows (${processedRows}) >= totalStagedRows (${totalStagedRows}) but pending rows found. Aborting.`);
+        throw new Error(`Counter integrity violation: processed ${processedRows} but only ${totalStagedRows} staged rows exist.`);
+      }
 
       // Normalize + dedup
       const normalizeStart = performance.now();
       const normalizedRows = pendingRows.map((row: any) => normalizeRow(row.raw_data ?? {}, mapping));
       const duplicateDetails = checkDuplicatesAdvanced(normalizedRows, contactIndex, companyIndex);
       const normalizeMs = Math.round(performance.now() - normalizeStart);
+
+      // Track field population for this batch
+      for (const normalized of normalizedRows) {
+        for (const [fieldKey, report] of Object.entries(fieldReport)) {
+          const val = (normalized as any)[fieldKey];
+          if (val === null || val === undefined || val === "") report.blank++;
+          else report.inserted++;
+        }
+      }
 
       const rowUpdates: any[] = [];
       const pendingContacts: Array<{ rowId: string; rowUpdate: any; contact: Record<string, unknown>; companyData: Record<string, unknown>; companyKey: string; companyName: string }> = [];
@@ -470,11 +536,15 @@ Deno.serve(async (req: Request) => {
         const rowAction = classifyRowAction(dupDetail.classification, settings);
 
         const rowUpdate: any = {
-          id: row.id, status: rowAction.status, normalized_data: normalized,
+          id: row.id,
+          status: rowAction.status,
+          normalized_data: normalized,
           error_message: dupDetail.classification === "invalid" ? dupDetail.reason : null,
-          duplicate_match_reason: dupDetail.reason, action_taken: rowAction.action,
+          duplicate_match_reason: dupDetail.reason,
+          action_taken: rowAction.action,
           review_required: rowAction.reviewRequired,
-          company_id: dupDetail.matchedCompanyId, contact_id: dupDetail.matchedContactId,
+          company_id: dupDetail.matchedCompanyId,
+          contact_id: dupDetail.matchedContactId,
         };
 
         if (rowAction.status === "success" && rowAction.action === "create_new") {
@@ -535,6 +605,8 @@ Deno.serve(async (req: Request) => {
               if (c.website) companyIndex.domainMap.set(normalizeDomain(c.website), c);
               if (c.external_account_id) companyIndex.extIdMap.set(c.external_account_id, c);
             }
+          } else if (compErr) {
+            console.warn(`[import] Company batch insert error: ${compErr.message}`);
           }
         }
         for (const p of pendingContacts) {
@@ -557,7 +629,6 @@ Deno.serve(async (req: Request) => {
       const listStart = performance.now();
       if (settings.list_id && inserted.length > 0) {
         const listRows = inserted.map((c) => ({ list_id: settings.list_id, contact_id: c.id, added_by: userId }));
-        // Batch list assignment in chunks of 1000
         for (let li = 0; li < listRows.length; li += 1000) {
           await (supabase.from("list_contacts") as any).upsert(listRows.slice(li, li + 1000), { onConflict: "list_id,contact_id" });
         }
@@ -573,9 +644,14 @@ Deno.serve(async (req: Request) => {
         else if (u.status === "skipped" || u.status === "duplicate") batchDuplicate++;
       }
 
-      // Update row statuses (batch upsert)
-      const { error: rowUpdateErr } = await (supabase.from("import_job_rows") as any).upsert(rowUpdates, { onConflict: "id" });
-      if (rowUpdateErr) console.error(`[import] Row update error: ${rowUpdateErr.message}`);
+      // FIX: Use update (not upsert) to avoid NOT NULL constraint on import_job_id
+      const rowUpdateStart = performance.now();
+      const updateFailCount = await updateRowStatuses(supabase, rowUpdates, job_id);
+      const rowUpdateMs = Math.round(performance.now() - rowUpdateStart);
+
+      if (updateFailCount > 0) {
+        console.error(`[import] ${updateFailCount} row status updates failed in batch ${batchIndex}`);
+      }
 
       processedRows += rowUpdates.length;
       successRows += batchSuccess;
@@ -584,23 +660,36 @@ Deno.serve(async (req: Request) => {
       reviewRows += batchReview;
       insertedRows += inserted.length;
 
+      // INTEGRITY CAP: counters must never exceed staged rows
+      if (processedRows > totalStagedRows) {
+        console.error(`[import] INTEGRITY VIOLATION: processedRows ${processedRows} > totalStagedRows ${totalStagedRows}. Capping and failing.`);
+        processedRows = totalStagedRows;
+        throw new Error(`Counter integrity violation: processed rows exceeded staged total (${totalStagedRows}).`);
+      }
+
       updateDiag({
         phase: "processing_batch", last_progress_at: nowIso(),
-        timings: { normalize_ms: normalizeMs, company_match_ms: companyMs, contact_insert_ms: insertMs, list_assign_ms: listMs },
+        timings: { normalize_ms: normalizeMs, company_match_ms: companyMs, contact_insert_ms: insertMs, list_assign_ms: listMs, row_update_ms: rowUpdateMs },
         recent_batches: [{
-          batch: batchIndex, rows: rowUpdates.length, processed: processedRows,
-          inserted: insertedRows, errors: errorRows, dupes: duplicateRows,
-          failed_retries: failedEntries.length, at: nowIso(),
+          batch: batchIndex, rows: rowUpdates.length,
+          range: `${firstRow}-${lastRow}`,
+          processed: processedRows,
+          inserted: insertedRows, errors: errorRows + failedEntries.length,
+          dupes: duplicateRows, review: batchReview,
+          at: nowIso(),
         }],
       });
 
-      await supabase.from("import_jobs").update({
-        status: "processing", processed_rows: processedRows, success_rows: successRows,
-        inserted_rows: insertedRows, error_rows: errorRows, duplicate_rows: duplicateRows,
-        review_rows: reviewRows, error_summary: diag,
-      }).eq("id", job_id);
+      // Throttle progress updates: every batch for small jobs, every 3rd for large
+      if (batchIndex <= 5 || batchIndex % 3 === 0 || pendingRows.length < BATCH_SIZE) {
+        await supabase.from("import_jobs").update({
+          status: "processing", processed_rows: processedRows, success_rows: successRows,
+          inserted_rows: insertedRows, error_rows: errorRows, duplicate_rows: duplicateRows,
+          review_rows: reviewRows, error_summary: diag,
+        }).eq("id", job_id);
+      }
 
-      console.log(`[import] Batch ${batchIndex} done: +${rowUpdates.length} processed, +${inserted.length} inserted, +${batchError + failedEntries.length} errors`);
+      console.log(`[import] Batch ${batchIndex} done: +${rowUpdates.length} processed (${processedRows}/${totalStagedRows}), +${inserted.length} inserted, +${batchError + failedEntries.length} errors, +${batchDuplicate} dupes`);
     }
 
     // Final validation
@@ -609,8 +698,24 @@ Deno.serve(async (req: Request) => {
       (supabase.from("import_job_rows") as any).select("id", { count: "exact", head: true }).eq("import_job_id", job_id),
     ]);
 
-    const expectedTotal = Number(job.total_rows ?? 0);
     const actualTotal = totalJobRowsCount ?? 0;
+
+    // INTEGRITY: final counter check
+    const counterSum = successRows + errorRows + duplicateRows + reviewRows;
+    const integrityOk = processedRows <= actualTotal && counterSum <= actualTotal;
+
+    if (!integrityOk) {
+      const reason = `Counter integrity failure: processed=${processedRows}, success=${successRows}, errors=${errorRows}, dupes=${duplicateRows}, review=${reviewRows}, sum=${counterSum}, staged=${actualTotal}`;
+      console.error(`[import] ${reason}`);
+      updateDiag({ phase: "failed_integrity", last_progress_at: nowIso() });
+      await supabase.from("import_jobs").update({
+        status: "failed", processed_rows: processedRows, success_rows: successRows,
+        inserted_rows: insertedRows, error_rows: errorRows, duplicate_rows: duplicateRows,
+        review_rows: reviewRows, completed_at: nowIso(),
+        error_summary: { ...diag, reason, field_report: fieldReport },
+      }).eq("id", job_id);
+      return new Response(JSON.stringify({ success: false, job_id, reason }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     if ((pendingCount ?? 0) > 0) {
       const reason = `${pendingCount} rows still pending after all batches processed.`;
@@ -620,20 +725,7 @@ Deno.serve(async (req: Request) => {
         status: "failed", processed_rows: processedRows, success_rows: successRows,
         inserted_rows: insertedRows, error_rows: errorRows, duplicate_rows: duplicateRows,
         review_rows: reviewRows, completed_at: nowIso(),
-        error_summary: { ...diag, reason },
-      }).eq("id", job_id);
-      return new Response(JSON.stringify({ success: false, job_id, reason }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
-    if (actualTotal < expectedTotal) {
-      const reason = `Expected ${expectedTotal} rows but only ${actualTotal} were staged. Upload may have been interrupted.`;
-      console.error(`[import] ${reason}`);
-      updateDiag({ phase: "failed_incomplete_upload", last_progress_at: nowIso() });
-      await supabase.from("import_jobs").update({
-        status: "failed", processed_rows: processedRows, success_rows: successRows,
-        inserted_rows: insertedRows, error_rows: errorRows, duplicate_rows: duplicateRows,
-        review_rows: reviewRows, completed_at: nowIso(),
-        error_summary: { ...diag, reason },
+        error_summary: { ...diag, reason, field_report: fieldReport },
       }).eq("id", job_id);
       return new Response(JSON.stringify({ success: false, job_id, reason }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -651,7 +743,7 @@ Deno.serve(async (req: Request) => {
       total_batches: batchIndex,
       verified_db_count: verifiedCount,
       total_staged_rows: actualTotal,
-      expected_rows: expectedTotal,
+      expected_rows: Number(job.total_rows ?? 0),
     });
 
     const mismatchWarning = verifiedCount > 0 && verifiedCount !== insertedRows
@@ -664,12 +756,16 @@ Deno.serve(async (req: Request) => {
       status: "completed", processed_rows: processedRows, success_rows: successRows,
       inserted_rows: insertedRows, error_rows: errorRows, duplicate_rows: duplicateRows,
       review_rows: reviewRows, completed_at: nowIso(),
-      error_summary: { ...diag, ...(mismatchWarning ? { verification_warning: mismatchWarning } : {}) },
+      error_summary: {
+        ...diag,
+        ...(mismatchWarning ? { verification_warning: mismatchWarning } : {}),
+        field_report: fieldReport,
+      },
     }).eq("id", job_id);
 
     return new Response(JSON.stringify({
       success: true, job_id, processed_rows: processedRows, inserted_rows: insertedRows,
-      verified_db_count: verifiedCount, batches: batchIndex,
+      verified_db_count: verifiedCount, batches: batchIndex, field_report: fieldReport,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   } catch (err: any) {
@@ -678,9 +774,9 @@ Deno.serve(async (req: Request) => {
       updateDiag({ phase: "failed", last_progress_at: nowIso() });
       await supabase.from("import_jobs").update({
         status: "failed", completed_at: nowIso(),
-        error_summary: { ...diag, reason: err?.message || "Import processor failed unexpectedly" },
-      }).eq("id", job.id);
+        error_summary: { ...diag, reason: err?.message },
+      }).eq("id", job_id);
     }
-    return new Response(JSON.stringify({ error: err?.message || "Import processor failed" }), { status: 500, headers: corsHeaders });
+    return new Response(JSON.stringify({ error: err?.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
