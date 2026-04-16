@@ -50,6 +50,8 @@ export function useProspectSearch(options: ProspectSearchOptions) {
       options.page,
       options.pageSize,
       workspaceId,
+      options.sourceFile,
+      options.importTag,
     ],
     enabled: !!user,
     queryFn: async (): Promise<ProspectSearchResult> => {
