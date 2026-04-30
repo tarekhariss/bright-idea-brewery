@@ -68,16 +68,6 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    label: "Deals",
-    icon: Handshake,
-    basePath: "/deals",
-    items: [
-      { title: "Meetings", url: "/deals/meetings", icon: CalendarCheck },
-      { title: "Conversations", url: "/deals/conversations", icon: MessageSquare },
-      { title: "Deals", url: "/deals/deals", icon: DollarSign },
-    ],
-  },
-  {
     label: "Tools",
     icon: Wrench,
     basePath: "/tools",
