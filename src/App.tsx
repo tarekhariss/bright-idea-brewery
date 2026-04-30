@@ -176,6 +176,17 @@ const App = () => (
             <Route path="/engage/inbox" element={<EL><UniboxPage /></EL>} />
             <Route path="/engage/linkedin" element={<EL><LinkedInAccountsPage /></EL>} />
 
+            {/* LinkedIn Outreach — standalone product */}
+            <Route path="/linkedin" element={<LL><LinkedinCampaignsPage /></LL>} />
+            <Route path="/linkedin/campaigns" element={<LL><LinkedinCampaignsPage /></LL>} />
+            <Route path="/linkedin/campaigns/:id" element={<LL><LinkedinCampaignDetailPage /></LL>} />
+            <Route path="/linkedin/inbox" element={<LL><LinkedinInboxPage /></LL>} />
+            <Route path="/linkedin/accounts" element={<LL><LinkedInAccountsPage /></LL>} />
+            <Route path="/linkedin/templates" element={<LL><LinkedinTemplatesPage /></LL>} />
+            <Route path="/linkedin/tasks" element={<LL><LinkedinTasksPage /></LL>} />
+            <Route path="/linkedin/analytics" element={<LL><LinkedinAnalyticsPage /></LL>} />
+            <Route path="/linkedin/settings" element={<LL><LinkedinSettingsPage /></LL>} />
+
             {/* Deals */}
             <Route path="/deals" element={<PL><MeetingsPage /></PL>} />
             <Route path="/deals/meetings" element={<PL><MeetingsPage /></PL>} />
