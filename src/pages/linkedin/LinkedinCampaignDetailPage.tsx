@@ -226,7 +226,7 @@ function AddLeadsDialog({ open, onOpenChange, campaignId }: { open: boolean; onO
   const { workspaceId } = useAuth();
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const enroll = useEnrollLeadsInLinkedinCampaign();
+  const enroll = useEnrollLeadsV2();
 
   const { data: contacts } = useQuery({
     queryKey: ["contacts_picker", workspaceId, search],
