@@ -63,6 +63,7 @@ import LinkedinSettingsPage from "./pages/linkedin/LinkedinSettingsPage";
 import LinkedinTemplatesPage from "./pages/linkedin/LinkedinTemplatesPage";
 import LinkedinSenderProfilePage from "./pages/linkedin/LinkedinSenderProfilePage";
 import LinkedinActionQueuePage from "./pages/linkedin/LinkedinActionQueuePage";
+import LinkedinContactsPage from "./pages/linkedin/LinkedinContactsPage";
 
 // Deals pages
 import MeetingsPage from "./pages/deals/Meetings";
@@ -183,6 +184,7 @@ const App = () => (
             <Route path="/linkedin/campaigns" element={<LL><LinkedinCampaignsPage /></LL>} />
             <Route path="/linkedin/campaigns/:id" element={<LL><LinkedinCampaignDetailPage /></LL>} />
             <Route path="/linkedin/inbox" element={<LL><LinkedinInboxPage /></LL>} />
+            <Route path="/linkedin/contacts" element={<LL><LinkedinContactsPage /></LL>} />
             <Route path="/linkedin/accounts" element={<LL><LinkedInAccountsPage /></LL>} />
             <Route path="/linkedin/accounts/:id" element={<LL><LinkedinSenderProfilePage /></LL>} />
             <Route path="/linkedin/queue" element={<LL><LinkedinActionQueuePage /></LL>} />
