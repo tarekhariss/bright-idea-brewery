@@ -5474,6 +5474,7 @@ export type Database = {
         Row: {
           ab_variant: string | null
           call_instructions: string | null
+          campaign_id: string | null
           conditions: Json | null
           created_at: string | null
           delay_days: number
@@ -5492,10 +5493,12 @@ export type Database = {
           task_instructions: string | null
           updated_at: string | null
           variable_template: Json | null
+          workspace_id: string | null
         }
         Insert: {
           ab_variant?: string | null
           call_instructions?: string | null
+          campaign_id?: string | null
           conditions?: Json | null
           created_at?: string | null
           delay_days?: number
@@ -5514,10 +5517,12 @@ export type Database = {
           task_instructions?: string | null
           updated_at?: string | null
           variable_template?: Json | null
+          workspace_id?: string | null
         }
         Update: {
           ab_variant?: string | null
           call_instructions?: string | null
+          campaign_id?: string | null
           conditions?: Json | null
           created_at?: string | null
           delay_days?: number
@@ -5536,13 +5541,28 @@ export type Database = {
           task_instructions?: string | null
           updated_at?: string | null
           variable_template?: Json | null
+          workspace_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "sequence_steps_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "sequence_steps_sequence_id_fkey"
             columns: ["sequence_id"]
             isOneToOne: false
             referencedRelation: "sequences"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sequence_steps_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
         ]
