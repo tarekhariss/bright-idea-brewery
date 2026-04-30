@@ -3437,9 +3437,14 @@ export type Database = {
         Row: {
           assigned_to: string | null
           campaign_id: string | null
+          category: Database["public"]["Enums"]["reply_category"]
+          classification_confidence: number
+          classification_source: Database["public"]["Enums"]["classification_source"]
+          classified_at: string | null
           contact_id: string | null
           created_at: string | null
           id: string
+          is_primary: boolean
           last_message_at: string | null
           mailbox_id: string | null
           message_count: number | null
@@ -3447,14 +3452,20 @@ export type Database = {
           subject: string | null
           thread_id: string | null
           updated_at: string | null
+          user_category: Database["public"]["Enums"]["reply_category"] | null
           workspace_id: string | null
         }
         Insert: {
           assigned_to?: string | null
           campaign_id?: string | null
+          category?: Database["public"]["Enums"]["reply_category"]
+          classification_confidence?: number
+          classification_source?: Database["public"]["Enums"]["classification_source"]
+          classified_at?: string | null
           contact_id?: string | null
           created_at?: string | null
           id?: string
+          is_primary?: boolean
           last_message_at?: string | null
           mailbox_id?: string | null
           message_count?: number | null
@@ -3462,14 +3473,20 @@ export type Database = {
           subject?: string | null
           thread_id?: string | null
           updated_at?: string | null
+          user_category?: Database["public"]["Enums"]["reply_category"] | null
           workspace_id?: string | null
         }
         Update: {
           assigned_to?: string | null
           campaign_id?: string | null
+          category?: Database["public"]["Enums"]["reply_category"]
+          classification_confidence?: number
+          classification_source?: Database["public"]["Enums"]["classification_source"]
+          classified_at?: string | null
           contact_id?: string | null
           created_at?: string | null
           id?: string
+          is_primary?: boolean
           last_message_at?: string | null
           mailbox_id?: string | null
           message_count?: number | null
@@ -3477,6 +3494,7 @@ export type Database = {
           subject?: string | null
           thread_id?: string | null
           updated_at?: string | null
+          user_category?: Database["public"]["Enums"]["reply_category"] | null
           workspace_id?: string | null
         }
         Relationships: [
@@ -5881,6 +5899,10 @@ export type Database = {
     Functions: {
       assert_email_allowed: { Args: never; Returns: undefined }
       check_mailbox_readiness: { Args: { p_mailbox_id: string }; Returns: Json }
+      classify_inbound_message: {
+        Args: { p_body: string; p_subject: string }
+        Returns: Database["public"]["Enums"]["reply_category"]
+      }
       create_workspace_for_user: {
         Args: { p_name: string; p_user_id: string }
         Returns: Json
@@ -6001,6 +6023,7 @@ export type Database = {
         | "linkedin_message"
         | "task"
         | "delay"
+      classification_source: "rule" | "ai" | "manual"
       connection_status: "active" | "disconnected" | "warming" | "error"
       deal_status: "open" | "won" | "lost" | "abandoned"
       dns_record_status: "pending" | "pass" | "fail"
@@ -6095,6 +6118,17 @@ export type Database = {
         | "completed"
         | "failed"
         | "cancelled"
+      reply_category:
+        | "lead"
+        | "interested"
+        | "not_interested"
+        | "meeting_booked"
+        | "meeting_completed"
+        | "won"
+        | "auto_reply"
+        | "bounce"
+        | "neutral"
+        | "unknown"
       research_source_type: "website" | "linkedin" | "manual" | "crm" | "notes"
       research_status: "pending" | "completed" | "failed"
       sending_health: "unknown" | "good" | "warning" | "poor"
@@ -6304,6 +6338,7 @@ export const Constants = {
         "task",
         "delay",
       ],
+      classification_source: ["rule", "ai", "manual"],
       connection_status: ["active", "disconnected", "warming", "error"],
       deal_status: ["open", "won", "lost", "abandoned"],
       dns_record_status: ["pending", "pass", "fail"],
@@ -6408,6 +6443,18 @@ export const Constants = {
         "completed",
         "failed",
         "cancelled",
+      ],
+      reply_category: [
+        "lead",
+        "interested",
+        "not_interested",
+        "meeting_booked",
+        "meeting_completed",
+        "won",
+        "auto_reply",
+        "bounce",
+        "neutral",
+        "unknown",
       ],
       research_source_type: ["website", "linkedin", "manual", "crm", "notes"],
       research_status: ["pending", "completed", "failed"],
