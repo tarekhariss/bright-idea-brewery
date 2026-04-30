@@ -241,6 +241,12 @@ export default function EmailAccountsPage() {
           </Card>
         )}
       </div>
+
+      <EmailAccountDetailDrawer
+        mailbox={selected}
+        open={!!selectedId}
+        onOpenChange={(o) => { if (!o) setSelectedId(null); }}
+      />
     </div>
   );
 }
