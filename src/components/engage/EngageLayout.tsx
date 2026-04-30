@@ -2,11 +2,10 @@ import { ReactNode } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   Megaphone, Inbox, AtSign, FileText, BarChart3,
-  ArrowLeft, LogOut, HelpCircle, Send,
+  ArrowLeft, LogOut, Send,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
-import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface NavItem {
