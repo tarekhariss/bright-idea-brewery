@@ -260,7 +260,7 @@ export function CampaignLeadsTab({ campaignId }: { campaignId: string }) {
           <DialogHeader>
             <DialogTitle className="text-base">Add Leads</DialogTitle>
             <DialogDescription className="text-sm">
-              Paste contact IDs (one per line, comma or space separated). Lead picker UI coming soon.
+              Paste contact IDs (one per line, comma or space separated). For visual selection, use Prospect Search → select contacts → Campaign.
             </DialogDescription>
           </DialogHeader>
           <div>
