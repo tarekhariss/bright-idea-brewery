@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useInboxThreads } from "@/hooks/use-outbound-config";
 import { useMailboxes } from "@/hooks/use-deliverability";
+import { useCampaigns } from "@/hooks/use-campaigns";
 import { format, formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 
