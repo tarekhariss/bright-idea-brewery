@@ -184,9 +184,9 @@ function AddLeadsDialog({ open, onOpenChange, campaignId }: { open: boolean; onO
         </div>
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button size="sm" disabled={!selected.size || addLeads.isPending} onClick={handleAdd}>
-            {addLeads.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
-            Add {selected.size} lead{selected.size === 1 ? "" : "s"}
+          <Button size="sm" disabled={!selected.size || enroll.isPending} onClick={handleAdd}>
+            {enroll.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+            Enroll {selected.size} lead{selected.size === 1 ? "" : "s"}
           </Button>
         </DialogFooter>
       </DialogContent>
