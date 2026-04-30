@@ -78,7 +78,7 @@ export default function LinkedinCampaignDetailPage() {
 // ── Leads Tab ──
 function LeadsTab({ campaignId }: { campaignId: string }) {
   const { data: leads, isLoading } = useLinkedinCampaignLeads(campaignId);
-  const removeLead = useRemoveLinkedinLead();
+  const transition = useTransitionLinkedinLead();
   const [addOpen, setAddOpen] = useState(false);
 
   return (
@@ -117,9 +117,16 @@ function LeadsTab({ campaignId }: { campaignId: string }) {
                   <TableCell className="text-xs">{l.last_action_at ? new Date(l.last_action_at).toLocaleDateString() : "—"}</TableCell>
                   <TableCell className="text-xs">{l.reply_status || "—"}</TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeLead.mutate({ id: l.id, campaign_id: campaignId })}>
-                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                    </Button>
+                    <div className="flex gap-1 justify-end" data-stop>
+                      {l.status === "paused" ? (
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => transition.mutate({ lead_id: l.id, action: "resume" })} title="Resume"><Play className="h-3.5 w-3.5" /></Button>
+                      ) : (
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => transition.mutate({ lead_id: l.id, action: "pause" })} title="Pause"><Pause className="h-3.5 w-3.5" /></Button>
+                      )}
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => transition.mutate({ lead_id: l.id, action: "remove" })} title="Remove">
+                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -136,7 +143,7 @@ function AddLeadsDialog({ open, onOpenChange, campaignId }: { open: boolean; onO
   const { workspaceId } = useAuth();
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const addLeads = useAddLinkedinLeads();
+  const enroll = useEnrollLeadsInLinkedinCampaign();
 
   const { data: contacts } = useQuery({
     queryKey: ["contacts_picker", workspaceId, search],
@@ -155,7 +162,7 @@ function AddLeadsDialog({ open, onOpenChange, campaignId }: { open: boolean; onO
   };
 
   const handleAdd = async () => {
-    await addLeads.mutateAsync({ campaign_id: campaignId, contact_ids: Array.from(selected) });
+    await enroll.mutateAsync({ campaign_id: campaignId, contact_ids: Array.from(selected) });
     setSelected(new Set()); setSearch(""); onOpenChange(false);
   };
 
