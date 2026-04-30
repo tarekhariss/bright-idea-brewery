@@ -1,5 +1,6 @@
-import { Settings, Save, Loader2, ShieldAlert, Plus, Trash2, Copy, Check, Webhook, KeyRound, ListX, Filter, Brain, Plug } from "lucide-react";
+import { Settings, Save, Loader2, ShieldAlert, Plus, Trash2, Copy, Check, Webhook, KeyRound, ListX, Filter, Brain, Plug, Activity } from "lucide-react";
 import { LinkedinExecutionAdapterSection } from "@/components/linkedin/LinkedinExecutionAdapterSection";
+import { LinkedinDiagnosticsTab } from "@/components/linkedin/LinkedinDiagnosticsTab";
 import { useHasActiveLinkedinAdapter } from "@/hooks/use-linkedin-engine";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -44,6 +45,7 @@ export default function LinkedinSettingsPage() {
           <TabsTrigger value="stoplist" className="text-xs gap-1.5"><ListX className="h-3.5 w-3.5" /> Stoplist</TabsTrigger>
           <TabsTrigger value="filters" className="text-xs gap-1.5"><Filter className="h-3.5 w-3.5" /> Filter Presets</TabsTrigger>
           <TabsTrigger value="llm" className="text-xs gap-1.5"><Brain className="h-3.5 w-3.5" /> LLM</TabsTrigger>
+          <TabsTrigger value="diagnostics" className="text-xs gap-1.5"><Activity className="h-3.5 w-3.5" /> Diagnostics</TabsTrigger>
         </TabsList>
 
         <TabsContent value="execution" className="pt-4"><LinkedinExecutionAdapterSection /></TabsContent>
@@ -53,6 +55,7 @@ export default function LinkedinSettingsPage() {
         <TabsContent value="stoplist" className="pt-4"><StoplistTab /></TabsContent>
         <TabsContent value="filters" className="pt-4"><FilterPresetsTab /></TabsContent>
         <TabsContent value="llm" className="pt-4"><LlmTab /></TabsContent>
+        <TabsContent value="diagnostics" className="pt-4"><LinkedinDiagnosticsTab /></TabsContent>
       </Tabs>
     </div>
   );

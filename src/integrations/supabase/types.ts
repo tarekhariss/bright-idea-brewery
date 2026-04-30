@@ -4793,6 +4793,45 @@ export type Database = {
           },
         ]
       }
+      linkedin_worker_runs: {
+        Row: {
+          blocked: number
+          claimed: number
+          error: string | null
+          failed: number
+          finished_at: string | null
+          id: string
+          notes: Json
+          skipped: number
+          started_at: string
+          succeeded: number
+        }
+        Insert: {
+          blocked?: number
+          claimed?: number
+          error?: string | null
+          failed?: number
+          finished_at?: string | null
+          id?: string
+          notes?: Json
+          skipped?: number
+          started_at?: string
+          succeeded?: number
+        }
+        Update: {
+          blocked?: number
+          claimed?: number
+          error?: string | null
+          failed?: number
+          finished_at?: string | null
+          id?: string
+          notes?: Json
+          skipped?: number
+          started_at?: string
+          succeeded?: number
+        }
+        Relationships: []
+      }
       list_contacts: {
         Row: {
           added_at: string | null
@@ -6951,6 +6990,24 @@ export type Database = {
           },
         ]
       }
+      linkedin_queue_health_v: {
+        Row: {
+          count: number | null
+          last_updated_at: string | null
+          oldest_scheduled_at: string | null
+          status: string | null
+          workspace_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linkedin_action_queue_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       assert_email_allowed: { Args: never; Returns: undefined }
@@ -7000,6 +7057,37 @@ export type Database = {
         Args: { _account_id: string; _action_type: string }
         Returns: number
       }
+      linkedin_block_action: {
+        Args: { _queue_id: string; _reason: string }
+        Returns: undefined
+      }
+      linkedin_claim_due_actions: {
+        Args: { _limit?: number }
+        Returns: {
+          action_type: Database["public"]["Enums"]["linkedin_action_type"]
+          campaign_id: string | null
+          campaign_step_id: string | null
+          contact_id: string
+          created_at: string | null
+          error_message: string | null
+          executed_at: string | null
+          id: string
+          linkedin_account_id: string
+          payload: Json
+          priority: number
+          retry_count: number
+          scheduled_at: string | null
+          status: Database["public"]["Enums"]["linkedin_queue_status"]
+          updated_at: string
+          workspace_id: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "linkedin_action_queue"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       linkedin_contact_on_stoplist: {
         Args: { _contact_id: string; _workspace_id: string }
         Returns: boolean
@@ -7011,6 +7099,16 @@ export type Database = {
       linkedin_has_active_adapter: {
         Args: { _workspace_id: string }
         Returns: boolean
+      }
+      linkedin_record_action_result: {
+        Args: {
+          _error?: string
+          _max_retries?: number
+          _outcome: string
+          _provider_response?: Json
+          _queue_id: string
+        }
+        Returns: Json
       }
       linkedin_schedule_next_action: {
         Args: { _lead_id: string }
