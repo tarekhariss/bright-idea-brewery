@@ -76,6 +76,12 @@ export default function LinkedinCampaignDetailPage() {
   );
 }
 
+function CampaignAdapterBadge() {
+  const { data: hasAdapter } = useHasActiveLinkedinAdapter();
+  if (hasAdapter) return <Badge className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/20 gap-1"><Plug className="h-3 w-3" /> Adapter active</Badge>;
+  return <Badge className="text-[10px] bg-amber-500/10 text-amber-600 border-amber-500/20 gap-1" title="Configure under Settings → Execution"><ShieldAlert className="h-3 w-3" /> Execution provider required</Badge>;
+}
+
 // ── Leads Tab ──
 function LeadsTab({ campaignId }: { campaignId: string }) {
   const { data: leads, isLoading } = useLinkedinCampaignLeads(campaignId);
