@@ -7399,6 +7399,10 @@ export type Database = {
         Args: { _queue_id: string; _reason: string }
         Returns: undefined
       }
+      linkedin_check_connection_status: {
+        Args: { _contact_id: string; _workspace_id: string }
+        Returns: string
+      }
       linkedin_claim_due_actions: {
         Args: { _limit?: number }
         Returns: {
@@ -7431,6 +7435,10 @@ export type Database = {
       linkedin_contact_on_stoplist: {
         Args: { _contact_id: string; _workspace_id: string }
         Returns: boolean
+      }
+      linkedin_count_workflow_nodes: {
+        Args: { _campaign_id: string }
+        Returns: number
       }
       linkedin_enroll_leads: {
         Args: { _campaign_id: string; _contact_ids: string[] }
