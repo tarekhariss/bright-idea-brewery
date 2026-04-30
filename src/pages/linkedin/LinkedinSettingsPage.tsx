@@ -1,4 +1,6 @@
-import { Settings, Save, Loader2, ShieldAlert, Plus, Trash2, Copy, Check, Webhook, KeyRound, ListX, Filter, Brain } from "lucide-react";
+import { Settings, Save, Loader2, ShieldAlert, Plus, Trash2, Copy, Check, Webhook, KeyRound, ListX, Filter, Brain, Plug } from "lucide-react";
+import { LinkedinExecutionAdapterSection } from "@/components/linkedin/LinkedinExecutionAdapterSection";
+import { useHasActiveLinkedinAdapter } from "@/hooks/use-linkedin-engine";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,13 +33,11 @@ export default function LinkedinSettingsPage() {
         </div>
       </div>
 
-      <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400 flex items-start gap-2">
-        <ShieldAlert className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-        <span>LinkedIn execution is <b>pending activation</b>. All settings persist and will be enforced once a LinkedIn provider is connected.</span>
-      </div>
+      <AdapterBanner />
 
-      <Tabs defaultValue="safety">
+      <Tabs defaultValue="execution">
         <TabsList className="flex-wrap h-auto">
+          <TabsTrigger value="execution" className="text-xs gap-1.5"><Plug className="h-3.5 w-3.5" /> Execution</TabsTrigger>
           <TabsTrigger value="safety" className="text-xs gap-1.5"><ShieldAlert className="h-3.5 w-3.5" /> Safety</TabsTrigger>
           <TabsTrigger value="webhooks" className="text-xs gap-1.5"><Webhook className="h-3.5 w-3.5" /> Webhooks</TabsTrigger>
           <TabsTrigger value="apikeys" className="text-xs gap-1.5"><KeyRound className="h-3.5 w-3.5" /> API Keys</TabsTrigger>
@@ -46,6 +46,7 @@ export default function LinkedinSettingsPage() {
           <TabsTrigger value="llm" className="text-xs gap-1.5"><Brain className="h-3.5 w-3.5" /> LLM</TabsTrigger>
         </TabsList>
 
+        <TabsContent value="execution" className="pt-4"><LinkedinExecutionAdapterSection /></TabsContent>
         <TabsContent value="safety" className="pt-4"><SafetyTab /></TabsContent>
         <TabsContent value="webhooks" className="pt-4"><WebhooksTab /></TabsContent>
         <TabsContent value="apikeys" className="pt-4"><ApiKeysTab /></TabsContent>
@@ -53,6 +54,25 @@ export default function LinkedinSettingsPage() {
         <TabsContent value="filters" className="pt-4"><FilterPresetsTab /></TabsContent>
         <TabsContent value="llm" className="pt-4"><LlmTab /></TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+// ───────── Adapter status banner ─────────
+function AdapterBanner() {
+  const { data: hasAdapter } = useHasActiveLinkedinAdapter();
+  if (hasAdapter) {
+    return (
+      <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-400 flex items-start gap-2">
+        <Plug className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+        <span>Execution adapter is active. Queued LinkedIn actions will be processed by the worker.</span>
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400 flex items-start gap-2">
+      <ShieldAlert className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+      <span><b>Execution provider required.</b> All settings persist and the queue is fully wired, but no real LinkedIn actions are executed until you configure an adapter under <em>Execution</em>.</span>
     </div>
   );
 }

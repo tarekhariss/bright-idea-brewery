@@ -17,6 +17,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { title: "Campaigns", url: "/linkedin/campaigns", icon: Megaphone },
+  { title: "Contacts", url: "/linkedin/contacts", icon: Users },
   { title: "Inbox", url: "/linkedin/inbox", icon: Inbox },
   { title: "Action Queue", url: "/linkedin/queue", icon: ListChecks },
   { title: "Sender Profiles", url: "/linkedin/accounts", icon: Users },

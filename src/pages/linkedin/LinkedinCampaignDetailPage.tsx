@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Loader2, Users, GitBranch, Inbox, BarChart3, Settings, Plus, Trash2, Eye, UserPlus, MessageSquare, Reply, ListTodo, Clock, Save } from "lucide-react";
+import { ArrowLeft, Loader2, Users, GitBranch, Inbox, BarChart3, Settings, Plus, Trash2, Eye, UserPlus, MessageSquare, Reply, ListTodo, Clock, Save, Pause, Play, ShieldAlert, Plug } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -15,9 +15,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import {
   useLinkedinCampaign, useUpdateLinkedinCampaign,
   useLinkedinCampaignSteps, useCreateLinkedinStep, useUpdateLinkedinStep, useDeleteLinkedinStep,
-  useLinkedinCampaignLeads, useAddLinkedinLeads, useRemoveLinkedinLead,
+  useLinkedinCampaignLeads,
   useLinkedinInboxThreads,
 } from "@/hooks/use-linkedin-campaigns";
+import { useEnrollLeadsInLinkedinCampaign, useTransitionLinkedinLead, useHasActiveLinkedinAdapter, useLinkedinCampaignStats } from "@/hooks/use-linkedin-engine";
 import { useLinkedinAccounts } from "@/hooks/use-linkedin";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -50,6 +51,7 @@ export default function LinkedinCampaignDetailPage() {
           <h1 className="text-base font-semibold truncate">{campaign.name}</h1>
           <p className="text-[11px] text-muted-foreground truncate">{campaign.description || "LinkedIn outreach campaign"}</p>
         </div>
+        <CampaignAdapterBadge />
         <Badge className="text-[10px] capitalize">{campaign.status}</Badge>
       </header>
 
@@ -74,10 +76,16 @@ export default function LinkedinCampaignDetailPage() {
   );
 }
 
+function CampaignAdapterBadge() {
+  const { data: hasAdapter } = useHasActiveLinkedinAdapter();
+  if (hasAdapter) return <Badge className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/20 gap-1"><Plug className="h-3 w-3" /> Adapter active</Badge>;
+  return <Badge className="text-[10px] bg-amber-500/10 text-amber-600 border-amber-500/20 gap-1" title="Configure under Settings → Execution"><ShieldAlert className="h-3 w-3" /> Execution provider required</Badge>;
+}
+
 // ── Leads Tab ──
 function LeadsTab({ campaignId }: { campaignId: string }) {
   const { data: leads, isLoading } = useLinkedinCampaignLeads(campaignId);
-  const removeLead = useRemoveLinkedinLead();
+  const transition = useTransitionLinkedinLead();
   const [addOpen, setAddOpen] = useState(false);
 
   return (
@@ -116,9 +124,16 @@ function LeadsTab({ campaignId }: { campaignId: string }) {
                   <TableCell className="text-xs">{l.last_action_at ? new Date(l.last_action_at).toLocaleDateString() : "—"}</TableCell>
                   <TableCell className="text-xs">{l.reply_status || "—"}</TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeLead.mutate({ id: l.id, campaign_id: campaignId })}>
-                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                    </Button>
+                    <div className="flex gap-1 justify-end" data-stop>
+                      {l.status === "paused" ? (
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => transition.mutate({ lead_id: l.id, action: "resume" })} title="Resume"><Play className="h-3.5 w-3.5" /></Button>
+                      ) : (
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => transition.mutate({ lead_id: l.id, action: "pause" })} title="Pause"><Pause className="h-3.5 w-3.5" /></Button>
+                      )}
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => transition.mutate({ lead_id: l.id, action: "remove" })} title="Remove">
+                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -135,7 +150,7 @@ function AddLeadsDialog({ open, onOpenChange, campaignId }: { open: boolean; onO
   const { workspaceId } = useAuth();
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const addLeads = useAddLinkedinLeads();
+  const enroll = useEnrollLeadsInLinkedinCampaign();
 
   const { data: contacts } = useQuery({
     queryKey: ["contacts_picker", workspaceId, search],
@@ -154,7 +169,7 @@ function AddLeadsDialog({ open, onOpenChange, campaignId }: { open: boolean; onO
   };
 
   const handleAdd = async () => {
-    await addLeads.mutateAsync({ campaign_id: campaignId, contact_ids: Array.from(selected) });
+    await enroll.mutateAsync({ campaign_id: campaignId, contact_ids: Array.from(selected) });
     setSelected(new Set()); setSearch(""); onOpenChange(false);
   };
 
@@ -176,9 +191,9 @@ function AddLeadsDialog({ open, onOpenChange, campaignId }: { open: boolean; onO
         </div>
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button size="sm" disabled={!selected.size || addLeads.isPending} onClick={handleAdd}>
-            {addLeads.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
-            Add {selected.size} lead{selected.size === 1 ? "" : "s"}
+          <Button size="sm" disabled={!selected.size || enroll.isPending} onClick={handleAdd}>
+            {enroll.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+            Enroll {selected.size} lead{selected.size === 1 ? "" : "s"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -292,23 +307,24 @@ function InboxTab({ campaignId }: { campaignId: string }) {
 
 // ── Analytics Tab ──
 function AnalyticsTab({ campaignId }: { campaignId: string }) {
-  const { data: leads } = useLinkedinCampaignLeads(campaignId);
-  const total = leads?.length || 0;
-  const connected = leads?.filter((l: any) => l.connection_status === "connected").length || 0;
-  const replied = leads?.filter((l: any) => l.reply_status && l.reply_status !== "none").length || 0;
-  const meetings = leads?.filter((l: any) => l.reply_status === "meeting_booked").length || 0;
+  const { data: stats } = useLinkedinCampaignStats(campaignId);
+  const s = stats?.[0] || {};
+  const cards = [
+    { label: "Total Leads", value: s.leads_total ?? 0, icon: Users },
+    { label: "Connected", value: s.connected ?? 0, icon: UserPlus },
+    { label: "Connects Sent", value: s.connects_sent ?? 0, icon: UserPlus },
+    { label: "Messages Sent", value: s.messages_sent ?? 0, icon: MessageSquare },
+    { label: "Replies", value: s.replies ?? 0, icon: Reply },
+    { label: "Meetings", value: s.meetings ?? 0, icon: MessageSquare },
+    { label: "Queued", value: s.queued_actions ?? 0, icon: Clock },
+  ];
   return (
     <div className="grid grid-cols-4 gap-4">
-      {[
-        { label: "Total Leads", value: total, icon: Users },
-        { label: "Connected", value: connected, icon: UserPlus },
-        { label: "Replies", value: replied, icon: Reply },
-        { label: "Meetings", value: meetings, icon: MessageSquare },
-      ].map((s) => (
-        <Card key={s.label}>
+      {cards.map((c) => (
+        <Card key={c.label}>
           <CardContent className="pt-4 pb-3 px-4">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{s.label}</p>
-            <p className="text-2xl font-semibold mt-1">{s.value}</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{c.label}</p>
+            <p className="text-2xl font-semibold mt-1">{c.value}</p>
           </CardContent>
         </Card>
       ))}
