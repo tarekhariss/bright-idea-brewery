@@ -51,10 +51,12 @@ const EMPTY: DashboardStats = {
 
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const { workspaceId, workspaces } = useAuth();
+  const { workspaceId, workspaces, isAdmin } = useAuth();
   const [s, setS] = useState<DashboardStats>(EMPTY);
   const [loading, setLoading] = useState(true);
+  const [globalView, setGlobalView] = useState(false);
   const hasWorkspace = !!workspaceId || workspaces.length > 0;
+  const scopeToWorkspace = !!workspaceId && !(isAdmin && globalView);
 
   useEffect(() => {
     if (!hasWorkspace) {
@@ -62,9 +64,13 @@ export default function DashboardPage() {
       setLoading(false);
       return;
     }
-
+    setLoading(true);
     fetchAll();
-  }, [hasWorkspace]);
+    // re-fetch when workspace or global toggle changes
+  }, [hasWorkspace, workspaceId, globalView]);
+
+  // Apply workspace scoping to a query (chainable). Pass null to skip.
+  const scope = (q: any) => (scopeToWorkspace ? q.eq("workspace_id", workspaceId) : q);
 
   async function fetchAll() {
     const now = new Date();
@@ -81,28 +87,28 @@ export default function DashboardPage() {
       c7, c30, co7, co30,
       recentImp,
     ] = await Promise.all([
-      supabase.from("contacts").select("id", { count: "exact", head: true }),
-      supabase.from("companies").select("id", { count: "exact", head: true }),
-      supabase.from("lists").select("id", { count: "exact", head: true }),
-      supabase.from("import_jobs").select("id", { count: "exact", head: true }),
-      supabase.from("contacts").select("id", { count: "exact", head: true }).gte("data_quality_score", 70),
-      supabase.from("contacts").select("id", { count: "exact", head: true }).lt("data_quality_score", 40),
-      supabase.from("contacts").select("id", { count: "exact", head: true }).eq("do_not_contact", true),
-      supabase.from("contacts").select("id", { count: "exact", head: true }).is("email", null),
-      supabase.from("contacts").select("id", { count: "exact", head: true }).is("linkedin_url", null),
-      supabase.from("companies").select("id", { count: "exact", head: true }).is("domain", null),
-      supabase.from("import_job_rows").select("id", { count: "exact", head: true }).eq("review_required", true).eq("status", "review"),
-      supabase.from("contacts").select("id", { count: "exact", head: true }).gte("created_at", d7),
-      supabase.from("contacts").select("id", { count: "exact", head: true }).gte("created_at", d30),
-      supabase.from("companies").select("id", { count: "exact", head: true }).gte("created_at", d7),
-      supabase.from("companies").select("id", { count: "exact", head: true }).gte("created_at", d30),
-      supabase.from("import_jobs").select("id, file_name, status, total_rows, created_at").order("created_at", { ascending: false }).limit(5),
+      scope(supabase.from("contacts").select("id", { count: "exact", head: true })),
+      scope(supabase.from("companies").select("id", { count: "exact", head: true })),
+      scope(supabase.from("lists").select("id", { count: "exact", head: true })),
+      scope(supabase.from("import_jobs").select("id", { count: "exact", head: true })),
+      scope(supabase.from("contacts").select("id", { count: "exact", head: true }).gte("data_quality_score", 70)),
+      scope(supabase.from("contacts").select("id", { count: "exact", head: true }).lt("data_quality_score", 40)),
+      scope(supabase.from("contacts").select("id", { count: "exact", head: true }).eq("do_not_contact", true)),
+      scope(supabase.from("contacts").select("id", { count: "exact", head: true }).is("email", null)),
+      scope(supabase.from("contacts").select("id", { count: "exact", head: true }).is("linkedin_url", null)),
+      scope(supabase.from("companies").select("id", { count: "exact", head: true }).is("domain", null)),
+      scope(supabase.from("import_job_rows").select("id", { count: "exact", head: true }).eq("review_required", true).eq("status", "review")),
+      scope(supabase.from("contacts").select("id", { count: "exact", head: true }).gte("created_at", d7)),
+      scope(supabase.from("contacts").select("id", { count: "exact", head: true }).gte("created_at", d30)),
+      scope(supabase.from("companies").select("id", { count: "exact", head: true }).gte("created_at", d7)),
+      scope(supabase.from("companies").select("id", { count: "exact", head: true }).gte("created_at", d30)),
+      scope(supabase.from("import_jobs").select("id, file_name, status, total_rows, created_at").order("created_at", { ascending: false }).limit(5)),
     ]);
 
     // Fetch only needed single columns with limits for aggregation
     const [allContacts, allCompanies] = await Promise.all([
-      supabase.from("contacts").select("lifecycle_status, outreach_status, country, data_quality_score").limit(50000),
-      supabase.from("companies").select("industry").not("industry", "is", null).limit(50000),
+      scope(supabase.from("contacts").select("lifecycle_status, outreach_status, country, data_quality_score").limit(50000)),
+      scope(supabase.from("companies").select("industry").not("industry", "is", null).limit(50000)),
     ]);
 
     // Aggregate lifecycle, outreach, countries, quality
@@ -206,13 +212,31 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">TLBG Prospect Intelligence Overview</p>
+          <p className="text-sm text-muted-foreground">
+            {scopeToWorkspace
+              ? `Workspace overview · ${workspaces.find((w) => w.id === workspaceId)?.name ?? "Active workspace"}`
+              : "Platform-wide overview (all workspaces)"}
+          </p>
         </div>
-        {s.reviewQueueCount > 0 && (
-          <Button variant="outline" size="sm" className="gap-1.5 text-xs border-warning text-warning" onClick={() => navigate("/imports")}>
-            <AlertTriangle className="h-3.5 w-3.5" /> {s.reviewQueueCount} rows need review
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <Button
+              variant={globalView ? "default" : "outline"}
+              size="sm"
+              className="h-8 gap-1.5 text-xs"
+              onClick={() => setGlobalView((v) => !v)}
+              title="Toggle platform-wide vs workspace-scoped view"
+            >
+              <Globe className="h-3.5 w-3.5" />
+              {globalView ? "Global view" : "Workspace view"}
+            </Button>
+          )}
+          {s.reviewQueueCount > 0 && (
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs border-warning text-warning" onClick={() => navigate("/imports")}>
+              <AlertTriangle className="h-3.5 w-3.5" /> {s.reviewQueueCount} rows need review
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Primary KPIs */}
