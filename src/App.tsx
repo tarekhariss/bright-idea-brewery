@@ -52,6 +52,17 @@ import EmailAccountsPage from "./pages/engage/EmailAccountsPage";
 import EngageAnalyticsPage from "./pages/engage/EngageAnalyticsPage";
 import { EngageLayout } from "./components/engage/EngageLayout";
 
+// LinkedIn Outreach (standalone)
+import { LinkedinLayout } from "./components/linkedin/LinkedinLayout";
+import LinkedinCampaignsPage from "./pages/linkedin/LinkedinCampaignsPage";
+import LinkedinCampaignDetailPage from "./pages/linkedin/LinkedinCampaignDetailPage";
+import LinkedinInboxPage from "./pages/linkedin/LinkedinInboxPage";
+import LinkedinTasksPage from "./pages/linkedin/LinkedinTasksPage";
+import LinkedinAnalyticsPage from "./pages/linkedin/LinkedinAnalyticsPage";
+import LinkedinSettingsPage from "./pages/linkedin/LinkedinSettingsPage";
+import LinkedinTemplatesPage from "./pages/linkedin/LinkedinTemplatesPage";
+import LinkedInAccountsPage from "./pages/engage/LinkedInAccountsPage";
+
 // Deals pages
 import MeetingsPage from "./pages/deals/Meetings";
 import ConversationsPage from "./pages/deals/Conversations";
