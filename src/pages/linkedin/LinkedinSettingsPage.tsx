@@ -1,5 +1,6 @@
-import { Settings, Save, Loader2, ShieldAlert, Plus, Trash2, Copy, Check, Webhook, KeyRound, ListX, Filter, Brain, Plug } from "lucide-react";
+import { Settings, Save, Loader2, ShieldAlert, Plus, Trash2, Copy, Check, Webhook, KeyRound, ListX, Filter, Brain, Plug, Activity } from "lucide-react";
 import { LinkedinExecutionAdapterSection } from "@/components/linkedin/LinkedinExecutionAdapterSection";
+import { LinkedinDiagnosticsTab } from "@/components/linkedin/LinkedinDiagnosticsTab";
 import { useHasActiveLinkedinAdapter } from "@/hooks/use-linkedin-engine";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
