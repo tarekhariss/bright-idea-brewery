@@ -19,6 +19,7 @@ import {
 } from "@/hooks/use-linkedin";
 
 export default function LinkedInAccountsPage() {
+  const navigate = useNavigate();
   const { data: accounts, isLoading } = useLinkedinAccounts();
   const createAccount = useCreateLinkedinAccount();
   const updateAccount = useUpdateLinkedinAccount();
