@@ -58,6 +58,25 @@ export default function LinkedinSettingsPage() {
   );
 }
 
+// ───────── Adapter status banner ─────────
+function AdapterBanner() {
+  const { data: hasAdapter } = useHasActiveLinkedinAdapter();
+  if (hasAdapter) {
+    return (
+      <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-400 flex items-start gap-2">
+        <Plug className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+        <span>Execution adapter is active. Queued LinkedIn actions will be processed by the worker.</span>
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400 flex items-start gap-2">
+      <ShieldAlert className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+      <span><b>Execution provider required.</b> All settings persist and the queue is fully wired, but no real LinkedIn actions are executed until you configure an adapter under <em>Execution</em>.</span>
+    </div>
+  );
+}
+
 // ───────── Safety ─────────
 function SafetyTab() {
   const { data: rules, isLoading } = useLinkedinSafetyRules();
