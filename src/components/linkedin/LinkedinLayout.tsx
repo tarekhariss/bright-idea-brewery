@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   Megaphone, Inbox, Linkedin, FileText, BarChart3,
-  ArrowLeft, LogOut, CheckSquare, Settings, Users,
+  ArrowLeft, LogOut, CheckSquare, Settings, Users, ListChecks,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -18,7 +18,8 @@ interface NavItem {
 const navItems: NavItem[] = [
   { title: "Campaigns", url: "/linkedin/campaigns", icon: Megaphone },
   { title: "Inbox", url: "/linkedin/inbox", icon: Inbox },
-  { title: "Accounts", url: "/linkedin/accounts", icon: Users },
+  { title: "Action Queue", url: "/linkedin/queue", icon: ListChecks },
+  { title: "Sender Profiles", url: "/linkedin/accounts", icon: Users },
   { title: "Templates", url: "/linkedin/templates", icon: FileText },
   { title: "Tasks", url: "/linkedin/tasks", icon: CheckSquare },
   { title: "Analytics", url: "/linkedin/analytics", icon: BarChart3 },

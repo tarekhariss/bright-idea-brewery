@@ -61,6 +61,8 @@ import LinkedinTasksPage from "./pages/linkedin/LinkedinTasksPage";
 import LinkedinAnalyticsPage from "./pages/linkedin/LinkedinAnalyticsPage";
 import LinkedinSettingsPage from "./pages/linkedin/LinkedinSettingsPage";
 import LinkedinTemplatesPage from "./pages/linkedin/LinkedinTemplatesPage";
+import LinkedinSenderProfilePage from "./pages/linkedin/LinkedinSenderProfilePage";
+import LinkedinActionQueuePage from "./pages/linkedin/LinkedinActionQueuePage";
 
 // Deals pages
 import MeetingsPage from "./pages/deals/Meetings";
@@ -182,6 +184,8 @@ const App = () => (
             <Route path="/linkedin/campaigns/:id" element={<LL><LinkedinCampaignDetailPage /></LL>} />
             <Route path="/linkedin/inbox" element={<LL><LinkedinInboxPage /></LL>} />
             <Route path="/linkedin/accounts" element={<LL><LinkedInAccountsPage /></LL>} />
+            <Route path="/linkedin/accounts/:id" element={<LL><LinkedinSenderProfilePage /></LL>} />
+            <Route path="/linkedin/queue" element={<LL><LinkedinActionQueuePage /></LL>} />
             <Route path="/linkedin/templates" element={<LL><LinkedinTemplatesPage /></LL>} />
             <Route path="/linkedin/tasks" element={<LL><LinkedinTasksPage /></LL>} />
             <Route path="/linkedin/analytics" element={<LL><LinkedinAnalyticsPage /></LL>} />
