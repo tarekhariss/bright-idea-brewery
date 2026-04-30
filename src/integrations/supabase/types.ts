@@ -1076,10 +1076,48 @@ export type Database = {
           },
         ]
       }
+      campaign_tags: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          tag_id: string
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          tag_id: string
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_tags_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       campaigns: {
         Row: {
+          ab_winning_metric: string
           active_days: Json
+          allow_risky_emails: boolean
+          auto_optimize_ab: boolean
           bcc: string | null
+          campaign_domain_limit: number | null
+          cc: string | null
           created_at: string | null
           created_by: string | null
           daily_limit: number | null
@@ -1087,10 +1125,16 @@ export type Database = {
           description: string | null
           end_at: string | null
           id: string
+          insert_unsubscribe_header: boolean
+          limit_emails_per_company: boolean
+          max_emails_per_company_per_day: number
           max_new_leads_per_day: number | null
           min_wait_minutes: number | null
           name: string
+          override_domain_limiter: boolean
           owner_id: string | null
+          prioritize_new_leads: boolean
+          provider_matching: boolean
           random_wait_minutes: number | null
           reply_to: string | null
           send_end_hour: number
@@ -1098,6 +1142,7 @@ export type Database = {
           sending_window_id: string | null
           start_at: string | null
           status: Database["public"]["Enums"]["campaign_status"]
+          stop_company_on_reply: boolean
           stop_on_auto_reply: boolean | null
           stop_on_click: boolean
           stop_on_reply: boolean | null
@@ -1106,11 +1151,17 @@ export type Database = {
           track_clicks: boolean
           track_opens: boolean
           updated_at: string | null
+          use_esp_routing: boolean
           workspace_id: string | null
         }
         Insert: {
+          ab_winning_metric?: string
           active_days?: Json
+          allow_risky_emails?: boolean
+          auto_optimize_ab?: boolean
           bcc?: string | null
+          campaign_domain_limit?: number | null
+          cc?: string | null
           created_at?: string | null
           created_by?: string | null
           daily_limit?: number | null
@@ -1118,10 +1169,16 @@ export type Database = {
           description?: string | null
           end_at?: string | null
           id?: string
+          insert_unsubscribe_header?: boolean
+          limit_emails_per_company?: boolean
+          max_emails_per_company_per_day?: number
           max_new_leads_per_day?: number | null
           min_wait_minutes?: number | null
           name: string
+          override_domain_limiter?: boolean
           owner_id?: string | null
+          prioritize_new_leads?: boolean
+          provider_matching?: boolean
           random_wait_minutes?: number | null
           reply_to?: string | null
           send_end_hour?: number
@@ -1129,6 +1186,7 @@ export type Database = {
           sending_window_id?: string | null
           start_at?: string | null
           status?: Database["public"]["Enums"]["campaign_status"]
+          stop_company_on_reply?: boolean
           stop_on_auto_reply?: boolean | null
           stop_on_click?: boolean
           stop_on_reply?: boolean | null
@@ -1137,11 +1195,17 @@ export type Database = {
           track_clicks?: boolean
           track_opens?: boolean
           updated_at?: string | null
+          use_esp_routing?: boolean
           workspace_id?: string | null
         }
         Update: {
+          ab_winning_metric?: string
           active_days?: Json
+          allow_risky_emails?: boolean
+          auto_optimize_ab?: boolean
           bcc?: string | null
+          campaign_domain_limit?: number | null
+          cc?: string | null
           created_at?: string | null
           created_by?: string | null
           daily_limit?: number | null
@@ -1149,10 +1213,16 @@ export type Database = {
           description?: string | null
           end_at?: string | null
           id?: string
+          insert_unsubscribe_header?: boolean
+          limit_emails_per_company?: boolean
+          max_emails_per_company_per_day?: number
           max_new_leads_per_day?: number | null
           min_wait_minutes?: number | null
           name?: string
+          override_domain_limiter?: boolean
           owner_id?: string | null
+          prioritize_new_leads?: boolean
+          provider_matching?: boolean
           random_wait_minutes?: number | null
           reply_to?: string | null
           send_end_hour?: number
@@ -1160,6 +1230,7 @@ export type Database = {
           sending_window_id?: string | null
           start_at?: string | null
           status?: Database["public"]["Enums"]["campaign_status"]
+          stop_company_on_reply?: boolean
           stop_on_auto_reply?: boolean | null
           stop_on_click?: boolean
           stop_on_reply?: boolean | null
@@ -1168,6 +1239,7 @@ export type Database = {
           track_clicks?: boolean
           track_opens?: boolean
           updated_at?: string | null
+          use_esp_routing?: boolean
           workspace_id?: string | null
         }
         Relationships: [
