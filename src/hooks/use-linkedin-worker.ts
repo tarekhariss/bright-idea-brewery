@@ -40,7 +40,7 @@ export function useLinkedinWorkerRuns(limit = 25) {
 }
 
 export function useLinkedinQueueHealth() {
-  const workspaceId = useActiveWorkspaceId();
+  const { workspaceId } = useWorkspace();
   return useQuery({
     queryKey: ["linkedin-queue-health", workspaceId],
     enabled: !!workspaceId,
