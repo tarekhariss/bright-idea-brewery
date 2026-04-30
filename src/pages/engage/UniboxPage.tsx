@@ -26,7 +26,7 @@ const statusColor: Record<string, string> = {
 
 export default function UniboxPage() {
   const { data: threads, isLoading } = useInboxThreads();
-  const { data: mailboxes } = useMailboxHealth();
+  const { data: mailboxes } = useMailboxes();
   const { data: campaigns } = useCampaigns();
 
   const [search, setSearch] = useState("");
