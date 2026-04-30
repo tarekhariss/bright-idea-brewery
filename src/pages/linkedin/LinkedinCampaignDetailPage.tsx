@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Loader2, Users, GitBranch, Inbox, BarChart3, Settings, Plus, Trash2, Eye, UserPlus, MessageSquare, Reply, ListTodo, Clock, Save, Pause, Play, ShieldAlert, Plug } from "lucide-react";
+import { ArrowLeft, Loader2, Users, GitBranch, Inbox, BarChart3, Settings, Plus, Trash2, Eye, UserPlus, MessageSquare, Reply, ListTodo, Clock, Save, Pause, Play, ShieldAlert, Plug, Rocket, UserCheck, Workflow, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -14,29 +14,26 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
   useLinkedinCampaign, useUpdateLinkedinCampaign,
-  useLinkedinCampaignSteps, useCreateLinkedinStep, useUpdateLinkedinStep, useDeleteLinkedinStep,
   useLinkedinCampaignLeads,
   useLinkedinInboxThreads,
 } from "@/hooks/use-linkedin-campaigns";
-import { useEnrollLeadsInLinkedinCampaign, useTransitionLinkedinLead, useHasActiveLinkedinAdapter, useLinkedinCampaignStats } from "@/hooks/use-linkedin-engine";
+import { useTransitionLinkedinLead, useHasActiveLinkedinAdapter, useLinkedinCampaignStats } from "@/hooks/use-linkedin-engine";
+import { useEnrollLeadsV2, useCampaignSenders, useValidateWorkflow } from "@/hooks/use-linkedin-workflow";
 import { useLinkedinAccounts } from "@/hooks/use-linkedin";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
-
-const STEP_TYPES = [
-  { value: "view_profile", label: "View Profile", icon: Eye },
-  { value: "connect_request", label: "Send Connection Request", icon: UserPlus },
-  { value: "message", label: "Send Message", icon: MessageSquare },
-  { value: "follow_up_message", label: "Follow-up Message", icon: Reply },
-  { value: "manual_task", label: "Manual Task", icon: ListTodo },
-  { value: "wait", label: "Wait Delay", icon: Clock },
-];
+import { LinkedinWorkflowBuilder } from "@/components/linkedin/LinkedinWorkflowBuilder";
+import { CampaignSendersTab } from "@/components/linkedin/CampaignSendersTab";
+import { LaunchCampaignDialog } from "@/components/linkedin/LaunchCampaignDialog";
+import { cn } from "@/lib/utils";
 
 export default function LinkedinCampaignDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: campaign, isLoading } = useLinkedinCampaign(id || null);
+  const [tab, setTab] = useState("build");
+  const [launchOpen, setLaunchOpen] = useState(false);
 
   if (isLoading) return <div className="flex items-center justify-center h-screen"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
   if (!campaign) return <div className="p-6">Campaign not found.</div>;
@@ -53,25 +50,104 @@ export default function LinkedinCampaignDetailPage() {
         </div>
         <CampaignAdapterBadge />
         <Badge className="text-[10px] capitalize">{campaign.status}</Badge>
+        <Button size="sm" className="gap-1.5" onClick={() => setLaunchOpen(true)}>
+          <Rocket className="h-3.5 w-3.5" /> Launch
+        </Button>
       </header>
 
-      <Tabs defaultValue="leads" className="flex-1 flex flex-col overflow-hidden">
+      {/* 4-step creation flow */}
+      <CreationStepper campaignId={campaign.id} active={tab} onChange={setTab} />
+
+      <Tabs value={tab} onValueChange={setTab} className="flex-1 flex flex-col overflow-hidden">
         <TabsList className="mx-6 mt-3 w-fit">
-          <TabsTrigger value="leads"><Users className="h-3.5 w-3.5 mr-1.5" />Leads</TabsTrigger>
-          <TabsTrigger value="sequence"><GitBranch className="h-3.5 w-3.5 mr-1.5" />Sequence</TabsTrigger>
+          <TabsTrigger value="build"><Workflow className="h-3.5 w-3.5 mr-1.5" />Build</TabsTrigger>
+          <TabsTrigger value="senders"><UserCheck className="h-3.5 w-3.5 mr-1.5" />Senders</TabsTrigger>
+          <TabsTrigger value="contacts"><Users className="h-3.5 w-3.5 mr-1.5" />Contacts</TabsTrigger>
+          <TabsTrigger value="launch"><Rocket className="h-3.5 w-3.5 mr-1.5" />Launch</TabsTrigger>
           <TabsTrigger value="inbox"><Inbox className="h-3.5 w-3.5 mr-1.5" />Inbox</TabsTrigger>
           <TabsTrigger value="analytics"><BarChart3 className="h-3.5 w-3.5 mr-1.5" />Analytics</TabsTrigger>
           <TabsTrigger value="settings"><Settings className="h-3.5 w-3.5 mr-1.5" />Settings</TabsTrigger>
         </TabsList>
 
         <div className="flex-1 overflow-auto p-6">
-          <TabsContent value="leads" className="mt-0"><LeadsTab campaignId={campaign.id} /></TabsContent>
-          <TabsContent value="sequence" className="mt-0"><SequenceTab campaignId={campaign.id} /></TabsContent>
+          <TabsContent value="build" className="mt-0"><LinkedinWorkflowBuilder campaignId={campaign.id} /></TabsContent>
+          <TabsContent value="senders" className="mt-0"><CampaignSendersTab campaignId={campaign.id} /></TabsContent>
+          <TabsContent value="contacts" className="mt-0"><LeadsTab campaignId={campaign.id} /></TabsContent>
+          <TabsContent value="launch" className="mt-0"><LaunchTab campaignId={campaign.id} onLaunchClick={() => setLaunchOpen(true)} /></TabsContent>
           <TabsContent value="inbox" className="mt-0"><InboxTab campaignId={campaign.id} /></TabsContent>
           <TabsContent value="analytics" className="mt-0"><AnalyticsTab campaignId={campaign.id} /></TabsContent>
           <TabsContent value="settings" className="mt-0"><SettingsTab campaign={campaign} /></TabsContent>
         </div>
       </Tabs>
+
+      <LaunchCampaignDialog open={launchOpen} onOpenChange={setLaunchOpen} campaignId={campaign.id} />
+    </div>
+  );
+}
+
+function CreationStepper({ campaignId, active, onChange }: { campaignId: string; active: string; onChange: (v: string) => void }) {
+  const { data: validation } = useValidateWorkflow(campaignId);
+  const { data: senders } = useCampaignSenders(campaignId);
+  const { data: leads } = useLinkedinCampaignLeads(campaignId);
+  const steps = [
+    { id: "build", label: "Build", done: !!validation?.valid, icon: Workflow },
+    { id: "senders", label: "Add Sender Profiles", done: (senders ?? []).filter((s: any) => s.is_active).length > 0, icon: UserCheck },
+    { id: "contacts", label: "Add Contacts", done: (leads?.length ?? 0) > 0, icon: Users },
+    { id: "launch", label: "Launch", done: false, icon: Rocket },
+  ];
+  return (
+    <div className="border-b bg-card/50 px-6 py-2">
+      <div className="flex items-center gap-2">
+        {steps.map((s, i) => (
+          <div key={s.id} className="flex items-center gap-2">
+            <button
+              onClick={() => onChange(s.id)}
+              className={cn(
+                "flex items-center gap-2 rounded-full px-3 py-1 text-xs transition",
+                active === s.id ? "bg-primary text-primary-foreground" : s.done ? "bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20" : "bg-muted text-muted-foreground hover:bg-muted/80",
+              )}
+            >
+              {s.done ? <CheckCircle2 className="h-3.5 w-3.5" /> : <s.icon className="h-3.5 w-3.5" />}
+              <span className="font-medium">{i + 1}. {s.label}</span>
+            </button>
+            {i < steps.length - 1 && <div className="h-px w-6 bg-border" />}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function LaunchTab({ campaignId, onLaunchClick }: { campaignId: string; onLaunchClick: () => void }) {
+  const { data: validation } = useValidateWorkflow(campaignId);
+  const { data: senders } = useCampaignSenders(campaignId);
+  const { data: leads } = useLinkedinCampaignLeads(campaignId);
+  const { data: hasAdapter } = useHasActiveLinkedinAdapter();
+
+  const items = [
+    { ok: !!validation?.valid, label: "Workflow validated", detail: validation?.errors?.join(", ") || "Build a flow with Start → Action(s) → End" },
+    { ok: ((senders ?? []) as any[]).filter((s) => s.is_active).length > 0, label: "Sender profiles attached", detail: `${(senders ?? []).length} attached` },
+    { ok: (leads?.length ?? 0) > 0, label: "Contacts added", detail: `${leads?.length ?? 0} leads` },
+    { ok: !!hasAdapter, label: "Execution provider configured", detail: hasAdapter ? "Adapter active" : "Settings → Execution. Actions will be queued and marked blocked until configured." },
+  ];
+
+  return (
+    <div className="max-w-2xl space-y-4">
+      <Card>
+        <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Rocket className="h-4 w-4" /> Pre-flight checklist</CardTitle></CardHeader>
+        <CardContent className="space-y-2">
+          {items.map((it, i) => (
+            <div key={i} className={`flex items-start gap-2 rounded p-2 text-sm ${it.ok ? "bg-emerald-500/5" : "bg-amber-500/5"}`}>
+              <div className={`mt-0.5 h-4 w-4 rounded-full flex items-center justify-center text-[10px] text-white ${it.ok ? "bg-emerald-600" : "bg-amber-600"}`}>{it.ok ? "✓" : "!"}</div>
+              <div className="flex-1">
+                <p className="font-medium">{it.label}</p>
+                <p className="text-[11px] text-muted-foreground">{it.detail}</p>
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+      <Button onClick={onLaunchClick} className="gap-1.5"><Rocket className="h-3.5 w-3.5" /> Launch Campaign</Button>
     </div>
   );
 }
@@ -150,7 +226,7 @@ function AddLeadsDialog({ open, onOpenChange, campaignId }: { open: boolean; onO
   const { workspaceId } = useAuth();
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const enroll = useEnrollLeadsInLinkedinCampaign();
+  const enroll = useEnrollLeadsV2();
 
   const { data: contacts } = useQuery({
     queryKey: ["contacts_picker", workspaceId, search],
@@ -201,85 +277,7 @@ function AddLeadsDialog({ open, onOpenChange, campaignId }: { open: boolean; onO
   );
 }
 
-// ── Sequence Tab ──
-function SequenceTab({ campaignId }: { campaignId: string }) {
-  const { data: steps, isLoading } = useLinkedinCampaignSteps(campaignId);
-  const createStep = useCreateLinkedinStep();
-  const updateStep = useUpdateLinkedinStep();
-  const deleteStep = useDeleteLinkedinStep();
-
-  const handleAdd = (type: string) => {
-    const order = (steps?.length || 0) + 1;
-    createStep.mutate({ campaign_id: campaignId, step_order: order, step_type: type, delay_days: type === "wait" ? 1 : 0 });
-  };
-
-  return (
-    <div className="space-y-4 max-w-3xl">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">{steps?.length || 0} steps in sequence</p>
-      </div>
-
-      {isLoading ? <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /> : (
-        <div className="space-y-3">
-          {steps?.map((s: any, idx: number) => {
-            const meta = STEP_TYPES.find(t => t.value === s.step_type);
-            const Icon = meta?.icon || GitBranch;
-            return (
-              <Card key={s.id}>
-                <CardContent className="pt-4">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sky-500/10 text-sky-600 text-xs font-semibold">{idx + 1}</div>
-                    <div className="flex-1 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Icon className="h-4 w-4 text-sky-600" />
-                        <span className="text-sm font-medium">{meta?.label || s.step_type}</span>
-                      </div>
-                      {(s.step_type === "message" || s.step_type === "follow_up_message" || s.step_type === "connect_request") && (
-                        <Textarea
-                          placeholder="Message body — supports {first_name}, {company}, etc."
-                          defaultValue={s.message_body || ""}
-                          onBlur={(e) => updateStep.mutate({ id: s.id, campaign_id: campaignId, message_body: e.target.value })}
-                          className="text-sm min-h-[80px]"
-                        />
-                      )}
-                      {s.step_type === "manual_task" && (
-                        <>
-                          <Input placeholder="Task title" defaultValue={s.task_title || ""} onBlur={(e) => updateStep.mutate({ id: s.id, campaign_id: campaignId, task_title: e.target.value })} className="h-8 text-sm" />
-                          <Textarea placeholder="Task description" defaultValue={s.task_description || ""} onBlur={(e) => updateStep.mutate({ id: s.id, campaign_id: campaignId, task_description: e.target.value })} className="text-sm min-h-[60px]" />
-                        </>
-                      )}
-                      <div className="flex items-center gap-3 text-xs">
-                        <Label className="text-xs text-muted-foreground">Delay:</Label>
-                        <Input type="number" min={0} defaultValue={s.delay_days} onBlur={(e) => updateStep.mutate({ id: s.id, campaign_id: campaignId, delay_days: parseInt(e.target.value) || 0 })} className="h-7 w-16 text-xs" />
-                        <span className="text-xs text-muted-foreground">days</span>
-                        <Input type="number" min={0} defaultValue={s.delay_hours} onBlur={(e) => updateStep.mutate({ id: s.id, campaign_id: campaignId, delay_hours: parseInt(e.target.value) || 0 })} className="h-7 w-16 text-xs" />
-                        <span className="text-xs text-muted-foreground">hours</span>
-                      </div>
-                    </div>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteStep.mutate({ id: s.id, campaign_id: campaignId })}>
-                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
-
-      <Card className="border-dashed">
-        <CardHeader className="pb-2"><CardTitle className="text-sm">Add Step</CardTitle></CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
-          {STEP_TYPES.map((t) => (
-            <Button key={t.value} variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => handleAdd(t.value)}>
-              <t.icon className="h-3.5 w-3.5" /> {t.label}
-            </Button>
-          ))}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
+// Legacy SequenceTab removed — replaced by LinkedinWorkflowBuilder.
 
 // ── Inbox Tab (campaign-scoped) ──
 function InboxTab({ campaignId }: { campaignId: string }) {
