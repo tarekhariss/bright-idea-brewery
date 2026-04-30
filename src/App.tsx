@@ -146,17 +146,21 @@ const App = () => (
             <Route path="/search/data-enrichment" element={<PL><DataEnrichmentPage /></PL>} />
             <Route path="/search/intelligence" element={<PL><ProspectIntelligencePage /></PL>} />
 
-            {/* Engage */}
-            <Route path="/engage" element={<PL><SequencesListPage /></PL>} />
-            <Route path="/engage/sequences" element={<PL><SequencesListPage /></PL>} />
-            <Route path="/engage/emails" element={<PL><EmailsPage /></PL>} />
-            <Route path="/engage/calls" element={<PL><CallsPage /></PL>} />
-            <Route path="/engage/tasks" element={<PL><TasksPage /></PL>} />
-            <Route path="/engage/campaigns" element={<PL><CampaignsPage /></PL>} />
-            <Route path="/engage/campaigns/:id" element={<PL><CampaignDetailPage /></PL>} />
-            <Route path="/engage/templates" element={<PL><EmailTemplatesPage /></PL>} />
-            <Route path="/engage/inbox" element={<PL><InboxPage /></PL>} />
-            <Route path="/engage/linkedin" element={<PL><LinkedInAccountsPage /></PL>} />
+            {/* Engage — standalone product with its own layout */}
+            <Route path="/engage" element={<EL><CampaignsPage /></EL>} />
+            <Route path="/engage/campaigns" element={<EL><CampaignsPage /></EL>} />
+            <Route path="/engage/campaigns/:id" element={<EL><CampaignDetailPage /></EL>} />
+            <Route path="/engage/unibox" element={<EL><UniboxPage /></EL>} />
+            <Route path="/engage/accounts" element={<EL><EmailAccountsPage /></EL>} />
+            <Route path="/engage/templates" element={<EL><EmailTemplatesPage /></EL>} />
+            <Route path="/engage/analytics" element={<EL><EngageAnalyticsPage /></EL>} />
+            {/* Legacy engage routes (kept for backwards compatibility) */}
+            <Route path="/engage/sequences" element={<EL><SequencesListPage /></EL>} />
+            <Route path="/engage/emails" element={<EL><EmailsPage /></EL>} />
+            <Route path="/engage/calls" element={<EL><CallsPage /></EL>} />
+            <Route path="/engage/tasks" element={<EL><TasksPage /></EL>} />
+            <Route path="/engage/inbox" element={<EL><UniboxPage /></EL>} />
+            <Route path="/engage/linkedin" element={<EL><LinkedInAccountsPage /></EL>} />
 
             {/* Deals */}
             <Route path="/deals" element={<PL><MeetingsPage /></PL>} />
