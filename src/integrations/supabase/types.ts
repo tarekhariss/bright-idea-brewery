@@ -3767,6 +3767,8 @@ export type Database = {
           scheduled_at: string | null
           status: Database["public"]["Enums"]["linkedin_queue_status"]
           updated_at: string
+          variant_id: string | null
+          workflow_node_id: string | null
           workspace_id: string | null
         }
         Insert: {
@@ -3785,6 +3787,8 @@ export type Database = {
           scheduled_at?: string | null
           status?: Database["public"]["Enums"]["linkedin_queue_status"]
           updated_at?: string
+          variant_id?: string | null
+          workflow_node_id?: string | null
           workspace_id?: string | null
         }
         Update: {
@@ -3803,6 +3807,8 @@ export type Database = {
           scheduled_at?: string | null
           status?: Database["public"]["Enums"]["linkedin_queue_status"]
           updated_at?: string
+          variant_id?: string | null
+          workflow_node_id?: string | null
           workspace_id?: string | null
         }
         Relationships: [
@@ -3839,6 +3845,20 @@ export type Database = {
             columns: ["linkedin_account_id"]
             isOneToOne: false
             referencedRelation: "linkedin_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkedin_action_queue_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "linkedin_message_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkedin_action_queue_workflow_node_id_fkey"
+            columns: ["workflow_node_id"]
+            isOneToOne: false
+            referencedRelation: "linkedin_workflow_nodes"
             referencedColumns: ["id"]
           },
           {
@@ -3900,14 +3920,19 @@ export type Database = {
       linkedin_campaign_leads: {
         Row: {
           added_by: string | null
+          assigned_sender_id: string | null
           campaign_id: string
           connection_status: string
           contact_id: string
           created_at: string
+          current_node_id: string | null
           current_step_order: number
           id: string
           last_action_at: string | null
           last_action_type: string | null
+          last_branch_condition:
+            | Database["public"]["Enums"]["linkedin_edge_condition"]
+            | null
           last_reply_at: string | null
           next_action_at: string | null
           outcome: string | null
@@ -3920,14 +3945,19 @@ export type Database = {
         }
         Insert: {
           added_by?: string | null
+          assigned_sender_id?: string | null
           campaign_id: string
           connection_status?: string
           contact_id: string
           created_at?: string
+          current_node_id?: string | null
           current_step_order?: number
           id?: string
           last_action_at?: string | null
           last_action_type?: string | null
+          last_branch_condition?:
+            | Database["public"]["Enums"]["linkedin_edge_condition"]
+            | null
           last_reply_at?: string | null
           next_action_at?: string | null
           outcome?: string | null
@@ -3940,14 +3970,19 @@ export type Database = {
         }
         Update: {
           added_by?: string | null
+          assigned_sender_id?: string | null
           campaign_id?: string
           connection_status?: string
           contact_id?: string
           created_at?: string
+          current_node_id?: string | null
           current_step_order?: number
           id?: string
           last_action_at?: string | null
           last_action_type?: string | null
+          last_branch_condition?:
+            | Database["public"]["Enums"]["linkedin_edge_condition"]
+            | null
           last_reply_at?: string | null
           next_action_at?: string | null
           outcome?: string | null
@@ -3959,6 +3994,13 @@ export type Database = {
           workspace_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "linkedin_campaign_leads_assigned_sender_id_fkey"
+            columns: ["assigned_sender_id"]
+            isOneToOne: false
+            referencedRelation: "linkedin_accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "linkedin_campaign_leads_campaign_id_fkey"
             columns: ["campaign_id"]
@@ -3981,10 +4023,66 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "linkedin_campaign_leads_current_node_id_fkey"
+            columns: ["current_node_id"]
+            isOneToOne: false
+            referencedRelation: "linkedin_workflow_nodes"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "linkedin_campaign_leads_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      linkedin_campaign_senders: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          linkedin_account_id: string
+          workspace_id: string
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          linkedin_account_id: string
+          workspace_id: string
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          linkedin_account_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linkedin_campaign_senders_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "linkedin_campaign_stats_v"
+            referencedColumns: ["campaign_id"]
+          },
+          {
+            foreignKeyName: "linkedin_campaign_senders_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "linkedin_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkedin_campaign_senders_linkedin_account_id_fkey"
+            columns: ["linkedin_account_id"]
+            isOneToOne: false
+            referencedRelation: "linkedin_accounts"
             referencedColumns: ["id"]
           },
         ]
@@ -4070,6 +4168,7 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          creation_step: string
           daily_connect_limit: number
           daily_message_limit: number
           description: string | null
@@ -4084,11 +4183,15 @@ export type Database = {
           stop_on_reply: boolean
           timezone: string
           updated_at: string
+          variant_min_sends_per_variant: number
+          variant_rotation: Database["public"]["Enums"]["linkedin_variant_strategy"]
+          variant_winning_metric: Database["public"]["Enums"]["linkedin_variant_metric"]
           workspace_id: string
         }
         Insert: {
           created_at?: string
           created_by?: string | null
+          creation_step?: string
           daily_connect_limit?: number
           daily_message_limit?: number
           description?: string | null
@@ -4103,11 +4206,15 @@ export type Database = {
           stop_on_reply?: boolean
           timezone?: string
           updated_at?: string
+          variant_min_sends_per_variant?: number
+          variant_rotation?: Database["public"]["Enums"]["linkedin_variant_strategy"]
+          variant_winning_metric?: Database["public"]["Enums"]["linkedin_variant_metric"]
           workspace_id: string
         }
         Update: {
           created_at?: string
           created_by?: string | null
+          creation_step?: string
           daily_connect_limit?: number
           daily_message_limit?: number
           description?: string | null
@@ -4122,6 +4229,9 @@ export type Database = {
           stop_on_reply?: boolean
           timezone?: string
           updated_at?: string
+          variant_min_sends_per_variant?: number
+          variant_rotation?: Database["public"]["Enums"]["linkedin_variant_strategy"]
+          variant_winning_metric?: Database["public"]["Enums"]["linkedin_variant_metric"]
           workspace_id?: string
         }
         Relationships: [
@@ -4513,6 +4623,85 @@ export type Database = {
           },
         ]
       }
+      linkedin_message_variants: {
+        Row: {
+          accepted_count: number
+          body: string
+          campaign_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          is_winner: boolean
+          label: string
+          node_id: string
+          positive_count: number
+          replies_count: number
+          sends_count: number
+          subject: string | null
+          updated_at: string
+          weight: number
+          workspace_id: string
+        }
+        Insert: {
+          accepted_count?: number
+          body?: string
+          campaign_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_winner?: boolean
+          label?: string
+          node_id: string
+          positive_count?: number
+          replies_count?: number
+          sends_count?: number
+          subject?: string | null
+          updated_at?: string
+          weight?: number
+          workspace_id: string
+        }
+        Update: {
+          accepted_count?: number
+          body?: string
+          campaign_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_winner?: boolean
+          label?: string
+          node_id?: string
+          positive_count?: number
+          replies_count?: number
+          sends_count?: number
+          subject?: string | null
+          updated_at?: string
+          weight?: number
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linkedin_message_variants_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "linkedin_campaign_stats_v"
+            referencedColumns: ["campaign_id"]
+          },
+          {
+            foreignKeyName: "linkedin_message_variants_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "linkedin_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkedin_message_variants_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "linkedin_workflow_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       linkedin_performance_metrics: {
         Row: {
           connect_requests_sent: number | null
@@ -4831,6 +5020,155 @@ export type Database = {
           succeeded?: number
         }
         Relationships: []
+      }
+      linkedin_workflow_edges: {
+        Row: {
+          campaign_id: string
+          condition: Database["public"]["Enums"]["linkedin_edge_condition"]
+          created_at: string
+          from_node_id: string
+          id: string
+          to_node_id: string
+          workspace_id: string
+        }
+        Insert: {
+          campaign_id: string
+          condition?: Database["public"]["Enums"]["linkedin_edge_condition"]
+          created_at?: string
+          from_node_id: string
+          id?: string
+          to_node_id: string
+          workspace_id: string
+        }
+        Update: {
+          campaign_id?: string
+          condition?: Database["public"]["Enums"]["linkedin_edge_condition"]
+          created_at?: string
+          from_node_id?: string
+          id?: string
+          to_node_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linkedin_workflow_edges_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "linkedin_campaign_stats_v"
+            referencedColumns: ["campaign_id"]
+          },
+          {
+            foreignKeyName: "linkedin_workflow_edges_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "linkedin_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkedin_workflow_edges_from_node_id_fkey"
+            columns: ["from_node_id"]
+            isOneToOne: false
+            referencedRelation: "linkedin_workflow_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkedin_workflow_edges_to_node_id_fkey"
+            columns: ["to_node_id"]
+            isOneToOne: false
+            referencedRelation: "linkedin_workflow_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      linkedin_workflow_nodes: {
+        Row: {
+          attachments: Json | null
+          campaign_id: string
+          config: Json | null
+          connection_note: string | null
+          created_at: string
+          delay_amount: number | null
+          delay_unit: string | null
+          id: string
+          label: string | null
+          message_body: string | null
+          message_subject: string | null
+          node_type: Database["public"]["Enums"]["linkedin_node_type"]
+          position_x: number | null
+          position_y: number | null
+          send_always: boolean | null
+          skip_note_if_too_long: boolean | null
+          task_description: string | null
+          task_title: string | null
+          updated_at: string
+          wait_timeout_days: number | null
+          withdraw_after_days: number | null
+          workspace_id: string
+        }
+        Insert: {
+          attachments?: Json | null
+          campaign_id: string
+          config?: Json | null
+          connection_note?: string | null
+          created_at?: string
+          delay_amount?: number | null
+          delay_unit?: string | null
+          id?: string
+          label?: string | null
+          message_body?: string | null
+          message_subject?: string | null
+          node_type: Database["public"]["Enums"]["linkedin_node_type"]
+          position_x?: number | null
+          position_y?: number | null
+          send_always?: boolean | null
+          skip_note_if_too_long?: boolean | null
+          task_description?: string | null
+          task_title?: string | null
+          updated_at?: string
+          wait_timeout_days?: number | null
+          withdraw_after_days?: number | null
+          workspace_id: string
+        }
+        Update: {
+          attachments?: Json | null
+          campaign_id?: string
+          config?: Json | null
+          connection_note?: string | null
+          created_at?: string
+          delay_amount?: number | null
+          delay_unit?: string | null
+          id?: string
+          label?: string | null
+          message_body?: string | null
+          message_subject?: string | null
+          node_type?: Database["public"]["Enums"]["linkedin_node_type"]
+          position_x?: number | null
+          position_y?: number | null
+          send_always?: boolean | null
+          skip_note_if_too_long?: boolean | null
+          task_description?: string | null
+          task_title?: string | null
+          updated_at?: string
+          wait_timeout_days?: number | null
+          withdraw_after_days?: number | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linkedin_workflow_nodes_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "linkedin_campaign_stats_v"
+            referencedColumns: ["campaign_id"]
+          },
+          {
+            foreignKeyName: "linkedin_workflow_nodes_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "linkedin_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       list_contacts: {
         Row: {
@@ -7079,6 +7417,8 @@ export type Database = {
           scheduled_at: string | null
           status: Database["public"]["Enums"]["linkedin_queue_status"]
           updated_at: string
+          variant_id: string | null
+          workflow_node_id: string | null
           workspace_id: string | null
         }[]
         SetofOptions: {
@@ -7096,10 +7436,24 @@ export type Database = {
         Args: { _campaign_id: string; _contact_ids: string[] }
         Returns: Json
       }
+      linkedin_enroll_leads_v2: {
+        Args: {
+          _campaign_id: string
+          _contact_ids: string[]
+          _only_new?: boolean
+        }
+        Returns: Json
+      }
       linkedin_has_active_adapter: {
         Args: { _workspace_id: string }
         Returns: boolean
       }
+      linkedin_launch_campaign: {
+        Args: { _campaign_id: string; _mode?: string }
+        Returns: Json
+      }
+      linkedin_pick_sender: { Args: { _campaign_id: string }; Returns: string }
+      linkedin_pick_variant: { Args: { _node_id: string }; Returns: string }
       linkedin_record_action_result: {
         Args: {
           _error?: string
@@ -7114,8 +7468,26 @@ export type Database = {
         Args: { _lead_id: string }
         Returns: Json
       }
+      linkedin_schedule_next_action_v2: {
+        Args: {
+          _condition?: Database["public"]["Enums"]["linkedin_edge_condition"]
+          _lead_id: string
+        }
+        Returns: Json
+      }
       linkedin_transition_lead: {
         Args: { _action: string; _lead_id: string; _reason?: string }
+        Returns: Json
+      }
+      linkedin_workflow_next_node: {
+        Args: {
+          _condition?: Database["public"]["Enums"]["linkedin_edge_condition"]
+          _node_id: string
+        }
+        Returns: string
+      }
+      linkedin_workflow_validate: {
+        Args: { _campaign_id: string }
         Returns: Json
       }
       log_activity: {
@@ -7290,6 +7662,33 @@ export type Database = {
         | "disconnected"
         | "pending_setup"
         | "paused"
+      linkedin_edge_condition:
+        | "default"
+        | "connected"
+        | "not_connected"
+        | "accepted"
+        | "declined"
+        | "timeout"
+        | "replied"
+        | "no_reply"
+        | "opened"
+        | "not_opened"
+        | "success"
+        | "failure"
+      linkedin_node_type:
+        | "start"
+        | "visit_profile"
+        | "connect_request"
+        | "wait_for_connection"
+        | "message"
+        | "inmail"
+        | "like_post"
+        | "comment_post"
+        | "endorse_skills"
+        | "withdraw_request"
+        | "time_delay"
+        | "manual_task"
+        | "end"
       linkedin_queue_status:
         | "pending"
         | "scheduled"
@@ -7297,6 +7696,11 @@ export type Database = {
         | "failed"
         | "blocked"
         | "paused"
+      linkedin_variant_metric:
+        | "reply_rate"
+        | "acceptance_rate"
+        | "positive_reply"
+      linkedin_variant_strategy: "even_then_winner" | "even" | "weighted"
       mailbox_provider_type: "google" | "microsoft" | "smtp" | "other"
       meeting_status: "scheduled" | "completed" | "cancelled" | "no_show"
       merge_status: "candidate" | "merged" | "kept_separate" | "skipped"
@@ -7636,6 +8040,35 @@ export const Constants = {
         "pending_setup",
         "paused",
       ],
+      linkedin_edge_condition: [
+        "default",
+        "connected",
+        "not_connected",
+        "accepted",
+        "declined",
+        "timeout",
+        "replied",
+        "no_reply",
+        "opened",
+        "not_opened",
+        "success",
+        "failure",
+      ],
+      linkedin_node_type: [
+        "start",
+        "visit_profile",
+        "connect_request",
+        "wait_for_connection",
+        "message",
+        "inmail",
+        "like_post",
+        "comment_post",
+        "endorse_skills",
+        "withdraw_request",
+        "time_delay",
+        "manual_task",
+        "end",
+      ],
       linkedin_queue_status: [
         "pending",
         "scheduled",
@@ -7644,6 +8077,12 @@ export const Constants = {
         "blocked",
         "paused",
       ],
+      linkedin_variant_metric: [
+        "reply_rate",
+        "acceptance_rate",
+        "positive_reply",
+      ],
+      linkedin_variant_strategy: ["even_then_winner", "even", "weighted"],
       mailbox_provider_type: ["google", "microsoft", "smtp", "other"],
       meeting_status: ["scheduled", "completed", "cancelled", "no_show"],
       merge_status: ["candidate", "merged", "kept_separate", "skipped"],
