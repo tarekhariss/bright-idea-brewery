@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useActiveWorkspaceId } from "@/hooks/use-workspaces";
+import { useWorkspace } from "@/hooks/use-workspace";
 
 export type WorkerRun = {
   id: string;
