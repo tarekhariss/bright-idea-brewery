@@ -127,7 +127,9 @@ Deno.serve(async (req: Request) => {
       }
 
       // Fetch mailbox for readiness — uses real ConnectionStatus enum: 'active'
-      const { data: mailbox } = await supabase.from("mailboxes").select("id, connection_status").eq("id", resolvedMailboxId).single();
+      const { data: mailbox } = await supabase.from("mailboxes")
+        .select("id, connection_status, next_send_eligible_at, last_send_at")
+        .eq("id", resolvedMailboxId).single();
       if (!mailbox || mailbox.connection_status !== "active") {
         const reason = !mailbox ? "mailbox_not_found" : `mailbox_status_${mailbox.connection_status}`;
         await supabase.from("message_queue").update({
@@ -138,6 +140,40 @@ Deno.serve(async (req: Request) => {
         }).eq("id", item.id);
         results.push({ id: item.id, status: "failed", reason });
         continue;
+      }
+
+      // Mailbox pacing: if not yet eligible, defer
+      if (mailbox.next_send_eligible_at && new Date(mailbox.next_send_eligible_at) > new Date()) {
+        const deferTo = mailbox.next_send_eligible_at;
+        await supabase.from("message_queue").update({
+          status: "pending",
+          scheduled_for: deferTo,
+        }).eq("id", item.id);
+        results.push({ id: item.id, status: "deferred", reason: "mailbox_paced", until: deferTo });
+        continue;
+      }
+
+      // Sending window check via campaign linkage (lookup if email has enrollment)
+      if (item.enrollment_id) {
+        const { data: enr } = await supabase.from("sequence_enrollments")
+          .select("sequence_id, sequences(campaign_id)").eq("id", item.enrollment_id).maybeSingle();
+        const campaignId = (enr as any)?.sequences?.campaign_id;
+        if (campaignId) {
+          const { data: camp } = await supabase.from("campaigns")
+            .select("sending_window_id").eq("id", campaignId).maybeSingle();
+          if (camp?.sending_window_id) {
+            const { data: open } = await supabase.rpc("is_sending_window_open", { _window_id: camp.sending_window_id });
+            if (open === false) {
+              const deferTo = new Date(Date.now() + 15 * 60_000).toISOString();
+              await supabase.from("message_queue").update({
+                status: "pending",
+                scheduled_for: deferTo,
+              }).eq("id", item.id);
+              results.push({ id: item.id, status: "deferred", reason: "outside_sending_window" });
+              continue;
+            }
+          }
+        }
       }
 
       // Claim the item (optimistic lock)

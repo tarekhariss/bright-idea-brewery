@@ -67,8 +67,16 @@ export function CompanyBulkActionsBar({ selectedIds, onDone }: Props) {
               <Globe className="h-3.5 w-3.5 mr-2" /> Update Country
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem disabled>
-              <Download className="h-3.5 w-3.5 mr-2" /> Export (coming soon)
+            <DropdownMenuItem onClick={() => {
+              const csv = ["company_id"].concat(selectedIds).join("\n");
+              const blob = new Blob([csv], { type: "text/csv" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url; a.download = `companies-${count}-ids.csv`; a.click();
+              URL.revokeObjectURL(url);
+              toast.success(`Exported ${count} company IDs. Use Tools → Exports for full-field export.`);
+            }}>
+              <Download className="h-3.5 w-3.5 mr-2" /> Export IDs (CSV)
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
