@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { useMailboxes, useDeleteMailbox, useUpdateMailbox } from "@/hooks/use-deliverability";
+import { EmailAccountDetailDrawer } from "@/components/engage/EmailAccountDetailDrawer";
 import { cn } from "@/lib/utils";
 
 const statusInfo: Record<string, { label: string; icon: any; cls: string }> = {
