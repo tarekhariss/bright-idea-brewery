@@ -3575,10 +3575,17 @@ export type Database = {
           created_at: string | null
           daily_connect_limit: number
           daily_message_limit: number
+          daily_view_limit: number
           id: string
           last_action_at: string | null
+          notes: string | null
+          owner_user_id: string | null
           profile_name: string
           profile_url: string | null
+          sending_window_end: string
+          sending_window_start: string
+          timezone: string
+          updated_at: string
           workspace_id: string | null
         }
         Insert: {
@@ -3586,10 +3593,17 @@ export type Database = {
           created_at?: string | null
           daily_connect_limit?: number
           daily_message_limit?: number
+          daily_view_limit?: number
           id?: string
           last_action_at?: string | null
+          notes?: string | null
+          owner_user_id?: string | null
           profile_name: string
           profile_url?: string | null
+          sending_window_end?: string
+          sending_window_start?: string
+          timezone?: string
+          updated_at?: string
           workspace_id?: string | null
         }
         Update: {
@@ -3597,10 +3611,17 @@ export type Database = {
           created_at?: string | null
           daily_connect_limit?: number
           daily_message_limit?: number
+          daily_view_limit?: number
           id?: string
           last_action_at?: string | null
+          notes?: string | null
+          owner_user_id?: string | null
           profile_name?: string
           profile_url?: string | null
+          sending_window_end?: string
+          sending_window_start?: string
+          timezone?: string
+          updated_at?: string
           workspace_id?: string | null
         }
         Relationships: [
@@ -3719,6 +3740,355 @@ export type Database = {
             columns: ["linkedin_account_id"]
             isOneToOne: false
             referencedRelation: "linkedin_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      linkedin_campaign_leads: {
+        Row: {
+          added_by: string | null
+          campaign_id: string
+          connection_status: string
+          contact_id: string
+          created_at: string
+          current_step_order: number
+          id: string
+          last_action_at: string | null
+          last_action_type: string | null
+          last_reply_at: string | null
+          outcome: string | null
+          reply_status: string | null
+          status: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          added_by?: string | null
+          campaign_id: string
+          connection_status?: string
+          contact_id: string
+          created_at?: string
+          current_step_order?: number
+          id?: string
+          last_action_at?: string | null
+          last_action_type?: string | null
+          last_reply_at?: string | null
+          outcome?: string | null
+          reply_status?: string | null
+          status?: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          added_by?: string | null
+          campaign_id?: string
+          connection_status?: string
+          contact_id?: string
+          created_at?: string
+          current_step_order?: number
+          id?: string
+          last_action_at?: string | null
+          last_action_type?: string | null
+          last_reply_at?: string | null
+          outcome?: string | null
+          reply_status?: string | null
+          status?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linkedin_campaign_leads_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "linkedin_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkedin_campaign_leads_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkedin_campaign_leads_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      linkedin_campaign_steps: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          delay_days: number
+          delay_hours: number
+          id: string
+          message_body: string | null
+          step_order: number
+          step_type: string
+          task_description: string | null
+          task_title: string | null
+          template_id: string | null
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          delay_days?: number
+          delay_hours?: number
+          id?: string
+          message_body?: string | null
+          step_order?: number
+          step_type: string
+          task_description?: string | null
+          task_title?: string | null
+          template_id?: string | null
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          delay_days?: number
+          delay_hours?: number
+          id?: string
+          message_body?: string | null
+          step_order?: number
+          step_type?: string
+          task_description?: string | null
+          task_title?: string | null
+          template_id?: string | null
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linkedin_campaign_steps_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "linkedin_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkedin_campaign_steps_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "linkedin_message_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkedin_campaign_steps_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      linkedin_campaigns: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          daily_connect_limit: number
+          daily_message_limit: number
+          description: string | null
+          exclude_existing_connections: boolean
+          id: string
+          linkedin_account_id: string | null
+          name: string
+          sending_window_end: string
+          sending_window_start: string
+          source_list_id: string | null
+          status: string
+          stop_on_reply: boolean
+          timezone: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          daily_connect_limit?: number
+          daily_message_limit?: number
+          description?: string | null
+          exclude_existing_connections?: boolean
+          id?: string
+          linkedin_account_id?: string | null
+          name: string
+          sending_window_end?: string
+          sending_window_start?: string
+          source_list_id?: string | null
+          status?: string
+          stop_on_reply?: boolean
+          timezone?: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          daily_connect_limit?: number
+          daily_message_limit?: number
+          description?: string | null
+          exclude_existing_connections?: boolean
+          id?: string
+          linkedin_account_id?: string | null
+          name?: string
+          sending_window_end?: string
+          sending_window_start?: string
+          source_list_id?: string | null
+          status?: string
+          stop_on_reply?: boolean
+          timezone?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linkedin_campaigns_linkedin_account_id_fkey"
+            columns: ["linkedin_account_id"]
+            isOneToOne: false
+            referencedRelation: "linkedin_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkedin_campaigns_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      linkedin_inbox_messages: {
+        Row: {
+          body: string | null
+          created_at: string
+          direction: string
+          id: string
+          sent_at: string
+          thread_id: string
+          workspace_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          direction?: string
+          id?: string
+          sent_at?: string
+          thread_id: string
+          workspace_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          direction?: string
+          id?: string
+          sent_at?: string
+          thread_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linkedin_inbox_messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "linkedin_inbox_threads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkedin_inbox_messages_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      linkedin_inbox_threads: {
+        Row: {
+          campaign_id: string | null
+          category: string
+          contact_id: string | null
+          created_at: string
+          id: string
+          is_read: boolean
+          is_starred: boolean
+          last_message_at: string | null
+          linkedin_account_id: string | null
+          message_count: number
+          preview: string | null
+          subject: string | null
+          updated_at: string
+          user_category: string | null
+          workspace_id: string
+        }
+        Insert: {
+          campaign_id?: string | null
+          category?: string
+          contact_id?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          is_starred?: boolean
+          last_message_at?: string | null
+          linkedin_account_id?: string | null
+          message_count?: number
+          preview?: string | null
+          subject?: string | null
+          updated_at?: string
+          user_category?: string | null
+          workspace_id: string
+        }
+        Update: {
+          campaign_id?: string | null
+          category?: string
+          contact_id?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          is_starred?: boolean
+          last_message_at?: string | null
+          linkedin_account_id?: string | null
+          message_count?: number
+          preview?: string | null
+          subject?: string | null
+          updated_at?: string
+          user_category?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linkedin_inbox_threads_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "linkedin_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkedin_inbox_threads_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkedin_inbox_threads_linkedin_account_id_fkey"
+            columns: ["linkedin_account_id"]
+            isOneToOne: false
+            referencedRelation: "linkedin_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkedin_inbox_threads_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
         ]
@@ -3848,6 +4218,99 @@ export type Database = {
             foreignKeyName: "linkedin_safety_rules_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: true
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      linkedin_tasks: {
+        Row: {
+          assigned_to: string | null
+          campaign_id: string | null
+          completed_at: string | null
+          contact_id: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          due_at: string | null
+          id: string
+          linkedin_account_id: string | null
+          status: string
+          step_id: string | null
+          task_type: string
+          title: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          campaign_id?: string | null
+          completed_at?: string | null
+          contact_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          due_at?: string | null
+          id?: string
+          linkedin_account_id?: string | null
+          status?: string
+          step_id?: string | null
+          task_type?: string
+          title: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          assigned_to?: string | null
+          campaign_id?: string | null
+          completed_at?: string | null
+          contact_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          due_at?: string | null
+          id?: string
+          linkedin_account_id?: string | null
+          status?: string
+          step_id?: string | null
+          task_type?: string
+          title?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linkedin_tasks_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "linkedin_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkedin_tasks_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkedin_tasks_linkedin_account_id_fkey"
+            columns: ["linkedin_account_id"]
+            isOneToOne: false
+            referencedRelation: "linkedin_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkedin_tasks_step_id_fkey"
+            columns: ["step_id"]
+            isOneToOne: false
+            referencedRelation: "linkedin_campaign_steps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkedin_tasks_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
             referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
@@ -6186,8 +6649,18 @@ export type Database = {
         | "converted"
         | "churned"
         | "archived"
-      linkedin_action_type: "connect" | "message"
-      linkedin_connection_status: "connected" | "disconnected"
+      linkedin_action_type:
+        | "connect"
+        | "message"
+        | "view_profile"
+        | "follow_up_message"
+        | "manual_task"
+        | "wait"
+      linkedin_connection_status:
+        | "connected"
+        | "disconnected"
+        | "pending_setup"
+        | "paused"
       linkedin_queue_status: "pending" | "scheduled" | "completed" | "failed"
       mailbox_provider_type: "google" | "microsoft" | "smtp" | "other"
       meeting_status: "scheduled" | "completed" | "cancelled" | "no_show"
@@ -6509,8 +6982,20 @@ export const Constants = {
         "churned",
         "archived",
       ],
-      linkedin_action_type: ["connect", "message"],
-      linkedin_connection_status: ["connected", "disconnected"],
+      linkedin_action_type: [
+        "connect",
+        "message",
+        "view_profile",
+        "follow_up_message",
+        "manual_task",
+        "wait",
+      ],
+      linkedin_connection_status: [
+        "connected",
+        "disconnected",
+        "pending_setup",
+        "paused",
+      ],
       linkedin_queue_status: ["pending", "scheduled", "completed", "failed"],
       mailbox_provider_type: ["google", "microsoft", "smtp", "other"],
       meeting_status: ["scheduled", "completed", "cancelled", "no_show"],
