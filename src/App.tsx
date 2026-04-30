@@ -107,6 +107,10 @@ function PL({ children }: { children: React.ReactNode }) {
   return <ProtectedRoute><AppLayout>{children}</AppLayout></ProtectedRoute>;
 }
 
+function EL({ children }: { children: React.ReactNode }) {
+  return <ProtectedRoute><EngageLayout>{children}</EngageLayout></ProtectedRoute>;
+}
+
 function AL({ children }: { children: React.ReactNode }) {
   return <AdminRoute><AppLayout>{children}</AppLayout></AdminRoute>;
 }
