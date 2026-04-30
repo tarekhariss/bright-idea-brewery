@@ -212,13 +212,31 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">TLBG Prospect Intelligence Overview</p>
+          <p className="text-sm text-muted-foreground">
+            {scopeToWorkspace
+              ? `Workspace overview · ${workspaces.find((w) => w.id === workspaceId)?.name ?? "Active workspace"}`
+              : "Platform-wide overview (all workspaces)"}
+          </p>
         </div>
-        {s.reviewQueueCount > 0 && (
-          <Button variant="outline" size="sm" className="gap-1.5 text-xs border-warning text-warning" onClick={() => navigate("/imports")}>
-            <AlertTriangle className="h-3.5 w-3.5" /> {s.reviewQueueCount} rows need review
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <Button
+              variant={globalView ? "default" : "outline"}
+              size="sm"
+              className="h-8 gap-1.5 text-xs"
+              onClick={() => setGlobalView((v) => !v)}
+              title="Toggle platform-wide vs workspace-scoped view"
+            >
+              <Globe className="h-3.5 w-3.5" />
+              {globalView ? "Global view" : "Workspace view"}
+            </Button>
+          )}
+          {s.reviewQueueCount > 0 && (
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs border-warning text-warning" onClick={() => navigate("/imports")}>
+              <AlertTriangle className="h-3.5 w-3.5" /> {s.reviewQueueCount} rows need review
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Primary KPIs */}
