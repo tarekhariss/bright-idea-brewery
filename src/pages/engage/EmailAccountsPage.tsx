@@ -121,9 +121,10 @@ export default function EmailAccountsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="text-xs">Account</TableHead>
-                  <TableHead className="text-xs">Provider</TableHead>
+                  <TableHead className="text-xs">Owner / Tags</TableHead>
                   <TableHead className="text-xs">Status</TableHead>
-                  <TableHead className="text-xs">Daily Usage</TableHead>
+                  <TableHead className="text-xs">Sent Today</TableHead>
+                  <TableHead className="text-xs">Warmup</TableHead>
                   <TableHead className="text-xs">Health</TableHead>
                   <TableHead className="text-xs">Domain</TableHead>
                   <TableHead className="w-10" />
