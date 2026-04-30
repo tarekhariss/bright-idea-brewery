@@ -30,6 +30,8 @@ export default function EmailAccountsPage() {
   const deleteMailbox = useDeleteMailbox();
   const updateMailbox = useUpdateMailbox();
   const [search, setSearch] = useState("");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = (mailboxes ?? []).find((m: any) => m.id === selectedId) ?? null;
 
   const filtered = (mailboxes ?? []).filter((m: any) =>
     !search || m.email?.toLowerCase().includes(search.toLowerCase())
