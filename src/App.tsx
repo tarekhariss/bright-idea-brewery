@@ -52,6 +52,16 @@ import EmailAccountsPage from "./pages/engage/EmailAccountsPage";
 import EngageAnalyticsPage from "./pages/engage/EngageAnalyticsPage";
 import { EngageLayout } from "./components/engage/EngageLayout";
 
+// LinkedIn Outreach (standalone)
+import { LinkedinLayout } from "./components/linkedin/LinkedinLayout";
+import LinkedinCampaignsPage from "./pages/linkedin/LinkedinCampaignsPage";
+import LinkedinCampaignDetailPage from "./pages/linkedin/LinkedinCampaignDetailPage";
+import LinkedinInboxPage from "./pages/linkedin/LinkedinInboxPage";
+import LinkedinTasksPage from "./pages/linkedin/LinkedinTasksPage";
+import LinkedinAnalyticsPage from "./pages/linkedin/LinkedinAnalyticsPage";
+import LinkedinSettingsPage from "./pages/linkedin/LinkedinSettingsPage";
+import LinkedinTemplatesPage from "./pages/linkedin/LinkedinTemplatesPage";
+
 // Deals pages
 import MeetingsPage from "./pages/deals/Meetings";
 import ConversationsPage from "./pages/deals/Conversations";
@@ -115,6 +125,10 @@ function AL({ children }: { children: React.ReactNode }) {
   return <AdminRoute><AppLayout>{children}</AppLayout></AdminRoute>;
 }
 
+function LL({ children }: { children: React.ReactNode }) {
+  return <ProtectedRoute><LinkedinLayout>{children}</LinkedinLayout></ProtectedRoute>;
+}
+
 function SL({ children }: { children: React.ReactNode }) {
   return <PL><SettingsLayout>{children}</SettingsLayout></PL>;
 }
@@ -161,6 +175,17 @@ const App = () => (
             <Route path="/engage/tasks" element={<EL><TasksPage /></EL>} />
             <Route path="/engage/inbox" element={<EL><UniboxPage /></EL>} />
             <Route path="/engage/linkedin" element={<EL><LinkedInAccountsPage /></EL>} />
+
+            {/* LinkedIn Outreach — standalone product */}
+            <Route path="/linkedin" element={<LL><LinkedinCampaignsPage /></LL>} />
+            <Route path="/linkedin/campaigns" element={<LL><LinkedinCampaignsPage /></LL>} />
+            <Route path="/linkedin/campaigns/:id" element={<LL><LinkedinCampaignDetailPage /></LL>} />
+            <Route path="/linkedin/inbox" element={<LL><LinkedinInboxPage /></LL>} />
+            <Route path="/linkedin/accounts" element={<LL><LinkedInAccountsPage /></LL>} />
+            <Route path="/linkedin/templates" element={<LL><LinkedinTemplatesPage /></LL>} />
+            <Route path="/linkedin/tasks" element={<LL><LinkedinTasksPage /></LL>} />
+            <Route path="/linkedin/analytics" element={<LL><LinkedinAnalyticsPage /></LL>} />
+            <Route path="/linkedin/settings" element={<LL><LinkedinSettingsPage /></LL>} />
 
             {/* Deals */}
             <Route path="/deals" element={<PL><MeetingsPage /></PL>} />

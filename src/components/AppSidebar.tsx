@@ -93,6 +93,7 @@ const navGroups: NavGroup[] = [
 const quickLinks: NavItem[] = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard, end: true },
   { title: "Engage", url: "/engage", icon: Send },
+  { title: "LinkedIn Outreach", url: "/linkedin", icon: Linkedin },
   { title: "Import Center", url: "/imports", icon: Upload },
   { title: "Data Health", url: "/data-health", icon: Activity },
   { title: "Saved Views", url: "/saved-views", icon: Bookmark },
