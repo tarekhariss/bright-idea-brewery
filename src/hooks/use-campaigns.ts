@@ -64,8 +64,14 @@ export function useCreateCampaign() {
   const { user, workspaceId } = useAuth();
   return useMutation({
     mutationFn: async (vals: Omit<CampaignInsert, "owner_id" | "created_by" | "workspace_id">) => {
+      if (!workspaceId) {
+        throw new Error("No active workspace. Please create or select a workspace before creating a campaign.");
+      }
+      if (!user?.id) {
+        throw new Error("You must be signed in to create a campaign.");
+      }
       const { data, error } = await from("campaigns")
-        .insert({ ...vals, owner_id: user?.id, created_by: user?.id, workspace_id: workspaceId })
+        .insert({ ...vals, owner_id: user.id, created_by: user.id, workspace_id: workspaceId })
         .select()
         .single();
       if (error) throw error;
