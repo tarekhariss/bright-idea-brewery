@@ -3571,57 +3571,102 @@ export type Database = {
       }
       linkedin_accounts: {
         Row: {
+          active: boolean
           connection_status: Database["public"]["Enums"]["linkedin_connection_status"]
           created_at: string | null
+          daily_comment_limit: number
           daily_connect_limit: number
+          daily_endorse_limit: number
+          daily_inmail_limit: number
+          daily_like_limit: number
           daily_message_limit: number
           daily_view_limit: number
+          daily_withdraw_limit: number
+          health_score: number
           id: string
           last_action_at: string | null
+          market_median_connects: number
+          market_median_messages: number
+          max_action_delay_seconds: number
+          min_action_delay_seconds: number
           notes: string | null
           owner_user_id: string | null
           profile_name: string
           profile_url: string | null
+          proxy_label: string | null
+          schedule_days_of_week: number[]
           sending_window_end: string
           sending_window_start: string
+          smart_limits_enabled: boolean
           timezone: string
           updated_at: string
+          warmup_level: number
           workspace_id: string | null
         }
         Insert: {
+          active?: boolean
           connection_status?: Database["public"]["Enums"]["linkedin_connection_status"]
           created_at?: string | null
+          daily_comment_limit?: number
           daily_connect_limit?: number
+          daily_endorse_limit?: number
+          daily_inmail_limit?: number
+          daily_like_limit?: number
           daily_message_limit?: number
           daily_view_limit?: number
+          daily_withdraw_limit?: number
+          health_score?: number
           id?: string
           last_action_at?: string | null
+          market_median_connects?: number
+          market_median_messages?: number
+          max_action_delay_seconds?: number
+          min_action_delay_seconds?: number
           notes?: string | null
           owner_user_id?: string | null
           profile_name: string
           profile_url?: string | null
+          proxy_label?: string | null
+          schedule_days_of_week?: number[]
           sending_window_end?: string
           sending_window_start?: string
+          smart_limits_enabled?: boolean
           timezone?: string
           updated_at?: string
+          warmup_level?: number
           workspace_id?: string | null
         }
         Update: {
+          active?: boolean
           connection_status?: Database["public"]["Enums"]["linkedin_connection_status"]
           created_at?: string | null
+          daily_comment_limit?: number
           daily_connect_limit?: number
+          daily_endorse_limit?: number
+          daily_inmail_limit?: number
+          daily_like_limit?: number
           daily_message_limit?: number
           daily_view_limit?: number
+          daily_withdraw_limit?: number
+          health_score?: number
           id?: string
           last_action_at?: string | null
+          market_median_connects?: number
+          market_median_messages?: number
+          max_action_delay_seconds?: number
+          min_action_delay_seconds?: number
           notes?: string | null
           owner_user_id?: string | null
           profile_name?: string
           profile_url?: string | null
+          proxy_label?: string | null
+          schedule_days_of_week?: number[]
           sending_window_end?: string
           sending_window_start?: string
+          smart_limits_enabled?: boolean
           timezone?: string
           updated_at?: string
+          warmup_level?: number
           workspace_id?: string | null
         }
         Relationships: [
@@ -3639,28 +3684,40 @@ export type Database = {
           action_type: Database["public"]["Enums"]["linkedin_action_type"]
           campaign_id: string | null
           contact_id: string
+          error_message: string | null
           executed_at: string | null
           id: string
           linkedin_account_id: string
+          metadata: Json
           result: string | null
+          status: string
+          workspace_id: string | null
         }
         Insert: {
           action_type: Database["public"]["Enums"]["linkedin_action_type"]
           campaign_id?: string | null
           contact_id: string
+          error_message?: string | null
           executed_at?: string | null
           id?: string
           linkedin_account_id: string
+          metadata?: Json
           result?: string | null
+          status?: string
+          workspace_id?: string | null
         }
         Update: {
           action_type?: Database["public"]["Enums"]["linkedin_action_type"]
           campaign_id?: string | null
           contact_id?: string
+          error_message?: string | null
           executed_at?: string | null
           id?: string
           linkedin_account_id?: string
+          metadata?: Json
           result?: string | null
+          status?: string
+          workspace_id?: string | null
         }
         Relationships: [
           {
@@ -3684,43 +3741,78 @@ export type Database = {
             referencedRelation: "linkedin_accounts"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "linkedin_action_history_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
         ]
       }
       linkedin_action_queue: {
         Row: {
           action_type: Database["public"]["Enums"]["linkedin_action_type"]
+          campaign_id: string | null
           campaign_step_id: string | null
           contact_id: string
           created_at: string | null
+          error_message: string | null
           executed_at: string | null
           id: string
           linkedin_account_id: string
+          payload: Json
+          priority: number
+          retry_count: number
           scheduled_at: string | null
           status: Database["public"]["Enums"]["linkedin_queue_status"]
+          updated_at: string
+          workspace_id: string | null
         }
         Insert: {
           action_type: Database["public"]["Enums"]["linkedin_action_type"]
+          campaign_id?: string | null
           campaign_step_id?: string | null
           contact_id: string
           created_at?: string | null
+          error_message?: string | null
           executed_at?: string | null
           id?: string
           linkedin_account_id: string
+          payload?: Json
+          priority?: number
+          retry_count?: number
           scheduled_at?: string | null
           status?: Database["public"]["Enums"]["linkedin_queue_status"]
+          updated_at?: string
+          workspace_id?: string | null
         }
         Update: {
           action_type?: Database["public"]["Enums"]["linkedin_action_type"]
+          campaign_id?: string | null
           campaign_step_id?: string | null
           contact_id?: string
           created_at?: string | null
+          error_message?: string | null
           executed_at?: string | null
           id?: string
           linkedin_account_id?: string
+          payload?: Json
+          priority?: number
+          retry_count?: number
           scheduled_at?: string | null
           status?: Database["public"]["Enums"]["linkedin_queue_status"]
+          updated_at?: string
+          workspace_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "linkedin_action_queue_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "linkedin_campaigns"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "linkedin_action_queue_campaign_step_id_fkey"
             columns: ["campaign_step_id"]
@@ -3740,6 +3832,60 @@ export type Database = {
             columns: ["linkedin_account_id"]
             isOneToOne: false
             referencedRelation: "linkedin_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkedin_action_queue_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      linkedin_api_keys: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          key_hash: string
+          key_prefix: string
+          last_used_at: string | null
+          name: string
+          scopes: string[]
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          key_hash: string
+          key_prefix: string
+          last_used_at?: string | null
+          name: string
+          scopes?: string[]
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          key_hash?: string
+          key_prefix?: string
+          last_used_at?: string | null
+          name?: string
+          scopes?: string[]
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linkedin_api_keys_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
         ]
@@ -3965,6 +4111,111 @@ export type Database = {
           },
         ]
       }
+      linkedin_contact_state: {
+        Row: {
+          connection_status: string
+          contact_id: string
+          created_at: string
+          id: string
+          inbox_status: string | null
+          last_enriched_at: string | null
+          last_li_action_type: string | null
+          last_li_activity_at: string | null
+          linkedin_account_id: string | null
+          notes: string | null
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          connection_status?: string
+          contact_id: string
+          created_at?: string
+          id?: string
+          inbox_status?: string | null
+          last_enriched_at?: string | null
+          last_li_action_type?: string | null
+          last_li_activity_at?: string | null
+          linkedin_account_id?: string | null
+          notes?: string | null
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          connection_status?: string
+          contact_id?: string
+          created_at?: string
+          id?: string
+          inbox_status?: string | null
+          last_enriched_at?: string | null
+          last_li_action_type?: string | null
+          last_li_activity_at?: string | null
+          linkedin_account_id?: string | null
+          notes?: string | null
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linkedin_contact_state_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkedin_contact_state_linkedin_account_id_fkey"
+            columns: ["linkedin_account_id"]
+            isOneToOne: false
+            referencedRelation: "linkedin_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkedin_contact_state_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      linkedin_filter_presets: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          filters: Json
+          id: string
+          name: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          filters?: Json
+          id?: string
+          name: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          filters?: Json
+          id?: string
+          name?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linkedin_filter_presets_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       linkedin_inbox_messages: {
         Row: {
           body: string | null
@@ -4086,6 +4337,47 @@ export type Database = {
           },
           {
             foreignKeyName: "linkedin_inbox_threads_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      linkedin_llm_integrations: {
+        Row: {
+          config: Json
+          created_at: string
+          id: string
+          is_default: boolean
+          model: string
+          provider: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          model?: string
+          provider?: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          model?: string
+          provider?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linkedin_llm_integrations_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -4223,6 +4515,44 @@ export type Database = {
           },
         ]
       }
+      linkedin_stoplist: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          match_type: string
+          match_value: string
+          reason: string | null
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          match_type?: string
+          match_value: string
+          reason?: string | null
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          match_type?: string
+          match_value?: string
+          reason?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linkedin_stoplist_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       linkedin_tasks: {
         Row: {
           assigned_to: string | null
@@ -4309,6 +4639,53 @@ export type Database = {
           },
           {
             foreignKeyName: "linkedin_tasks_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      linkedin_webhooks: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          events: string[]
+          id: string
+          is_active: boolean
+          name: string
+          secret: string | null
+          updated_at: string
+          url: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          events?: string[]
+          id?: string
+          is_active?: boolean
+          name: string
+          secret?: string | null
+          updated_at?: string
+          url: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          events?: string[]
+          id?: string
+          is_active?: boolean
+          name?: string
+          secret?: string | null
+          updated_at?: string
+          url?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linkedin_webhooks_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -6656,12 +7033,23 @@ export type Database = {
         | "follow_up_message"
         | "manual_task"
         | "wait"
+        | "inmail"
+        | "like_post"
+        | "comment_post"
+        | "endorse_skills"
+        | "withdraw_request"
       linkedin_connection_status:
         | "connected"
         | "disconnected"
         | "pending_setup"
         | "paused"
-      linkedin_queue_status: "pending" | "scheduled" | "completed" | "failed"
+      linkedin_queue_status:
+        | "pending"
+        | "scheduled"
+        | "completed"
+        | "failed"
+        | "blocked"
+        | "paused"
       mailbox_provider_type: "google" | "microsoft" | "smtp" | "other"
       meeting_status: "scheduled" | "completed" | "cancelled" | "no_show"
       merge_status: "candidate" | "merged" | "kept_separate" | "skipped"
@@ -6989,6 +7377,11 @@ export const Constants = {
         "follow_up_message",
         "manual_task",
         "wait",
+        "inmail",
+        "like_post",
+        "comment_post",
+        "endorse_skills",
+        "withdraw_request",
       ],
       linkedin_connection_status: [
         "connected",
@@ -6996,7 +7389,14 @@ export const Constants = {
         "pending_setup",
         "paused",
       ],
-      linkedin_queue_status: ["pending", "scheduled", "completed", "failed"],
+      linkedin_queue_status: [
+        "pending",
+        "scheduled",
+        "completed",
+        "failed",
+        "blocked",
+        "paused",
+      ],
       mailbox_provider_type: ["google", "microsoft", "smtp", "other"],
       meeting_status: ["scheduled", "completed", "cancelled", "no_show"],
       merge_status: ["candidate", "merged", "kept_separate", "skipped"],
