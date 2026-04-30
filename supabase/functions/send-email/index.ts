@@ -229,9 +229,30 @@ Deno.serve(async (req: Request) => {
         details: { mailbox_id, sent_at: sentAt },
       });
 
-      // Update mailbox convenience counter (emails_sent_today exists on mailboxes table)
+      // Update mailbox: counter + pacing fields. Pacing window is min_wait + random_wait
+      // from the originating campaign (if available); defaults 60s otherwise.
+      let paceMs = 60_000;
+      try {
+        const { data: enrRow } = await supabase.from("emails")
+          .select("enrollment_id, sequence_id").eq("id", email_id).maybeSingle();
+        if (enrRow?.enrollment_id) {
+          const { data: en } = await supabase.from("sequence_enrollments")
+            .select("sequences(campaign_id)").eq("id", enrRow.enrollment_id).maybeSingle();
+          const campaignId = (en as any)?.sequences?.campaign_id;
+          if (campaignId) {
+            const { data: c } = await supabase.from("campaigns")
+              .select("min_wait_minutes, random_wait_minutes").eq("id", campaignId).maybeSingle();
+            const minW = c?.min_wait_minutes ?? 1;
+            const rndW = Math.floor(Math.random() * (c?.random_wait_minutes ?? 0));
+            paceMs = (minW + rndW) * 60_000;
+          }
+        }
+      } catch (_) { /* fall back to default 60s pacing */ }
+      const nextEligible = new Date(Date.now() + paceMs).toISOString();
       await supabase.from("mailboxes").update({
         emails_sent_today: (mailbox.emails_sent_today || 0) + 1,
+        last_send_at: sentAt,
+        next_send_eligible_at: nextEligible,
         last_checked_at: sentAt,
         updated_at: sentAt,
       }).eq("id", mailbox_id);
