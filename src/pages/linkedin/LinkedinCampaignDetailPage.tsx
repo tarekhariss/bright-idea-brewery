@@ -51,6 +51,7 @@ export default function LinkedinCampaignDetailPage() {
           <h1 className="text-base font-semibold truncate">{campaign.name}</h1>
           <p className="text-[11px] text-muted-foreground truncate">{campaign.description || "LinkedIn outreach campaign"}</p>
         </div>
+        <CampaignAdapterBadge />
         <Badge className="text-[10px] capitalize">{campaign.status}</Badge>
       </header>
 
