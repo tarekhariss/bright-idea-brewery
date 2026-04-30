@@ -240,10 +240,10 @@ Deno.serve(async (req: Request) => {
           .select("*")
           .eq("id", action.linkedin_account_id)
           .maybeSingle();
-        if (!sender || sender.is_active === false || sender.status === "paused") {
+        if (!sender || sender.connection_status !== "connected") {
           await supabase.rpc("linkedin_block_action", {
             _queue_id: action.id,
-            _reason: "Sender profile inactive or paused",
+            _reason: `Sender not connected (status: ${sender?.connection_status ?? "missing"})`,
           });
           blocked++; notes.push({ id: action.id, status: "blocked", reason: "sender inactive" });
           continue;
