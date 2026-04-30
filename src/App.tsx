@@ -125,6 +125,10 @@ function AL({ children }: { children: React.ReactNode }) {
   return <AdminRoute><AppLayout>{children}</AppLayout></AdminRoute>;
 }
 
+function LL({ children }: { children: React.ReactNode }) {
+  return <ProtectedRoute><LinkedinLayout>{children}</LinkedinLayout></ProtectedRoute>;
+}
+
 function SL({ children }: { children: React.ReactNode }) {
   return <PL><SettingsLayout>{children}</SettingsLayout></PL>;
 }
