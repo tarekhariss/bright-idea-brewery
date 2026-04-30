@@ -33,7 +33,7 @@ export default function LinkedinSettingsPage() {
         </div>
       </div>
 
-      <SettingsBanner />
+      <AdapterBanner />
 
       <Tabs defaultValue="execution">
         <TabsList className="flex-wrap h-auto">
