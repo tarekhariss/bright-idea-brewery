@@ -5982,6 +5982,7 @@ export type Database = {
         Args: { p_name: string; p_user_id: string }
         Returns: Json
       }
+      generate_workspace_slug: { Args: { p_name: string }; Returns: string }
       has_any_role: {
         Args: {
           _roles: Database["public"]["Enums"]["app_role"][]
