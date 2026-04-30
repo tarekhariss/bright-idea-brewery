@@ -58,21 +58,6 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    label: "Engage",
-    icon: Send,
-    basePath: "/engage",
-    items: [
-      { title: "Sequences", url: "/engage/sequences", icon: GitBranch },
-      { title: "Campaigns", url: "/engage/campaigns", icon: Megaphone },
-      { title: "LinkedIn", url: "/engage/linkedin", icon: Linkedin },
-      { title: "Templates", url: "/engage/templates", icon: FileText },
-      { title: "Emails", url: "/engage/emails", icon: Mail },
-      { title: "Calls", url: "/engage/calls", icon: Phone },
-      { title: "Tasks", url: "/engage/tasks", icon: CheckSquare },
-      { title: "Inbox", url: "/engage/inbox", icon: Inbox },
-    ],
-  },
-  {
     label: "Deals",
     icon: Handshake,
     basePath: "/deals",
@@ -107,6 +92,7 @@ const navGroups: NavGroup[] = [
 
 const quickLinks: NavItem[] = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard, end: true },
+  { title: "Engage", url: "/engage", icon: Send },
   { title: "Import Center", url: "/imports", icon: Upload },
   { title: "Data Health", url: "/data-health", icon: Activity },
   { title: "Saved Views", url: "/saved-views", icon: Bookmark },
