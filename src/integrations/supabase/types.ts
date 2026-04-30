@@ -1078,60 +1078,106 @@ export type Database = {
       }
       campaigns: {
         Row: {
+          active_days: Json
+          bcc: string | null
           created_at: string | null
           created_by: string | null
           daily_limit: number | null
+          delivery_optimization: boolean
           description: string | null
+          end_at: string | null
           id: string
           max_new_leads_per_day: number | null
           min_wait_minutes: number | null
           name: string
           owner_id: string | null
           random_wait_minutes: number | null
+          reply_to: string | null
+          send_end_hour: number
+          send_start_hour: number
+          sending_window_id: string | null
+          start_at: string | null
           status: Database["public"]["Enums"]["campaign_status"]
           stop_on_auto_reply: boolean | null
+          stop_on_click: boolean
           stop_on_reply: boolean | null
           template_id: string | null
+          timezone: string
+          track_clicks: boolean
+          track_opens: boolean
           updated_at: string | null
           workspace_id: string | null
         }
         Insert: {
+          active_days?: Json
+          bcc?: string | null
           created_at?: string | null
           created_by?: string | null
           daily_limit?: number | null
+          delivery_optimization?: boolean
           description?: string | null
+          end_at?: string | null
           id?: string
           max_new_leads_per_day?: number | null
           min_wait_minutes?: number | null
           name: string
           owner_id?: string | null
           random_wait_minutes?: number | null
+          reply_to?: string | null
+          send_end_hour?: number
+          send_start_hour?: number
+          sending_window_id?: string | null
+          start_at?: string | null
           status?: Database["public"]["Enums"]["campaign_status"]
           stop_on_auto_reply?: boolean | null
+          stop_on_click?: boolean
           stop_on_reply?: boolean | null
           template_id?: string | null
+          timezone?: string
+          track_clicks?: boolean
+          track_opens?: boolean
           updated_at?: string | null
           workspace_id?: string | null
         }
         Update: {
+          active_days?: Json
+          bcc?: string | null
           created_at?: string | null
           created_by?: string | null
           daily_limit?: number | null
+          delivery_optimization?: boolean
           description?: string | null
+          end_at?: string | null
           id?: string
           max_new_leads_per_day?: number | null
           min_wait_minutes?: number | null
           name?: string
           owner_id?: string | null
           random_wait_minutes?: number | null
+          reply_to?: string | null
+          send_end_hour?: number
+          send_start_hour?: number
+          sending_window_id?: string | null
+          start_at?: string | null
           status?: Database["public"]["Enums"]["campaign_status"]
           stop_on_auto_reply?: boolean | null
+          stop_on_click?: boolean
           stop_on_reply?: boolean | null
           template_id?: string | null
+          timezone?: string
+          track_clicks?: boolean
+          track_opens?: boolean
           updated_at?: string | null
           workspace_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "campaigns_sending_window_id_fkey"
+            columns: ["sending_window_id"]
+            isOneToOne: false
+            referencedRelation: "sending_windows"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "campaigns_template_id_fkey"
             columns: ["template_id"]
