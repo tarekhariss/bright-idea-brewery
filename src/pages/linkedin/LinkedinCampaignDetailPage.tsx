@@ -307,23 +307,24 @@ function InboxTab({ campaignId }: { campaignId: string }) {
 
 // ── Analytics Tab ──
 function AnalyticsTab({ campaignId }: { campaignId: string }) {
-  const { data: leads } = useLinkedinCampaignLeads(campaignId);
-  const total = leads?.length || 0;
-  const connected = leads?.filter((l: any) => l.connection_status === "connected").length || 0;
-  const replied = leads?.filter((l: any) => l.reply_status && l.reply_status !== "none").length || 0;
-  const meetings = leads?.filter((l: any) => l.reply_status === "meeting_booked").length || 0;
+  const { data: stats } = useLinkedinCampaignStats(campaignId);
+  const s = stats?.[0] || {};
+  const cards = [
+    { label: "Total Leads", value: s.leads_total ?? 0, icon: Users },
+    { label: "Connected", value: s.connected ?? 0, icon: UserPlus },
+    { label: "Connects Sent", value: s.connects_sent ?? 0, icon: UserPlus },
+    { label: "Messages Sent", value: s.messages_sent ?? 0, icon: MessageSquare },
+    { label: "Replies", value: s.replies ?? 0, icon: Reply },
+    { label: "Meetings", value: s.meetings ?? 0, icon: MessageSquare },
+    { label: "Queued", value: s.queued_actions ?? 0, icon: Clock },
+  ];
   return (
     <div className="grid grid-cols-4 gap-4">
-      {[
-        { label: "Total Leads", value: total, icon: Users },
-        { label: "Connected", value: connected, icon: UserPlus },
-        { label: "Replies", value: replied, icon: Reply },
-        { label: "Meetings", value: meetings, icon: MessageSquare },
-      ].map((s) => (
-        <Card key={s.label}>
+      {cards.map((c) => (
+        <Card key={c.label}>
           <CardContent className="pt-4 pb-3 px-4">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{s.label}</p>
-            <p className="text-2xl font-semibold mt-1">{s.value}</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{c.label}</p>
+            <p className="text-2xl font-semibold mt-1">{c.value}</p>
           </CardContent>
         </Card>
       ))}
