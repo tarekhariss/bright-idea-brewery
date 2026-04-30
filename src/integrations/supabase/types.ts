@@ -4100,44 +4100,68 @@ export type Database = {
         Row: {
           created_at: string | null
           daily_warmup_limit: number | null
+          disable_slow_warmup: boolean | null
           id: string
           increase_per_day: number | null
           mailbox_id: string
+          mark_important_rate: number | null
           open_rate_target: number | null
           read_emulation: boolean | null
           reply_rate_target: number | null
+          saved_from_spam_week: number | null
           spam_protection_rate: number | null
           updated_at: string | null
+          warm_custom_tracking_domain: boolean | null
+          warmup_emails_received_week: number | null
+          warmup_emails_sent_week: number | null
           warmup_enabled: boolean | null
+          warmup_filter_tag: string | null
           weekdays_only: boolean | null
+          weekly_chart: Json | null
         }
         Insert: {
           created_at?: string | null
           daily_warmup_limit?: number | null
+          disable_slow_warmup?: boolean | null
           id?: string
           increase_per_day?: number | null
           mailbox_id: string
+          mark_important_rate?: number | null
           open_rate_target?: number | null
           read_emulation?: boolean | null
           reply_rate_target?: number | null
+          saved_from_spam_week?: number | null
           spam_protection_rate?: number | null
           updated_at?: string | null
+          warm_custom_tracking_domain?: boolean | null
+          warmup_emails_received_week?: number | null
+          warmup_emails_sent_week?: number | null
           warmup_enabled?: boolean | null
+          warmup_filter_tag?: string | null
           weekdays_only?: boolean | null
+          weekly_chart?: Json | null
         }
         Update: {
           created_at?: string | null
           daily_warmup_limit?: number | null
+          disable_slow_warmup?: boolean | null
           id?: string
           increase_per_day?: number | null
           mailbox_id?: string
+          mark_important_rate?: number | null
           open_rate_target?: number | null
           read_emulation?: boolean | null
           reply_rate_target?: number | null
+          saved_from_spam_week?: number | null
           spam_protection_rate?: number | null
           updated_at?: string | null
+          warm_custom_tracking_domain?: boolean | null
+          warmup_emails_received_week?: number | null
+          warmup_emails_sent_week?: number | null
           warmup_enabled?: boolean | null
+          warmup_filter_tag?: string | null
           weekdays_only?: boolean | null
+          weekly_chart?: Json | null
         }
         Relationships: [
           {
@@ -4156,17 +4180,22 @@ export type Database = {
             | null
           created_at: string | null
           created_by: string | null
+          daily_campaign_limit: number | null
+          daily_inbox_placement_test_limit: number | null
           daily_sending_limit: number | null
           display_name: string | null
           domain_id: string | null
           email: string
           emails_sent_today: number | null
+          first_name: string | null
           id: string
           imap_host: string | null
           imap_port: number | null
           imap_secure: boolean | null
           imap_username: string | null
           last_checked_at: string | null
+          last_name: string | null
+          min_wait_seconds: number | null
           notes: string | null
           oauth_access_token: string | null
           oauth_expires_at: string | null
@@ -4176,15 +4205,27 @@ export type Database = {
           provider_type:
             | Database["public"]["Enums"]["mailbox_provider_type"]
             | null
+          reply_to_email: string | null
+          sender_name: string | null
           sending_health: Database["public"]["Enums"]["sending_health"] | null
+          signature: string | null
+          slow_ramp_enabled: boolean | null
           smtp_host: string | null
           smtp_password_encrypted: string | null
           smtp_port: number | null
           smtp_secure: boolean | null
           smtp_username: string | null
+          tags: string[] | null
+          tracking_cname_target: string | null
+          tracking_cname_verified: boolean | null
+          tracking_domain: string | null
+          tracking_last_checked_at: string | null
+          tracking_ssl_verified: boolean | null
+          tracking_subdomain: string | null
           updated_at: string | null
           warmup_enabled: boolean | null
           warmup_progress: number | null
+          warmup_started_at: string | null
           workspace_id: string | null
         }
         Insert: {
@@ -4193,17 +4234,22 @@ export type Database = {
             | null
           created_at?: string | null
           created_by?: string | null
+          daily_campaign_limit?: number | null
+          daily_inbox_placement_test_limit?: number | null
           daily_sending_limit?: number | null
           display_name?: string | null
           domain_id?: string | null
           email: string
           emails_sent_today?: number | null
+          first_name?: string | null
           id?: string
           imap_host?: string | null
           imap_port?: number | null
           imap_secure?: boolean | null
           imap_username?: string | null
           last_checked_at?: string | null
+          last_name?: string | null
+          min_wait_seconds?: number | null
           notes?: string | null
           oauth_access_token?: string | null
           oauth_expires_at?: string | null
@@ -4213,15 +4259,27 @@ export type Database = {
           provider_type?:
             | Database["public"]["Enums"]["mailbox_provider_type"]
             | null
+          reply_to_email?: string | null
+          sender_name?: string | null
           sending_health?: Database["public"]["Enums"]["sending_health"] | null
+          signature?: string | null
+          slow_ramp_enabled?: boolean | null
           smtp_host?: string | null
           smtp_password_encrypted?: string | null
           smtp_port?: number | null
           smtp_secure?: boolean | null
           smtp_username?: string | null
+          tags?: string[] | null
+          tracking_cname_target?: string | null
+          tracking_cname_verified?: boolean | null
+          tracking_domain?: string | null
+          tracking_last_checked_at?: string | null
+          tracking_ssl_verified?: boolean | null
+          tracking_subdomain?: string | null
           updated_at?: string | null
           warmup_enabled?: boolean | null
           warmup_progress?: number | null
+          warmup_started_at?: string | null
           workspace_id?: string | null
         }
         Update: {
@@ -4230,17 +4288,22 @@ export type Database = {
             | null
           created_at?: string | null
           created_by?: string | null
+          daily_campaign_limit?: number | null
+          daily_inbox_placement_test_limit?: number | null
           daily_sending_limit?: number | null
           display_name?: string | null
           domain_id?: string | null
           email?: string
           emails_sent_today?: number | null
+          first_name?: string | null
           id?: string
           imap_host?: string | null
           imap_port?: number | null
           imap_secure?: boolean | null
           imap_username?: string | null
           last_checked_at?: string | null
+          last_name?: string | null
+          min_wait_seconds?: number | null
           notes?: string | null
           oauth_access_token?: string | null
           oauth_expires_at?: string | null
@@ -4250,15 +4313,27 @@ export type Database = {
           provider_type?:
             | Database["public"]["Enums"]["mailbox_provider_type"]
             | null
+          reply_to_email?: string | null
+          sender_name?: string | null
           sending_health?: Database["public"]["Enums"]["sending_health"] | null
+          signature?: string | null
+          slow_ramp_enabled?: boolean | null
           smtp_host?: string | null
           smtp_password_encrypted?: string | null
           smtp_port?: number | null
           smtp_secure?: boolean | null
           smtp_username?: string | null
+          tags?: string[] | null
+          tracking_cname_target?: string | null
+          tracking_cname_verified?: boolean | null
+          tracking_domain?: string | null
+          tracking_last_checked_at?: string | null
+          tracking_ssl_verified?: boolean | null
+          tracking_subdomain?: string | null
           updated_at?: string | null
           warmup_enabled?: boolean | null
           warmup_progress?: number | null
+          warmup_started_at?: string | null
           workspace_id?: string | null
         }
         Relationships: [

@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { useMailboxes, useDeleteMailbox, useUpdateMailbox } from "@/hooks/use-deliverability";
+import { EmailAccountDetailDrawer } from "@/components/engage/EmailAccountDetailDrawer";
 import { cn } from "@/lib/utils";
 
 const statusInfo: Record<string, { label: string; icon: any; cls: string }> = {
@@ -29,6 +30,8 @@ export default function EmailAccountsPage() {
   const deleteMailbox = useDeleteMailbox();
   const updateMailbox = useUpdateMailbox();
   const [search, setSearch] = useState("");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = (mailboxes ?? []).find((m: any) => m.id === selectedId) ?? null;
 
   const filtered = (mailboxes ?? []).filter((m: any) =>
     !search || m.email?.toLowerCase().includes(search.toLowerCase())
@@ -118,9 +121,10 @@ export default function EmailAccountsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="text-xs">Account</TableHead>
-                  <TableHead className="text-xs">Provider</TableHead>
+                  <TableHead className="text-xs">Owner / Tags</TableHead>
                   <TableHead className="text-xs">Status</TableHead>
-                  <TableHead className="text-xs">Daily Usage</TableHead>
+                  <TableHead className="text-xs">Sent Today</TableHead>
+                  <TableHead className="text-xs">Warmup</TableHead>
                   <TableHead className="text-xs">Health</TableHead>
                   <TableHead className="text-xs">Domain</TableHead>
                   <TableHead className="w-10" />
@@ -130,12 +134,17 @@ export default function EmailAccountsPage() {
                 {filtered.map((m: any) => {
                   const status = statusInfo[m.connection_status || "disconnected"] || statusInfo.disconnected;
                   const Icon = status.icon;
-                  const used = m.today_sent_count || 0;
-                  const limit = m.daily_sending_limit || 100;
+                  const used = m.emails_sent_today || 0;
+                  const limit = m.daily_campaign_limit || m.daily_sending_limit || 100;
                   const pct = Math.min(100, Math.round((used / limit) * 100));
                   const health = m.health_score ?? 100;
+                  const tags: string[] = m.tags || [];
                   return (
-                    <TableRow key={m.id}>
+                    <TableRow
+                      key={m.id}
+                      className="cursor-pointer hover:bg-muted/40"
+                      onClick={() => setSelectedId(m.id)}
+                    >
                       <TableCell>
                         <div className="flex items-center gap-2.5">
                           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-[11px] font-medium">
@@ -143,14 +152,20 @@ export default function EmailAccountsPage() {
                           </div>
                           <div>
                             <p className="text-xs font-medium">{m.email}</p>
-                            <p className="text-[10px] text-muted-foreground">{m.from_name || "—"}</p>
+                            <p className="text-[10px] text-muted-foreground">{m.sender_name || m.from_name || m.display_name || "—"}</p>
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="text-[10px] capitalize">
-                          {m.provider_type || "smtp"}
-                        </Badge>
+                        <div className="flex flex-wrap gap-1">
+                          {tags.length === 0 ? (
+                            <span className="text-[10px] text-muted-foreground">—</span>
+                          ) : (
+                            tags.slice(0, 3).map((t) => (
+                              <Badge key={t} variant="secondary" className="text-[10px]">{t}</Badge>
+                            ))
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Badge className={cn("gap-1 text-[10px]", status.cls)}>
@@ -167,6 +182,15 @@ export default function EmailAccountsPage() {
                         </div>
                       </TableCell>
                       <TableCell>
+                        {m.warmup_enabled ? (
+                          <Badge className="gap-1 border-orange-500/20 bg-orange-500/10 text-[10px] text-orange-700">
+                            <Activity className="h-2.5 w-2.5" /> {m.warmup_progress ?? 0}%
+                          </Badge>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground">Off</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
                         <span
                           className={cn(
                             "text-xs font-medium tabular-nums",
@@ -179,7 +203,7 @@ export default function EmailAccountsPage() {
                       <TableCell className="text-xs text-muted-foreground">
                         {m.sending_domains?.domain_name || "—"}
                       </TableCell>
-                      <TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-7 w-7">
@@ -196,7 +220,7 @@ export default function EmailAccountsPage() {
                                 <Play className="mr-2 h-3.5 w-3.5" /> Activate
                               </DropdownMenuItem>
                             )}
-                            <DropdownMenuItem onClick={() => navigate(`/settings/deliverability/mailboxes`)}>
+                            <DropdownMenuItem onClick={() => setSelectedId(m.id)}>
                               <SettingsIcon className="mr-2 h-3.5 w-3.5" /> Configure
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
@@ -217,6 +241,12 @@ export default function EmailAccountsPage() {
           </Card>
         )}
       </div>
+
+      <EmailAccountDetailDrawer
+        mailbox={selected}
+        open={!!selectedId}
+        onOpenChange={(o) => { if (!o) setSelectedId(null); }}
+      />
     </div>
   );
 }
