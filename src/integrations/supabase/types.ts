@@ -812,6 +812,51 @@ export type Database = {
           },
         ]
       }
+      campaign_mailbox_pool: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          mailbox_id: string
+          weight: number
+          workspace_id: string
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          mailbox_id: string
+          weight?: number
+          workspace_id: string
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          mailbox_id?: string
+          weight?: number
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_mailbox_pool_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_mailbox_pool_mailbox_id_fkey"
+            columns: ["mailbox_id"]
+            isOneToOne: false
+            referencedRelation: "mailboxes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       campaign_mailboxes: {
         Row: {
           campaign_id: string
@@ -5512,7 +5557,9 @@ export type Database = {
           imap_username: string | null
           last_checked_at: string | null
           last_name: string | null
+          last_send_at: string | null
           min_wait_seconds: number | null
+          next_send_eligible_at: string | null
           notes: string | null
           oauth_access_token: string | null
           oauth_expires_at: string | null
@@ -5566,7 +5613,9 @@ export type Database = {
           imap_username?: string | null
           last_checked_at?: string | null
           last_name?: string | null
+          last_send_at?: string | null
           min_wait_seconds?: number | null
+          next_send_eligible_at?: string | null
           notes?: string | null
           oauth_access_token?: string | null
           oauth_expires_at?: string | null
@@ -5620,7 +5669,9 @@ export type Database = {
           imap_username?: string | null
           last_checked_at?: string | null
           last_name?: string | null
+          last_send_at?: string | null
           min_wait_seconds?: number | null
+          next_send_eligible_at?: string | null
           notes?: string | null
           oauth_access_token?: string | null
           oauth_expires_at?: string | null
@@ -6796,6 +6847,7 @@ export type Database = {
           created_at: string | null
           delay_days: number
           delay_hours: number
+          delay_minutes: number
           email_body: string | null
           email_subject: string | null
           id: string
@@ -6820,6 +6872,7 @@ export type Database = {
           created_at?: string | null
           delay_days?: number
           delay_hours?: number
+          delay_minutes?: number
           email_body?: string | null
           email_subject?: string | null
           id?: string
@@ -6844,6 +6897,7 @@ export type Database = {
           created_at?: string | null
           delay_days?: number
           delay_hours?: number
+          delay_minutes?: number
           email_body?: string | null
           email_subject?: string | null
           id?: string
@@ -7306,6 +7360,25 @@ export type Database = {
       }
     }
     Views: {
+      email_queue_health_v: {
+        Row: {
+          completed_24h: number | null
+          failed: number | null
+          in_flight: number | null
+          oldest_pending_at: string | null
+          waiting: number | null
+          workspace_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mailboxes_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       linkedin_campaign_stats_v: {
         Row: {
           campaign_id: string | null
@@ -7358,6 +7431,10 @@ export type Database = {
         Args: { p_name: string; p_user_id: string }
         Returns: Json
       }
+      enrollment_should_stop_for_reply: {
+        Args: { _enrollment_id: string }
+        Returns: boolean
+      }
       generate_workspace_slug: { Args: { p_name: string }; Returns: string }
       has_any_role: {
         Args: {
@@ -7379,6 +7456,7 @@ export type Database = {
       }
       is_email_allowed: { Args: { p_email: string }; Returns: boolean }
       is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_sending_window_open: { Args: { _window_id: string }; Returns: boolean }
       is_workspace_member: {
         Args: { _user_id: string; _workspace_id: string }
         Returns: boolean
@@ -7514,6 +7592,7 @@ export type Database = {
         }
         Returns: string
       }
+      pick_campaign_mailbox: { Args: { _campaign_id: string }; Returns: string }
       user_workspace_ids: { Args: never; Returns: string[] }
       workspace_role: {
         Args: { _user_id: string; _workspace_id: string }
