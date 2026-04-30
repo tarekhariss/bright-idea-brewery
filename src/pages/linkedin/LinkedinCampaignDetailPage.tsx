@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Loader2, Users, GitBranch, Inbox, BarChart3, Settings, Plus, Trash2, Eye, UserPlus, MessageSquare, Reply, ListTodo, Clock, Save } from "lucide-react";
+import { ArrowLeft, Loader2, Users, GitBranch, Inbox, BarChart3, Settings, Plus, Trash2, Eye, UserPlus, MessageSquare, Reply, ListTodo, Clock, Save, Pause, Play, ShieldAlert, Plug } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -15,9 +15,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import {
   useLinkedinCampaign, useUpdateLinkedinCampaign,
   useLinkedinCampaignSteps, useCreateLinkedinStep, useUpdateLinkedinStep, useDeleteLinkedinStep,
-  useLinkedinCampaignLeads, useAddLinkedinLeads, useRemoveLinkedinLead,
+  useLinkedinCampaignLeads,
   useLinkedinInboxThreads,
 } from "@/hooks/use-linkedin-campaigns";
+import { useEnrollLeadsInLinkedinCampaign, useTransitionLinkedinLead, useHasActiveLinkedinAdapter, useLinkedinCampaignStats } from "@/hooks/use-linkedin-engine";
 import { useLinkedinAccounts } from "@/hooks/use-linkedin";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
