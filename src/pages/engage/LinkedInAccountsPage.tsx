@@ -147,6 +147,9 @@ export default function LinkedInAccountsPage() {
                           <Button variant="ghost" size="icon" className="h-7 w-7"><MoreHorizontal className="h-3.5 w-3.5" /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => navigate(`/linkedin/accounts/${a.id}`)}>
+                            <ExternalLink className="h-3.5 w-3.5 mr-2" /> Open Sender Profile
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => updateAccount.mutate({
                             id: a.id,
                             connection_status: a.connection_status === "connected" ? "disconnected" : "connected"
