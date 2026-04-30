@@ -61,6 +61,8 @@ import LinkedinTasksPage from "./pages/linkedin/LinkedinTasksPage";
 import LinkedinAnalyticsPage from "./pages/linkedin/LinkedinAnalyticsPage";
 import LinkedinSettingsPage from "./pages/linkedin/LinkedinSettingsPage";
 import LinkedinTemplatesPage from "./pages/linkedin/LinkedinTemplatesPage";
+import LinkedinSenderProfilePage from "./pages/linkedin/LinkedinSenderProfilePage";
+import LinkedinActionQueuePage from "./pages/linkedin/LinkedinActionQueuePage";
 
 // Deals pages
 import MeetingsPage from "./pages/deals/Meetings";
