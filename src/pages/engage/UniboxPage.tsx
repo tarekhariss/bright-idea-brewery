@@ -11,8 +11,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { useInboxThreads, useMailboxHealth } from "@/hooks/use-outbound-config";
-import { useCampaigns } from "@/hooks/use-campaigns";
+import { useInboxThreads } from "@/hooks/use-outbound-config";
+import { useMailboxes } from "@/hooks/use-deliverability";
 import { format, formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 
