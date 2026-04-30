@@ -1,7 +1,8 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Linkedin, Plus, Trash2, MoreHorizontal, Loader2,
-  Wifi, WifiOff, Heart, MessageSquare, UserPlus,
+  Wifi, WifiOff, Heart, MessageSquare, UserPlus, ExternalLink,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
