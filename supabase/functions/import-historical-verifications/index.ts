@@ -174,6 +174,63 @@ function needsRecheck(status: string, ageDays: number | null, confidence: number
   return false;
 }
 
+// ---- Prospect seeding helpers ----
+
+const PROSPECT_CANONICAL_KEYS = [
+  "first_name","last_name","full_name","company","company_domain","title","job_title",
+  "linkedin","phone","country","city","state","industry","website","employee_count",
+  "revenue","seniority","department","headline",
+];
+
+function guessProspectColumn(rawKeys: string[], target: string): string | null {
+  const norm = (s: string) => s.toLowerCase().replace(/[\s_\-\.]/g, "");
+  const aliases: Record<string, string[]> = {
+    first_name: ["firstname","fname","given","givenname"],
+    last_name: ["lastname","lname","surname","familyname"],
+    full_name: ["fullname","name","contactname"],
+    company: ["company","companyname","organization","organisation","account","employer"],
+    company_domain: ["companydomain","companywebsite","corporatedomain"],
+    title: ["title","jobtitle","position","role"],
+    job_title: ["jobtitle","title","position"],
+    linkedin: ["linkedin","linkedinurl","linkedinprofile","li"],
+    phone: ["phone","phonenumber","mobile","tel","telephone"],
+    country: ["country","countrycode"],
+    city: ["city","town"],
+    state: ["state","region","province"],
+    industry: ["industry","vertical","sector"],
+    website: ["website","site","url","homepage"],
+    employee_count: ["employeecount","employees","companysize","headcount"],
+    revenue: ["revenue","annualrevenue","companyrevenue"],
+    seniority: ["seniority","senioritylevel"],
+    department: ["department","dept"],
+    headline: ["headline","tagline"],
+  };
+  const candidates = [norm(target), ...(aliases[target] ?? [])];
+  for (const k of rawKeys) if (candidates.includes(norm(k))) return k;
+  return null;
+}
+
+function splitFullName(full: string): { first: string | null; last: string | null } {
+  const parts = full.trim().split(/\s+/);
+  if (parts.length === 0 || !parts[0]) return { first: null, last: null };
+  if (parts.length === 1) return { first: parts[0], last: null };
+  return { first: parts[0], last: parts.slice(1).join(" ") };
+}
+
+function preferStronger<T>(existing: T | null | undefined, incoming: T | null | undefined): T | null | undefined {
+  // Never overwrite stronger/newer data with weaker/older data.
+  if (existing !== null && existing !== undefined && existing !== "") return existing;
+  return incoming ?? existing ?? null;
+}
+
+function isSafeToSeed(status: string, trust: number, bounceProb: number, isCatchAll: boolean | null): boolean {
+  if (status !== "valid") return false;
+  if (isCatchAll) return false;
+  if (trust < 55) return false;
+  if (bounceProb > 0.15) return false;
+  return true;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
@@ -193,7 +250,11 @@ Deno.serve(async (req) => {
     const datasetId = body.dataset_id ?? null;
     const importId = body.import_id ?? null;
 
+    let autoSeedProspects = true;
     if (datasetId) {
+      const { data: ds } = await supa.from("imported_datasets")
+        .select("auto_seed_prospects").eq("id", datasetId).maybeSingle();
+      autoSeedProspects = ds?.auto_seed_prospects !== false;
       await supa.from("imported_datasets").update({ status: "processing" }).eq("id", datasetId);
     }
     if (importId) {
@@ -203,12 +264,23 @@ Deno.serve(async (req) => {
     }
 
     const mapping = body.column_mapping;
+    const datasetTags: string[] = Array.isArray((mapping as any)?._tags) ? (mapping as any)._tags : [];
     const now = Date.now();
     let processed = 0, failed = 0;
+    let prospectsCreated = 0, prospectsMerged = 0;
 
     const cacheRows: any[] = [];
     const ehRows: any[] = [];
     const evRows: any[] = [];
+
+    type ProspectCandidate = {
+      email: string; domain: string | null; status: string;
+      trust: number; confidence: number | null; bounceProb: number;
+      safe: number; tier: string; fresh: string; provider: string;
+      lastVerifiedAt: string | null; rawRow: Row;
+    };
+    const prospectCandidates: ProspectCandidate[] = [];
+    const historyRows: any[] = [];
 
     const providerAgg = new Map<string, { total: number; bounces: number; catch_all: number; valid: number; greylists: number; rejects: number }>();
     const domainAgg = new Map<string, { provider: string; seen: number; valid: number; bounces: number; catch_all: number; unknown: number }>();
