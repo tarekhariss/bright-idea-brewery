@@ -76,6 +76,8 @@ import AnalyticsPage from "./pages/tools/AnalyticsPage";
 import ExportHistoryPage from "./pages/tools/ExportHistoryPage";
 import BulkUpdatePage from "./pages/tools/BulkUpdatePage";
 import DuplicateReviewPage from "./pages/tools/DuplicateReviewPage";
+import VerificationPage from "./pages/tools/VerificationPage";
+import VerificationJobDetailPage from "./pages/tools/VerificationJobDetailPage";
 
 // Deliverability pages
 import DeliverabilityOverview from "./pages/settings/deliverability/DeliverabilityOverview";
