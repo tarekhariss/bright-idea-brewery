@@ -117,9 +117,10 @@ async function parseFile(file: File): Promise<{ headers: string[]; rows: Record<
 
 export default function HistoricalImportsPage() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const { user, workspaceId } = useAuth();
   const [open, setOpen] = useState(false);
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
   const [file, setFile] = useState<File | null>(null);
   const [headers, setHeaders] = useState<string[]>([]);
   const [rows, setRows] = useState<Record<string, any>[]>([]);
@@ -128,6 +129,7 @@ export default function HistoricalImportsPage() {
   const [datasetName, setDatasetName] = useState("");
   const [tags, setTags] = useState("");
   const [autoSeedProspects, setAutoSeedProspects] = useState(true);
+  const [completedDatasetId, setCompletedDatasetId] = useState<string | null>(null);
 
   const [progress, setProgress] = useState({ done: 0, total: 0 });
 
