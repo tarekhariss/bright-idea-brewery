@@ -160,8 +160,16 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Public health endpoint for dashboard
+    // Health endpoint for dashboard — requires authenticated user (any workspace member)
     if (action === "health") {
+      const authHeader = req.headers.get("Authorization") ?? "";
+      if (!authHeader.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
+      const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: claims, error: authErr } = await userClient.auth.getClaims(authHeader.replace("Bearer ", ""));
+      if (authErr || !claims?.claims?.sub) return json({ error: "Unauthorized" }, 401);
+
       const { count: pending } = await admin
         .from("verification_results")
         .select("id", { count: "exact", head: true })

@@ -8,7 +8,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { useVerificationOverview, useVerificationWorkers } from "@/hooks/use-verification-platform";
+import { useVerificationOverview, useVerificationWorkers, useIsPlatformAdmin } from "@/hooks/use-verification-platform";
 
 interface NavItem {
   title: string;
@@ -105,6 +105,26 @@ function NavIcon({ item }: { item: NavItem }) {
   );
 }
 
+function NavSections() {
+  const { data: isAdmin } = useIsPlatformAdmin();
+  const adminOnlyUrls = new Set(["/verification/admin"]);
+  return (
+    <nav className="flex flex-1 flex-col items-center gap-2 overflow-y-auto pb-2 scrollbar-thin">
+      {sections.map((section, i) => {
+        const items = section.items.filter((it) => isAdmin || !adminOnlyUrls.has(it.url));
+        if (items.length === 0) return null;
+        return (
+          <div key={section.label} className="flex flex-col items-center gap-1">
+            {items.map((item) => (<NavIcon key={item.url} item={item} />))}
+            {i < sections.length - 1 && <div className="my-1 h-px w-6 bg-border/60" />}
+          </div>
+        );
+      })}
+    </nav>
+  );
+}
+
+
 function HeaderStatusBar() {
   const { data: overview } = useVerificationOverview();
   const { data: workers = [] } = useVerificationWorkers();
@@ -177,16 +197,8 @@ export function VerificationLayout({ children }: { children: ReactNode }) {
 
           <div className="my-2 h-px w-8 bg-border" />
 
-          <nav className="flex flex-1 flex-col items-center gap-2 overflow-y-auto pb-2 scrollbar-thin">
-            {sections.map((section, i) => (
-              <div key={section.label} className="flex flex-col items-center gap-1">
-                {section.items.map((item) => (
-                  <NavIcon key={item.url} item={item} />
-                ))}
-                {i < sections.length - 1 && <div className="my-1 h-px w-6 bg-border/60" />}
-              </div>
-            ))}
-          </nav>
+          <NavSections />
+
 
           <div className="flex flex-col items-center gap-1.5 pt-2">
             <Tooltip delayDuration={150}>

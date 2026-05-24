@@ -5,6 +5,21 @@ import { toast } from "sonner";
 
 const sb = supabase as any;
 
+// ----- Platform admin check (used to gate admin-only UI) -----
+export function useIsPlatformAdmin() {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ["is_platform_admin", user?.id],
+    enabled: !!user?.id,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await sb.rpc("is_platform_admin", { _user_id: user!.id });
+      if (error) return false;
+      return !!data;
+    },
+  });
+}
+
 // ----- Overview / KPIs -----
 export function useVerificationOverview() {
   const { workspaceId } = useAuth();
