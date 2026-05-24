@@ -373,6 +373,34 @@ Deno.serve(async (req) => {
           details: { dataset_id: datasetId, import_id: importId, raw_status: pick(row, mapping, "status"), reason, trust, safe, tier },
         });
 
+        // Per-prospect verification history (workspace-scoped longitudinal record).
+        historyRows.push({
+          workspace_id: body.workspace_id,
+          email, domain, status,
+          confidence: confidence !== null && !isNaN(confidence)
+            ? Math.min(100, confidence > 1.5 ? confidence : confidence * 100) : null,
+          trust_score: trust,
+          freshness_state: fresh,
+          safe_to_send_score: safe,
+          estimated_bounce_probability: bounceProb,
+          campaign_safety_tier: tier,
+          provider,
+          source: body.source_label ?? "EmailListVerify",
+          dataset_id: datasetId,
+          verified_at: lastVerifiedAt,
+          raw: { reason, raw_status: pick(row, mapping, "status"), smtp_response: smtpResponse },
+        });
+
+        // Queue prospect seeding for safe verified emails.
+        if (autoSeedProspects && isSafeToSeed(status, trust, bounceProb, isCatchAll)) {
+          prospectCandidates.push({
+            email, domain, status, trust, confidence, bounceProb,
+            safe, tier, fresh, provider, lastVerifiedAt, rawRow: row,
+          });
+        }
+
+
+
         const pa = providerAgg.get(provider) ?? { total: 0, bounces: 0, catch_all: 0, valid: 0, greylists: 0, rejects: 0 };
         pa.total++;
         if (bounce) pa.bounces++;
