@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.enqueue_verification_job(uuid, text, text[], public.verification_job_source, uuid, uuid);

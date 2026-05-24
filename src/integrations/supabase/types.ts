@@ -9575,30 +9575,18 @@ export type Database = {
         }
         Returns: undefined
       }
-      enqueue_verification_job:
-        | {
-            Args: {
-              _campaign_id?: string
-              _emails: string[]
-              _list_id?: string
-              _name: string
-              _source?: Database["public"]["Enums"]["verification_job_source"]
-              _workspace_id: string
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              _campaign_id?: string
-              _emails: string[]
-              _list_id?: string
-              _name: string
-              _quality?: Database["public"]["Enums"]["verification_quality_mode"]
-              _source?: Database["public"]["Enums"]["verification_job_source"]
-              _workspace_id: string
-            }
-            Returns: string
-          }
+      enqueue_verification_job: {
+        Args: {
+          _campaign_id?: string
+          _emails: string[]
+          _list_id?: string
+          _name: string
+          _quality?: Database["public"]["Enums"]["verification_quality_mode"]
+          _source?: Database["public"]["Enums"]["verification_job_source"]
+          _workspace_id: string
+        }
+        Returns: string
+      }
       enrollment_should_stop_for_reply: {
         Args: { _enrollment_id: string }
         Returns: boolean
