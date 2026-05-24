@@ -42,7 +42,10 @@ Deno.serve(async (req) => {
   const action = url.pathname.split("/").pop() || "";
 
   try {
-    const workerActions = ["claim", "submit", "retry", "bounce", "heartbeat", "dead-letter", "quota", "fail"];
+    const workerActions = [
+      "claim", "submit", "retry", "bounce", "heartbeat",
+      "dead-letter", "quota", "fail", "recheck", "intelligence", "decide",
+    ];
     if (workerActions.includes(action)) {
       if (!workerOk(req)) {
         logWorkerEvent("secret-mismatch", {
@@ -70,6 +73,7 @@ Deno.serve(async (req) => {
           result_id: r.result_id ?? null,
           status: r.status ?? null,
           source_engine: r.source_engine ?? null,
+          latency_ms: r.latency_ms ?? null,
         });
         const { data, error } = await admin.rpc("record_verification_result", {
           _result_id: r.result_id,
@@ -91,6 +95,38 @@ Deno.serve(async (req) => {
           _error: r.error ?? null,
         });
         if (error) throw error;
+
+        // Continuous learning: feed provider behavior + SMTP pattern + domain/score
+        try {
+          if (r.provider_type || r.mx_provider) {
+            await admin.rpc("bump_provider_behavior", {
+              _provider: r.provider_type ?? r.mx_provider,
+              _status: r.status,
+              _latency_ms: r.latency_ms ?? null,
+              _smtp_response: r.smtp_response ?? null,
+            });
+          }
+          if (r.smtp_code || r.smtp_response) {
+            await admin.rpc("record_smtp_pattern", {
+              _provider: r.provider_type ?? r.mx_provider ?? "unknown",
+              _smtp_code: r.smtp_code ?? null,
+              _response: (r.smtp_response ?? "").toString().slice(0, 300),
+              _inferred: r.status,
+            });
+          }
+          if (r.status === "invalid" && r.workspace_id && r.email) {
+            await admin.rpc("record_bounce_outcome", {
+              _workspace_id: r.workspace_id,
+              _email: r.email,
+              _smtp_code: r.smtp_code ?? null,
+              _category: r.bounce_category ?? "hard_bounce",
+              _provider: r.provider_type ?? r.mx_provider ?? null,
+            });
+          }
+        } catch (learnErr) {
+          console.warn("[verification-worker-api:submit] learning hook failed", learnErr);
+        }
+
         logWorkerEvent("submit:done", { result_id: r.result_id ?? null });
         return json({ ok: true, result: data });
       }
@@ -102,6 +138,41 @@ Deno.serve(async (req) => {
         });
         if (error) throw error;
         return json({ ok: true });
+      }
+
+      if (action === "recheck") {
+        if (!body.result_id) return json({ error: "result_id required" }, 400);
+        logWorkerEvent("recheck:start", { result_id: body.result_id, reason: body.reason });
+        const { data, error } = await admin.rpc("schedule_recheck", {
+          _result_id: body.result_id,
+          _reason: body.reason ?? "unknown",
+        });
+        if (error) throw error;
+        logWorkerEvent("recheck:done", { result_id: body.result_id, plan: data });
+        return json({ ok: true, plan: data });
+      }
+
+      if (action === "decide") {
+        if (!body.workspace_id || !body.email) return json({ error: "workspace_id+email required" }, 400);
+        const { data, error } = await admin.rpc("decide_verification_strategy", {
+          _workspace_id: body.workspace_id,
+          _email: body.email,
+        });
+        if (error) throw error;
+        return json({ decision: data });
+      }
+
+      if (action === "intelligence") {
+        // Aggregated hints to let worker self-tune
+        const [{ data: providers }, { data: domains }] = await Promise.all([
+          admin.from("provider_behavior")
+            .select("provider_type,reliability_score,recommended_concurrency,avg_retry_delay_seconds,greylist_rate,bounce_rate")
+            .order("total_verifications", { ascending: false }).limit(50),
+          admin.from("domain_intelligence")
+            .select("domain,reputation_score,bounce_rate,catch_all_rate,is_blocked")
+            .order("total_emails_seen", { ascending: false }).limit(100),
+        ]);
+        return json({ providers: providers ?? [], domains: domains ?? [] });
       }
 
       if (action === "bounce") {
@@ -126,6 +197,7 @@ Deno.serve(async (req) => {
           in_flight: body.in_flight ?? 0,
           host: body.host ?? null,
           version: body.version ?? null,
+          throughput: body.throughput ?? null,
         });
         const { error } = await admin.rpc("worker_heartbeat", {
           _worker_id: body.worker_id,
@@ -139,12 +211,30 @@ Deno.serve(async (req) => {
           _metadata: body.metadata ?? {},
         });
         if (error) throw error;
+
+        // Activity log for ops dashboard
+        try {
+          await admin.from("worker_activity_logs").insert({
+            worker_id: body.worker_id,
+            event_type: "heartbeat",
+            throughput: body.throughput ?? null,
+            in_flight: body.in_flight ?? 0,
+            version: body.version ?? null,
+            host: body.host ?? null,
+            cpu_pct: body.cpu_pct ?? null,
+            mem_mb: body.mem_mb ?? null,
+            error_message: body.last_error ?? null,
+            details: body.metadata ?? {},
+          });
+        } catch (logErr) {
+          console.warn("[verification-worker-api:heartbeat] activity log failed", logErr);
+        }
+
         logWorkerEvent("heartbeat:done", { worker_id: body.worker_id });
         return json({ ok: true });
       }
 
       if (action === "dead-letter") {
-        // Report a permanently failed verification → push to DLQ
         if (!body.workspace_id || !body.email) return json({ error: "workspace_id + email required" }, 400);
         logWorkerEvent("dead-letter:start", {
           workspace_id: body.workspace_id,
@@ -172,9 +262,24 @@ Deno.serve(async (req) => {
       }
 
       if (action === "fail") {
-        // Report failed job state without DLQ escalation (transient worker errors)
         if (!body.result_id) return json({ error: "result_id required" }, 400);
         logWorkerEvent("fail:start", { result_id: body.result_id, error: body.error ?? "worker_failure" });
+
+        // If reason looks transient → smart recheck. Else just mark and let the standard retry path handle.
+        const transient = ["greylisted", "temporary_failure", "antispam_system", "smtp_protocol", "unknown"];
+        const reason = (body.reason ?? body.error ?? "").toString().toLowerCase();
+        const isTransient = transient.some((k) => reason.includes(k));
+
+        if (isTransient) {
+          const { data, error } = await admin.rpc("schedule_recheck", {
+            _result_id: body.result_id,
+            _reason: transient.find((k) => reason.includes(k)) ?? "unknown",
+          });
+          if (error) throw error;
+          logWorkerEvent("fail:recheck-scheduled", { result_id: body.result_id, plan: data });
+          return json({ ok: true, recheck: data });
+        }
+
         const { error } = await admin.from("verification_results").update({
           processing_started_at: null,
           last_attempt_at: new Date().toISOString(),
@@ -231,9 +336,14 @@ Deno.serve(async (req) => {
         .from("verification_workers")
         .select("id", { count: "exact", head: true })
         .in("status", ["online", "idle"]);
+      const { count: pendingRechecks } = await admin
+        .from("verification_results")
+        .select("id", { count: "exact", head: true })
+        .eq("recheck_required", true);
       return json({
         adapter_configured: WORKER_SECRET.length > 0,
         pending_results: pending ?? 0,
+        pending_rechecks: pendingRechecks ?? 0,
         dead_letter_open: dlq ?? 0,
         workers_online: workers ?? 0,
       });

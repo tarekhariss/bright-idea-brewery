@@ -33,6 +33,7 @@ const sections: NavSection[] = [
   {
     label: "Operations",
     items: [
+      { title: "Live Operations", url: "/verification/operations", icon: Sparkles },
       { title: "Jobs", url: "/verification/jobs", icon: ListChecks },
       { title: "Queue Monitor", url: "/verification/queue", icon: Activity },
       { title: "Workers", url: "/verification/workers", icon: ServerCog },
