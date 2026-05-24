@@ -34,10 +34,10 @@ jobs:
             git fetch --all --prune
             git reset --hard origin/main
             cd external/verifier-worker
-            docker compose pull || true
-            docker compose up -d --build
+            docker-compose pull || true
+            docker-compose up -d --build
             docker image prune -f
-            docker compose ps
+            docker-compose ps
           EOF
 
       - name: Health check
