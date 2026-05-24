@@ -1,97 +1,141 @@
-## Diagnosis
+# Historical Intelligence Learning System
 
-The 978-email job finished in ~1s because `enqueue_verification_job` (migration `20260524181924`) **unconditionally reuses any non-expired `verification_cache` row** — for every email, regardless of:
+Build a learning layer on top of the existing verification engine so imported EmailListVerify datasets continuously improve future verification, cache, retry, and safety decisions. Plus rebuild the export pipeline so exports always preserve the user's uploaded columns with `verification_status` prepended.
 
-- the job's `verification_quality` (fast / balanced / **high_accuracy**)
-- the cached `status` (unknown / risky / catch-all are reused as-is)
-- whether the cached row has SMTP/provider metadata
+This plan is split into 5 phases that ship independently.
 
-When all rows hit the cache, the function marks the job `completed` immediately. The worker never sees the job, so:
-- `workers 0/0`, `avg latency 0ms`, `recovery 0`, `throughput` reflects DB insert speed
-- cache hit % shows 0 because the UI reads a different field (`from_cache` is set on results, but the dashboard widget reads `cached_hit_count` from a stat that isn't surfaced)
-- High Accuracy never triggers Pass 2–5 recovery
+---
 
-## Fix plan
+## Phase 1 — Data foundation (DB migration)
 
-### 1. Cache intelligence (DB)
+### New / extended tables
 
-Rewrite `enqueue_verification_job` so reuse depends on **status + confidence + quality + freshness + completeness**:
+**`email_history`** (per-email longitudinal record)
+- email, email_normalized, domain, source, source_dataset_id, original_status, original_reason, original_provider, original_verification_date, imported_at, historical_only, age_in_days, freshness_state, raw_payload jsonb, workspace_id, created_at
 
-**Safe to reuse** (any quality mode):
-- `valid` with `confidence >= 80` and `verified_at > now() - interval '30 days'`
-- `invalid` with deterministic reason: `invalid_syntax`, `invalid_mx`, `dead_server`, `disposable`, `spamtrap`
-- always reuse: `disposable`, `spamtrap`, `invalid_syntax`
+**`imported_datasets`**
+- id, workspace_id, source ('EmailListVerify' default), filename, file_type (csv/xlsx/txt/zip), row_count, mapping jsonb, status, uploaded_by, uploaded_at, finished_at, stats jsonb
 
-**Never auto-reuse**:
-- `unknown`, `risky`, `catch_all`, `ok_for_all`, `smtp_protocol`, `antispam`
-- `confidence < 70`
-- rows missing `mx_record` or `smtp_response`
-- rows older than 30 days
+**Extend `verification_cache`**
+- + source, imported_at, historical_only, imported_dataset_id, original_status, original_reason, original_provider, original_verification_date, age_in_days, freshness_state, trust_score, recheck_required, last_transition
 
-**High Accuracy** additionally forces live re-verification for any non-`valid`/non-deterministic-invalid status, regardless of cache freshness — unless the caller passes `cache_policy = 'trusted'`.
+**Extend `domain_intelligence`**
+- + repeated_ok_count, repeated_bad_count, transition_ok_to_bad, transition_unknown_to_ok, reputation_score, bounce_rate_estimate, last_evaluated_at, trend_30d, trend_90d
 
-New optional param `_cache_policy public.verification_cache_policy` with values:
-- `trusted_cache` — current behavior (reuse anything fresh)
-- `default` — rules above
-- `recheck_weak` — reuse only deterministic invalid + high-conf valid; re-verify everything else
-- `force_live` — skip cache entirely
+**`provider_behavior`** (Google Workspace, Microsoft365, Proofpoint, Mimecast, Yahoo, Barracuda, Cloudflare Email, custom)
+- provider_key, greylist_rate, timeout_rate, throttle_rate, avg_recovery_minutes, recommended_retry_interval_s, recommended_timeout_ms, stability_score, sample_count, last_evaluated_at
 
-### 2. Per-row execution trace
+**`smtp_learning`** — per provider+response_code: count, success_after_retry, avg_retry_delay, recommended_strategy
+**`confidence_learning`** — per (provider, original_status, age_bucket): observed_match_rate, sample_count, suggested_confidence
+**`bounce_learning`** — per domain+provider: bounce_count, hard_bounce_count, soft_bounce_count, predicted_bounce_probability
 
-Add columns to `verification_results`:
-- `result_source text` (`live_smtp` | `cache` | `history` | `recovery` | `syntax` | `mx_only`)
-- `claimed_by_worker text`
-- `worker_version text`
-- `pass_number int` (1–5)
-- `smtp_attempt_count int default 0`
-- `recovery_attempt_count int default 0`
-- `provider_detected text`
-- `used_probe boolean default false`
-- `finalization_reason text`
-- `reuse_kind text` (`reused_from_cache` | `reused_from_history` | `reused_from_previous_job` | null)
+### Freshness classifier (SQL function)
+```
+fresh    age < 30
+aging    30..90
+stale    90..180
+expired  >= 180
+```
+Recomputed nightly via pg_cron + on insert via trigger.
 
-Populate `result_source='cache'` + `reuse_kind` in the enqueue function when a cache hit is used. The worker populates the rest when it processes a row.
+### RLS
+All new tables workspace-scoped via `is_workspace_member_or_admin`; learning aggregates readable by workspace members, writable only by service role / edge functions.
 
-### 3. Job-level counters
+---
 
-Add to `verification_jobs`:
-- `live_smtp_count int default 0`
-- `recovery_count int default 0`
-- `skipped_live_verification_count int default 0`
-- `reused_from_cache_count int default 0`
-- `reused_from_history_count int default 0`
-- `cache_policy public.verification_cache_policy`
+## Phase 2 — Import pipeline (CSV / XLSX / TXT, zip in v2)
 
-Backfill from existing `cached_hit_count` (→ `reused_from_cache_count`).
+Edge function `import-historical-verifications` (already exists) — expanded:
 
-### 4. UI
+1. Accept upload reference + mapping (email, verification_status, result, date_verified, reason, confidence, provider, domain, source_file, tags, campaign).
+2. Parse CSV (papaparse), XLSX (sheetjs), TXT (newline-delimited). Zip in Phase 5.
+3. Create `imported_datasets` row, stream rows in batches of 1k.
+4. For every row:
+   - Normalize email + domain.
+   - Compute `age_in_days` from `original_verification_date`, derive `freshness_state`.
+   - Insert into `email_history`.
+   - Upsert `verification_cache` only when row is **not** expired AND status maps cleanly; mark `historical_only=true`, `recheck_required=true` for Unknown/Risky/Catch-all/low-confidence/stale.
+   - Increment aggregates: `domain_intelligence`, `provider_behavior`, `confidence_learning`, `bounce_learning`, `smtp_learning`.
+5. Emit `dataset_imported` activity + stats (counts per status, per freshness, per provider).
 
-**Upload dialog (`VerificationPage` upload flow)**: add a "Cache policy" select with the 4 options above (default = `default` for Balanced, `force_live` for High Accuracy).
+UI: extend Historical Imports page with a mapping wizard (auto-detect EmailListVerify columns), preview first 20 rows, and per-dataset detail page showing stats.
 
-**Job detail page (`JobDetailPage`)**:
-- Show `cache_policy`, `live_smtp_count`, `recovery_count`, `reused_from_cache_count`, `skipped_live_verification_count`
-- Fix metric labels: if `live_smtp_count == 0`, throughput/latency/worker tiles display "—  (all results reused from cache)" instead of `0ms` / `0/0`
-- Per-row drawer/table: surface `result_source`, `pass_number`, `worker_version`, `provider_detected`, `finalization_reason`
+---
 
-### 5. Worker (`external/verifier-worker/worker.mjs`)
+## Phase 3 — Learning loop & decision engine
 
-On every result it submits back, include: `result_source: 'live_smtp' | 'recovery'`, `pass_number`, `smtp_attempt_count`, `recovery_attempt_count`, `provider_detected`, `used_probe`, `finalization_reason`, `worker_version`. The `verification-worker-api` `submit` endpoint persists those into `verification_results`.
+Edge function `historical-intelligence-recompute` (cron, every 15 min) updates aggregates:
 
-Bump worker to `1.3.0`.
+- **Trust scoring per email**: repeated OK across ≥2 historical rows + fresh → trust_score up; repeated dead/invalid/spamtrap/disposable → trust down + bounce risk up.
+- **Transitions**:
+  - historical Unknown → later OK ⇒ feed `provider_behavior.recommended_retry_interval_s`, `avg_recovery_minutes`.
+  - historical OK → later bounce/dead ⇒ shorten that domain's cache TTL, raise `recheck_required`.
+- **Provider stability**: rolling 30/90d greylist/timeout/throttle rates per provider.
+- **Confidence model** (`confidence_learning`) recomputes match-rate buckets used by the verifier worker.
 
-### 6. Worker API
+Verifier worker (existing `external/verifier-worker/worker.mjs`) consumes these as **hints only** — never blindly trusts. Update its cache-lookup to honor `recheck_required`, freshness_state, and provider stability score.
 
-Extend `submit` payload schema in `supabase/functions/verification-worker-api/index.ts` to accept and persist the new trace fields, and increment the new job counters (`live_smtp_count`, `recovery_count`, etc.) atomically.
+### Outputs surfaced per email
+- `safe_to_send_score` (0..100)
+- `estimated_bounce_probability`
+- `campaign_safety_tier` (safe / caution / risky / block)
+- `warmup_recommendation`
+- `recheck_urgency`
 
-## Files changed
+Exposed via `verification_cache` columns + a `get_email_intelligence(email)` SQL function.
 
-- new migration: schema + rewritten `enqueue_verification_job`
-- `supabase/functions/verification-worker-api/index.ts` — accept trace fields, update counters
-- `external/verifier-worker/worker.mjs` — emit trace fields, v1.3.0
-- `src/pages/tools/VerificationPage.tsx` — cache policy selector in upload
-- `src/pages/verification/JobDetailPage.tsx` (+ tool variant) — new metrics tiles, fixed labels, per-row trace
-- `src/hooks/use-verification.ts` — pass `cache_policy` to RPC, expose new fields
+---
 
-## Out of scope (call out, not building now)
+## Phase 4 — Dashboards
 
-- Pass 2–5 recovery scheduling internals already exist in the worker; this plan only ensures HA rows actually reach the worker and that the trace surfaces what happened. If recovery scheduling itself is broken we'll address in a follow-up after we can see real worker trace data.
+New routes under `/verification/intelligence`:
+- **Domain reputation trends** (top domains, OK%, bounce%, 30d delta)
+- **Provider stability trends** (greylist/throttle/timeout per provider, 30d)
+- **Recovery success trends** (Unknown→OK rate over time)
+- **Bounce trends** + historical OK→bounce transitions table
+- **Stale-data decay** (freshness distribution across cache + history)
+- **Dataset detail** (per import: rows, status mix, providers, contribution to learning)
+
+Built with existing chart kit, server-side aggregated via new SQL views.
+
+---
+
+## Phase 5 — Export rebuild (CRITICAL FIX)
+
+Rewrite `supabase/functions/export-verification-results`:
+
+### Contract
+- Input: job_id, format ('csv' | 'xlsx'), filter ('safe_to_send' | 'recommended' | 'all' | 'custom'), custom_filter, include_intelligence (bool).
+- Load the job's **original uploaded file/columns** from storage (preserved at upload time — fix the upload step to persist the raw header + row order to `verification_jobs.original_columns jsonb` and rows to `verification_job_rows.raw_row jsonb`).
+- For each contact: output `verification_status` as the **first column**, then the original columns in original order, then (optional) intelligence columns: confidence_score, deliverability_score, bounce_risk, provider_detected, freshness_state, last_verified_at, verification_reason, unknown_subclass, safe_to_send_score.
+- Never drop rows. Rows without a result get `verification_status=Unknown`.
+- CSV via streaming csv-stringify, XLSX via sheetjs `aoa_to_sheet` preserving column order.
+- Filters operate **on rows**, not on columns — original structure is always intact.
+
+### Upload fix (precondition for export fix)
+- `VerificationPage` upload → store raw CSV/XLSX to storage bucket `verification-uploads`.
+- Persist `original_columns` + ordered `raw_row` per contact row.
+- Backfill not attempted for old jobs (they keep current best-effort export).
+
+---
+
+## Technical notes
+
+- Mapping wizard reuses existing `ImportReviewPanel` patterns.
+- All new edge functions: CORS via `npm:@supabase/supabase-js@2/cors`, JWT validated in code, internal calls via `x-cron-secret`.
+- Recompute jobs scheduled via `pg_cron` + `net.http_post` (inserted via `supabase--insert`, not migration).
+- Storage bucket `verification-uploads` (private) with workspace-scoped RLS on `storage.objects`.
+- No new external API keys required; everything runs on Lovable Cloud.
+
+---
+
+## Suggested rollout order
+
+1. Phase 5 export fix + upload preservation (unblocks immediate pain).
+2. Phase 1 schema.
+3. Phase 2 import pipeline + mapping UI.
+4. Phase 3 learning loop + worker integration.
+5. Phase 4 dashboards.
+6. Zip-import support (v2).
+
+Shall I start with Phase 5 (export fix) and Phase 1 (schema) in the first build?

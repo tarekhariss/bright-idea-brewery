@@ -1,7 +1,9 @@
-// Export verification results with Intelligence Engine filtering.
-// Modes: safe_to_send | recommended | simplified | all | custom
-// Output: CSV (default) or XLSX. Always preserves all original uploaded
-// columns and order, with intelligence columns prepended at the beginning.
+// Export verification results preserving the user's original uploaded CSV/XLSX
+// EXACTLY (same columns, same order, no dropped rows). Always prepends a single
+// `verification_status` column as the FIRST column. Optionally appends extra
+// intelligence columns at the end.
+//
+// Filters operate on ROWS, never on COLUMNS — original structure is preserved.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import * as XLSX from "https://esm.sh/xlsx@0.18.5";
@@ -18,7 +20,8 @@ const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
 const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
-type Mode = "safe_to_send" | "recommended" | "simplified" | "all" | "custom";
+type Mode = "safe_to_send" | "recommended" | "all" | "custom";
+type Fmt = "csv" | "xlsx" | "json";
 
 interface CustomFilters {
   min_deliverability?: number;
@@ -30,91 +33,96 @@ interface CustomFilters {
   exclude_role_based?: boolean;
 }
 
-// --- intelligence columns prepended to every export ---
+// Intelligence columns appended AT THE END (after original columns).
 const INTEL_COLUMNS = [
-  "status",
   "confidence_score",
   "deliverability_score",
-  "risk_level",
-  "freshness_label",
-  "verification_date",
-  "last_verified_at",
-  "domain_reputation",
-  "recheck_required",
   "bounce_risk",
-  "provider_type",
-  "mx_status",
-  "smtp_result",
-  "historical_status",
+  "provider_detected",
+  "freshness_state",
+  "last_verified_at",
   "verification_reason",
+  "unknown_subclass",
+  "safe_to_send_score",
 ] as const;
 
-function csvEscape(v: unknown): string {
-  if (v === null || v === undefined) return "";
-  const s = String(v);
-  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-  return s;
+// Map internal status -> human-friendly label (FIRST column).
+function statusLabel(r: any): string {
+  if (!r) return "Unknown";
+  const s = String(r.status ?? "").toLowerCase();
+  const subs = String(r.unknown_subclass ?? "").toLowerCase();
+  const reason = String(r.verification_reason ?? r.error_message ?? "").toLowerCase();
+  if (s === "valid" || s === "safe" || s === "ok") {
+    if (r.is_catch_all) return "OK for All";
+    return "OK";
+  }
+  if (s === "invalid") {
+    if (reason.includes("disabled") || subs.includes("disabled")) return "Email Disabled";
+    if (reason.includes("disposable")) return "Disposable";
+    if (reason.includes("spamtrap")) return "Spamtrap";
+    if (reason.includes("dead")) return "Dead Server";
+    if (reason.includes("mx")) return "Invalid MX";
+    return "Invalid";
+  }
+  if (s === "disposable") return "Disposable";
+  if (s === "role_based") return "Role-based";
+  if (s === "catch_all") return "Catch-all";
+  if (s === "risky") {
+    if (reason.includes("spamtrap")) return "Spamtrap";
+    return "Risky";
+  }
+  if (s === "suppressed") return "Suppressed";
+  if (s === "failed") return "Failed";
+  return "Unknown";
 }
 
-function intelRow(r: any) {
+function intelValues(r: any): Record<string, any> {
+  if (!r) return {};
   return {
-    status: r.status,
-    confidence_score: r.confidence,
-    deliverability_score: r.deliverability_score,
-    risk_level: r.risk_level,
-    freshness_label: r.freshness_label,
-    verification_date: r.verified_at,
-    last_verified_at: r.last_verified_at,
-    domain_reputation: r.domain_reputation_score,
-    recheck_required: r.recheck_required,
-    bounce_risk: r.bounce_risk_score,
-    provider_type: r.provider_type ?? r.mx_provider,
-    mx_status: r.mx_status,
-    smtp_result: r.smtp_result ?? r.smtp_response,
-    historical_status: r.historical_status,
-    verification_reason: r.verification_reason ?? r.error_message,
+    confidence_score: r.confidence ?? "",
+    deliverability_score: r.deliverability_score ?? "",
+    bounce_risk: r.bounce_risk_score ?? "",
+    provider_detected: r.provider_detected ?? r.provider_type ?? r.mx_provider ?? "",
+    freshness_state: r.freshness_label ?? "",
+    last_verified_at: r.last_verified_at ?? r.verified_at ?? "",
+    verification_reason: r.verification_reason ?? r.error_message ?? "",
+    unknown_subclass: r.unknown_subclass ?? "",
+    safe_to_send_score: r.safe_to_send_score ?? "",
   };
 }
 
-function buildQuery(jobId: string, mode: Mode, custom: CustomFilters) {
-  let q = admin
-    .from("verification_results")
-    .select(
-      "email,email_normalized,domain,status,confidence,deliverability_score,bounce_risk_score,risk_level,freshness_label,catch_all_probability,is_disposable,is_role_based,is_catch_all,is_free_provider,mx_provider,mx_status,provider_type,provider_reputation_score,domain_reputation_score,last_verified_at,verified_at,smtp_response,smtp_result,smtp_code,recheck_required,historical_status,verification_reason,error_message",
-    )
-    .eq("job_id", jobId)
-    .order("created_at", { ascending: true })
-    .limit(200000);
-
+function passesFilter(r: any, mode: Mode, custom: CustomFilters): boolean {
+  if (mode === "all") return true;
+  if (!r) return mode === "all";
+  const dv = Number(r.deliverability_score ?? 0);
+  const br = Number(r.bounce_risk_score ?? 100);
   switch (mode) {
     case "safe_to_send":
-      q = q.gte("deliverability_score", 75).lte("bounce_risk_score", 25)
-        .in("risk_level", ["low"]).in("freshness_label", ["fresh", "reverified"])
-        .eq("recheck_required", false).eq("is_disposable", false);
-      break;
+      return (
+        dv >= 75 && br <= 25 &&
+        r.risk_level === "low" &&
+        ["fresh", "reverified"].includes(String(r.freshness_label ?? "")) &&
+        r.recheck_required !== true && r.is_disposable !== true
+      );
     case "recommended":
-      q = q.gte("deliverability_score", 60).lte("bounce_risk_score", 50)
-        .in("risk_level", ["low", "medium"]).eq("is_disposable", false);
-      break;
-    case "simplified":
-      q = q.in("status", ["valid", "ok", "catch_all", "ok_for_all"]);
-      break;
-    case "all": break;
-    case "custom":
-      if (custom.min_deliverability != null) q = q.gte("deliverability_score", custom.min_deliverability);
-      if (custom.max_bounce_risk != null) q = q.lte("bounce_risk_score", custom.max_bounce_risk);
-      if (custom.statuses?.length) q = q.in("status", custom.statuses);
-      if (custom.risk_levels?.length) q = q.in("risk_level", custom.risk_levels);
-      if (custom.freshness?.length) q = q.in("freshness_label", custom.freshness);
-      if (custom.exclude_catch_all) q = q.eq("is_catch_all", false);
-      if (custom.exclude_role_based) q = q.eq("is_role_based", false);
-      break;
+      return dv >= 60 && br <= 50 &&
+        ["low", "medium"].includes(String(r.risk_level ?? "")) && r.is_disposable !== true;
+    case "custom": {
+      if (custom.min_deliverability != null && dv < custom.min_deliverability) return false;
+      if (custom.max_bounce_risk != null && br > custom.max_bounce_risk) return false;
+      if (custom.statuses?.length && !custom.statuses.includes(String(r.status))) return false;
+      if (custom.risk_levels?.length && !custom.risk_levels.includes(String(r.risk_level))) return false;
+      if (custom.freshness?.length && !custom.freshness.includes(String(r.freshness_label))) return false;
+      if (custom.exclude_catch_all && r.is_catch_all) return false;
+      if (custom.exclude_role_based && r.is_role_based) return false;
+      return true;
+    }
   }
-  return q;
+  return true;
 }
 
-// --- Minimal robust CSV parser (RFC 4180-ish) ---
-function parseCsv(text: string): { headers: string[]; rows: Record<string, string>[] } {
+// RFC 4180 CSV parser
+function parseCsv(text: string): { headers: string[]; rows: string[][] } {
   const rows: string[][] = [];
   let cur: string[] = [];
   let field = "";
@@ -135,28 +143,43 @@ function parseCsv(text: string): { headers: string[]; rows: Record<string, strin
   }
   if (field.length > 0 || cur.length > 0) { cur.push(field); rows.push(cur); }
   const headers = rows.shift() ?? [];
-  const out = rows.filter((r) => r.length && r.some((v) => v !== ""))
-    .map((r) => Object.fromEntries(headers.map((h, i) => [h, r[i] ?? ""])));
-  return { headers, rows: out };
+  return { headers, rows };
 }
 
-function findEmailColumn(headers: string[]): string | null {
-  const lower = headers.map((h) => h.toLowerCase());
+function findEmailIdx(headers: string[]): number {
+  const lower = headers.map((h) => String(h ?? "").toLowerCase().trim());
   const exact = lower.findIndex((h) => h === "email" || h === "email_address" || h === "e-mail");
-  if (exact >= 0) return headers[exact];
-  const partial = lower.findIndex((h) => h.includes("email") || h.includes("e-mail"));
-  return partial >= 0 ? headers[partial] : null;
+  if (exact >= 0) return exact;
+  return lower.findIndex((h) => h.includes("email") || h.includes("e-mail"));
 }
 
-async function loadSourceCsv(filePath: string | null): Promise<{ headers: string[]; rows: Record<string, string>[]; emailKey: string | null } | null> {
+function csvEscape(v: unknown): string {
+  if (v === null || v === undefined) return "";
+  const s = String(v);
+  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+async function loadSource(filePath: string | null): Promise<
+  { headers: string[]; rows: string[][]; emailIdx: number } | null
+> {
   if (!filePath) return null;
   try {
     const { data, error } = await admin.storage.from("verification-uploads").download(filePath);
     if (error || !data) return null;
+    const isXlsx = /\.xlsx?$/i.test(filePath);
+    if (isXlsx) {
+      const buf = new Uint8Array(await data.arrayBuffer());
+      const wb = XLSX.read(buf, { type: "array" });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const aoa = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, defval: "", raw: false }) as any[][];
+      const headers = (aoa.shift() ?? []).map((h) => String(h ?? ""));
+      const rows = aoa.map((r) => headers.map((_, i) => String(r[i] ?? "")));
+      return { headers, rows, emailIdx: findEmailIdx(headers) };
+    }
     const text = await data.text();
     const { headers, rows } = parseCsv(text);
-    const emailKey = findEmailColumn(headers);
-    return { headers, rows, emailKey };
+    return { headers, rows, emailIdx: findEmailIdx(headers) };
   } catch {
     return null;
   }
@@ -175,21 +198,21 @@ Deno.serve(async (req) => {
     const userClient = createClient(SUPABASE_URL, ANON_KEY, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: userData, error: authErr } = await userClient.auth.getUser(authHeader.replace("Bearer ", ""));
-    if (authErr || !userData?.user?.id) {
+    const { data: ud, error: authErr } = await userClient.auth.getUser(authHeader.replace("Bearer ", ""));
+    if (authErr || !ud?.user?.id) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const userId = userData.user.id;
+    const userId = ud.user.id;
 
-    const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
     const url = new URL(req.url);
-    const jobId = body.job_id ?? url.searchParams.get("job_id");
-    const mode = (body.mode ?? url.searchParams.get("mode") ?? "recommended") as Mode;
-    const format = (body.format ?? url.searchParams.get("format") ?? "csv") as "csv" | "xlsx" | "json";
+    const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
+    const jobId: string | null = body.job_id ?? url.searchParams.get("job_id");
+    const mode = (body.mode ?? url.searchParams.get("mode") ?? "all") as Mode;
+    const format = (body.format ?? url.searchParams.get("format") ?? "csv") as Fmt;
+    const includeIntel = body.include_intelligence !== false;
     const custom: CustomFilters = body.custom ?? {};
-    const preserveOriginal = body.preserve_original_columns !== false;
 
     if (!jobId) {
       return new Response(JSON.stringify({ error: "job_id required" }), {
@@ -199,7 +222,7 @@ Deno.serve(async (req) => {
 
     const { data: job } = await admin
       .from("verification_jobs")
-      .select("id,workspace_id,source_file_name,source_file_path,source_columns")
+      .select("id,workspace_id,name,source_file_name,source_file_path,uploaded_file_path,original_columns_json,source_columns")
       .eq("id", jobId).maybeSingle();
     if (!job) {
       return new Response(JSON.stringify({ error: "Job not found" }), {
@@ -215,70 +238,110 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: rows, error } = await buildQuery(jobId, mode, custom);
-    if (error) throw error;
+    // Load ALL results for this job (paginate; supabase caps at 1000/call).
+    const allResults: any[] = [];
+    let from = 0;
+    const PAGE = 1000;
+    while (true) {
+      const { data, error } = await admin
+        .from("verification_results")
+        .select(
+          "email,email_normalized,status,confidence,deliverability_score,bounce_risk_score,risk_level,freshness_label,is_disposable,is_role_based,is_catch_all,is_free_provider,mx_provider,provider_type,provider_detected,last_verified_at,verified_at,smtp_response,smtp_code,recheck_required,unknown_subclass,verification_reason,error_message,historical_status",
+        )
+        .eq("job_id", jobId)
+        .range(from, from + PAGE - 1);
+      if (error) throw error;
+      const chunk = data ?? [];
+      allResults.push(...chunk);
+      if (chunk.length < PAGE) break;
+      from += PAGE;
+    }
 
-    // Try to load original CSV to merge columns. If unavailable, just emit intel + email.
-    const source = preserveOriginal ? await loadSourceCsv(job.source_file_path) : null;
+    // Index by normalized email
+    const resByEmail = new Map<string, any>();
+    for (const r of allResults) {
+      const k = String(r.email_normalized ?? r.email ?? "").toLowerCase().trim();
+      if (k) resByEmail.set(k, r);
+    }
 
-    // Build records: intel columns first, then original columns in original order.
-    let originalHeaders: string[] = [];
-    let originalByEmail = new Map<string, Record<string, string>>();
-    if (source && source.emailKey) {
-      originalHeaders = source.headers;
-      for (const row of source.rows) {
-        const email = (row[source.emailKey] ?? "").trim().toLowerCase();
-        if (email) originalByEmail.set(email, row);
+    // Build records: ALWAYS preserve every original uploaded row, in order.
+    const source = await loadSource(job.uploaded_file_path ?? job.source_file_path ?? null);
+
+    const originalHeaders: string[] = source?.headers
+      ?? (Array.isArray(job.original_columns_json) && job.original_columns_json.length
+            ? (job.original_columns_json as string[])
+            : (Array.isArray(job.source_columns) ? (job.source_columns as string[]) : []));
+
+    const finalHeaders: string[] = ["verification_status", ...originalHeaders];
+    if (!originalHeaders.length) finalHeaders.push("email"); // minimum guarantee
+    if (includeIntel) finalHeaders.push(...INTEL_COLUMNS);
+
+    type Row = (string | number | null)[];
+    const aoa: Row[] = [finalHeaders];
+
+    if (source && source.rows.length) {
+      const emailIdx = source.emailIdx;
+      for (const orig of source.rows) {
+        // Skip blank lines
+        if (!orig.some((v) => String(v ?? "").trim() !== "")) continue;
+        const emailRaw = emailIdx >= 0 ? String(orig[emailIdx] ?? "") : "";
+        const key = emailRaw.toLowerCase().trim();
+        const r = key ? resByEmail.get(key) : null;
+        if (!passesFilter(r, mode, custom)) continue;
+        const row: Row = [statusLabel(r)];
+        for (let i = 0; i < originalHeaders.length; i++) row.push(orig[i] ?? "");
+        if (includeIntel) {
+          const iv = intelValues(r);
+          for (const k of INTEL_COLUMNS) row.push(iv[k] ?? "");
+        }
+        aoa.push(row);
+      }
+    } else {
+      // Fallback: no source file — emit results directly. Email column only.
+      for (const r of allResults) {
+        if (!passesFilter(r, mode, custom)) continue;
+        const row: Row = [statusLabel(r), r.email ?? r.email_normalized ?? ""];
+        if (includeIntel) {
+          const iv = intelValues(r);
+          for (const k of INTEL_COLUMNS) row.push(iv[k] ?? "");
+        }
+        aoa.push(row);
       }
     }
 
-    const records = (rows ?? []).map((r) => {
-      const intel = intelRow(r);
-      const orig = originalByEmail.get((r.email_normalized || r.email || "").toLowerCase()) ?? {};
-      const merged: Record<string, any> = { ...intel };
-      // ensure original email column is present even if no source CSV
-      if (!originalHeaders.length) merged.email = r.email;
-      for (const h of originalHeaders) merged[h] = orig[h] ?? "";
-      return merged;
-    });
-
-    const finalHeaders: string[] = [
-      ...INTEL_COLUMNS,
-      ...(originalHeaders.length ? originalHeaders : ["email"]),
-    ];
+    const safeName = (job.name ?? job.source_file_name ?? `verification_${jobId.slice(0, 8)}`)
+      .replace(/[^a-z0-9_\-\.]+/gi, "_");
+    const baseName = `${safeName}_${mode}`;
 
     if (format === "json") {
-      return new Response(JSON.stringify({ rows: records, count: records.length, mode, headers: finalHeaders }), {
+      const [hdr, ...rest] = aoa;
+      const jsonRows = rest.map((r) => Object.fromEntries(hdr.map((h, i) => [h, r[i] ?? ""])));
+      return new Response(JSON.stringify({ rows: jsonRows, count: jsonRows.length, headers: hdr }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     if (format === "xlsx") {
-      const ws = XLSX.utils.json_to_sheet(records, { header: finalHeaders });
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Results");
       const out = XLSX.write(wb, { type: "array", bookType: "xlsx" });
-      const filename = `verification_${mode}_${jobId.slice(0, 8)}.xlsx`;
       return new Response(out, {
         headers: {
           ...corsHeaders,
           "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-          "Content-Disposition": `attachment; filename="${filename}"`,
+          "Content-Disposition": `attachment; filename="${baseName}.xlsx"`,
         },
       });
     }
 
     // CSV (default)
-    const headerLine = finalHeaders.map(csvEscape).join(",");
-    const lines = records.map((rec) => finalHeaders.map((h) => csvEscape(rec[h])).join(","));
-    const csv = [headerLine, ...lines].join("\n");
-    const filename = `verification_${mode}_${jobId.slice(0, 8)}.csv`;
-
+    const csv = aoa.map((row) => row.map(csvEscape).join(",")).join("\n");
     return new Response(csv, {
       headers: {
         ...corsHeaders,
         "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Disposition": `attachment; filename="${baseName}.csv"`,
       },
     });
   } catch (e: any) {

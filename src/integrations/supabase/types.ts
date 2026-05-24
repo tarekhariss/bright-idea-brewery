@@ -1740,6 +1740,39 @@ export type Database = {
           },
         ]
       }
+      confidence_learning: {
+        Row: {
+          age_bucket: string
+          id: string
+          last_evaluated_at: string
+          match_count: number
+          original_status: string
+          provider_key: string
+          sample_count: number
+          suggested_confidence: number
+        }
+        Insert: {
+          age_bucket: string
+          id?: string
+          last_evaluated_at?: string
+          match_count?: number
+          original_status: string
+          provider_key: string
+          sample_count?: number
+          suggested_confidence?: number
+        }
+        Update: {
+          age_bucket?: string
+          id?: string
+          last_evaluated_at?: string
+          match_count?: number
+          original_status?: string
+          provider_key?: string
+          sample_count?: number
+          suggested_confidence?: number
+        }
+        Relationships: []
+      }
       contact_activity_log: {
         Row: {
           action: string
@@ -3984,6 +4017,68 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "import_jobs_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imported_datasets: {
+        Row: {
+          failed_count: number
+          file_type: string | null
+          filename: string | null
+          finished_at: string | null
+          id: string
+          mapping: Json
+          processed_count: number
+          row_count: number
+          source: string
+          stats: Json
+          status: string
+          storage_path: string | null
+          uploaded_at: string
+          uploaded_by: string | null
+          workspace_id: string
+        }
+        Insert: {
+          failed_count?: number
+          file_type?: string | null
+          filename?: string | null
+          finished_at?: string | null
+          id?: string
+          mapping?: Json
+          processed_count?: number
+          row_count?: number
+          source?: string
+          stats?: Json
+          status?: string
+          storage_path?: string | null
+          uploaded_at?: string
+          uploaded_by?: string | null
+          workspace_id: string
+        }
+        Update: {
+          failed_count?: number
+          file_type?: string | null
+          filename?: string | null
+          finished_at?: string | null
+          id?: string
+          mapping?: Json
+          processed_count?: number
+          row_count?: number
+          source?: string
+          stats?: Json
+          status?: string
+          storage_path?: string | null
+          uploaded_at?: string
+          uploaded_by?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imported_datasets_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -7777,6 +7872,42 @@ export type Database = {
           },
         ]
       }
+      smtp_learning: {
+        Row: {
+          avg_retry_delay_s: number
+          id: string
+          last_evaluated_at: string
+          provider_key: string
+          recommended_strategy: string | null
+          response_pattern: string | null
+          smtp_code: number | null
+          success_after_retry: number
+          total_count: number
+        }
+        Insert: {
+          avg_retry_delay_s?: number
+          id?: string
+          last_evaluated_at?: string
+          provider_key: string
+          recommended_strategy?: string | null
+          response_pattern?: string | null
+          smtp_code?: number | null
+          success_after_retry?: number
+          total_count?: number
+        }
+        Update: {
+          avg_retry_delay_s?: number
+          id?: string
+          last_evaluated_at?: string
+          provider_key?: string
+          recommended_strategy?: string | null
+          response_pattern?: string | null
+          smtp_code?: number | null
+          success_after_retry?: number
+          total_count?: number
+        }
+        Relationships: []
+      }
       smtp_patterns: {
         Row: {
           confidence: number | null
@@ -8247,71 +8378,119 @@ export type Database = {
       }
       verification_cache: {
         Row: {
+          age_in_days: number | null
           cached_until: string
+          campaign_safety_tier: string | null
           confidence: number | null
           domain: string | null
           email_normalized: string
           engine_version: string | null
+          estimated_bounce_probability: number | null
+          freshness_state: string | null
+          historical_only: boolean
           hit_count: number
           id: string
+          imported_at: string | null
+          imported_dataset_id: string | null
           is_catch_all: boolean | null
           is_disposable: boolean | null
           is_free_provider: boolean | null
           is_role_based: boolean | null
+          last_transition: string | null
           mx_provider: string | null
           mx_record: string | null
+          original_provider: string | null
+          original_reason: string | null
+          original_status: string | null
+          original_verification_date: string | null
           raw_response: Json | null
+          recheck_required: boolean
           risk_reasons: string[]
+          safe_to_send_score: number | null
           smtp_code: number | null
           smtp_response: string | null
+          source: string | null
           source_engine: string | null
           status: Database["public"]["Enums"]["verification_status"]
+          trust_score: number | null
           updated_at: string
           verified_at: string
         }
         Insert: {
+          age_in_days?: number | null
           cached_until?: string
+          campaign_safety_tier?: string | null
           confidence?: number | null
           domain?: string | null
           email_normalized: string
           engine_version?: string | null
+          estimated_bounce_probability?: number | null
+          freshness_state?: string | null
+          historical_only?: boolean
           hit_count?: number
           id?: string
+          imported_at?: string | null
+          imported_dataset_id?: string | null
           is_catch_all?: boolean | null
           is_disposable?: boolean | null
           is_free_provider?: boolean | null
           is_role_based?: boolean | null
+          last_transition?: string | null
           mx_provider?: string | null
           mx_record?: string | null
+          original_provider?: string | null
+          original_reason?: string | null
+          original_status?: string | null
+          original_verification_date?: string | null
           raw_response?: Json | null
+          recheck_required?: boolean
           risk_reasons?: string[]
+          safe_to_send_score?: number | null
           smtp_code?: number | null
           smtp_response?: string | null
+          source?: string | null
           source_engine?: string | null
           status: Database["public"]["Enums"]["verification_status"]
+          trust_score?: number | null
           updated_at?: string
           verified_at?: string
         }
         Update: {
+          age_in_days?: number | null
           cached_until?: string
+          campaign_safety_tier?: string | null
           confidence?: number | null
           domain?: string | null
           email_normalized?: string
           engine_version?: string | null
+          estimated_bounce_probability?: number | null
+          freshness_state?: string | null
+          historical_only?: boolean
           hit_count?: number
           id?: string
+          imported_at?: string | null
+          imported_dataset_id?: string | null
           is_catch_all?: boolean | null
           is_disposable?: boolean | null
           is_free_provider?: boolean | null
           is_role_based?: boolean | null
+          last_transition?: string | null
           mx_provider?: string | null
           mx_record?: string | null
+          original_provider?: string | null
+          original_reason?: string | null
+          original_status?: string | null
+          original_verification_date?: string | null
           raw_response?: Json | null
+          recheck_required?: boolean
           risk_reasons?: string[]
+          safe_to_send_score?: number | null
           smtp_code?: number | null
           smtp_response?: string | null
+          source?: string | null
           source_engine?: string | null
           status?: Database["public"]["Enums"]["verification_status"]
+          trust_score?: number | null
           updated_at?: string
           verified_at?: string
         }
@@ -8565,6 +8744,7 @@ export type Database = {
           live_smtp_count: number
           max_retries: number
           name: string | null
+          original_columns_json: Json
           priority: number
           processed_count: number
           rate_limit_per_min: number
@@ -8584,6 +8764,7 @@ export type Database = {
           total_count: number
           unknown_count: number
           updated_at: string
+          uploaded_file_path: string | null
           valid_count: number
           verification_quality:
             | Database["public"]["Enums"]["verification_quality_mode"]
@@ -8611,6 +8792,7 @@ export type Database = {
           live_smtp_count?: number
           max_retries?: number
           name?: string | null
+          original_columns_json?: Json
           priority?: number
           processed_count?: number
           rate_limit_per_min?: number
@@ -8630,6 +8812,7 @@ export type Database = {
           total_count?: number
           unknown_count?: number
           updated_at?: string
+          uploaded_file_path?: string | null
           valid_count?: number
           verification_quality?:
             | Database["public"]["Enums"]["verification_quality_mode"]
@@ -8657,6 +8840,7 @@ export type Database = {
           live_smtp_count?: number
           max_retries?: number
           name?: string | null
+          original_columns_json?: Json
           priority?: number
           processed_count?: number
           rate_limit_per_min?: number
@@ -8676,6 +8860,7 @@ export type Database = {
           total_count?: number
           unknown_count?: number
           updated_at?: string
+          uploaded_file_path?: string | null
           valid_count?: number
           verification_quality?:
             | Database["public"]["Enums"]["verification_quality_mode"]
@@ -9605,6 +9790,10 @@ export type Database = {
       compute_freshness: {
         Args: { _last_verified_at: string }
         Returns: Database["public"]["Enums"]["verification_freshness"]
+      }
+      compute_freshness_state: {
+        Args: { _verified_at: string }
+        Returns: string
       }
       compute_list_health: { Args: { _job_id: string }; Returns: Json }
       compute_provider_reputation: {
