@@ -548,6 +548,7 @@ export default function VfJobDetailPage() {
                     <TableRow>
                       <TableHead>Email</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead>Sub-class</TableHead>
                       <TableHead className="text-right">Conf</TableHead>
                       <TableHead className="text-right">Deliver</TableHead>
                       <TableHead className="text-right">Bounce risk</TableHead>
@@ -561,13 +562,23 @@ export default function VfJobDetailPage() {
                   <TableBody>
                     {filteredRows.map((r: any) => {
                       const k = bucketResult(r);
+                      const sub = r.unknown_subclass ? UNKNOWN_SUBCLASS_META[r.unknown_subclass] : null;
+                      const deliverPct = r.deliverability_score != null ? Math.round(Number(r.deliverability_score) * 100) : null;
+                      const bouncePct = r.bounce_risk_score != null ? Math.round(Number(r.bounce_risk_score) * 100) : null;
                       return (
                         <TableRow key={r.id}>
                           <TableCell className="font-mono text-[11px]">{r.email}</TableCell>
                           <TableCell><Badge variant="outline" className={`text-[10px] ${STATUS_META[k].tone}`}>{STATUS_META[k].label}</Badge></TableCell>
-                          <TableCell className="text-right tabular-nums text-xs">{r.confidence != null ? Number(r.confidence).toFixed(0) : "—"}</TableCell>
-                          <TableCell className="text-right tabular-nums text-xs">{r.deliverability_score != null ? Number(r.deliverability_score).toFixed(0) : "—"}</TableCell>
-                          <TableCell className="text-right tabular-nums text-xs">{r.bounce_risk_score != null ? Number(r.bounce_risk_score).toFixed(0) : "—"}</TableCell>
+                          <TableCell className="text-xs">
+                            {sub ? (
+                              <span title={sub.hint} className={sub.tone}>{sub.label}</span>
+                            ) : r.unknown_subclass ? (
+                              <span className="text-muted-foreground">{r.unknown_subclass}</span>
+                            ) : "—"}
+                          </TableCell>
+                          <TableCell className="text-right"><ConfidenceCell row={r} /></TableCell>
+                          <TableCell className="text-right tabular-nums text-xs">{deliverPct != null ? deliverPct : "—"}</TableCell>
+                          <TableCell className={`text-right tabular-nums text-xs ${bouncePct != null && bouncePct >= 50 ? "text-rose-400" : ""}`}>{bouncePct != null ? bouncePct : "—"}</TableCell>
                           <TableCell className="text-xs">{r.risk_level ?? "—"}</TableCell>
                           <TableCell className={`text-xs ${FRESHNESS_TONE[r.freshness_label] ?? ""}`}>{r.freshness_label ?? "—"}</TableCell>
                           <TableCell className="text-xs text-muted-foreground">{r.provider_type ?? r.mx_provider ?? "—"}</TableCell>
