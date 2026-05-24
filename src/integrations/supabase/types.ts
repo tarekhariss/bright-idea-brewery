@@ -474,12 +474,15 @@ export type Database = {
       }
       bounce_feedback: {
         Row: {
+          bounce_category: Database["public"]["Enums"]["bounce_category"] | null
           bounce_type: string
           campaign_id: string | null
           diagnostic_code: string | null
           email_normalized: string
+          escalated: boolean
           id: string
           mailbox_id: string | null
+          provider: string | null
           raw_payload: Json | null
           received_at: string
           smtp_code: number | null
@@ -488,12 +491,17 @@ export type Database = {
           workspace_id: string | null
         }
         Insert: {
+          bounce_category?:
+            | Database["public"]["Enums"]["bounce_category"]
+            | null
           bounce_type?: string
           campaign_id?: string | null
           diagnostic_code?: string | null
           email_normalized: string
+          escalated?: boolean
           id?: string
           mailbox_id?: string | null
+          provider?: string | null
           raw_payload?: Json | null
           received_at?: string
           smtp_code?: number | null
@@ -502,12 +510,17 @@ export type Database = {
           workspace_id?: string | null
         }
         Update: {
+          bounce_category?:
+            | Database["public"]["Enums"]["bounce_category"]
+            | null
           bounce_type?: string
           campaign_id?: string | null
           diagnostic_code?: string | null
           email_normalized?: string
+          escalated?: boolean
           id?: string
           mailbox_id?: string | null
+          provider?: string | null
           raw_payload?: Json | null
           received_at?: string
           smtp_code?: number | null
@@ -2462,6 +2475,9 @@ export type Database = {
       domain_reputation: {
         Row: {
           bounce_count: number
+          bounce_rate: number | null
+          catch_all_confidence: number | null
+          catch_all_delivery_success_rate: number | null
           created_at: string
           domain: string
           id: string
@@ -2469,16 +2485,34 @@ export type Database = {
           is_catch_all: boolean | null
           is_disposable: boolean | null
           is_free_provider: boolean | null
+          last_seen_active: string | null
           last_smtp_behavior: Json | null
           last_verified_at: string | null
+          mx_host: string | null
           mx_provider: string | null
+          mx_region: string | null
+          provider_type: string | null
           quality_score: number | null
+          risk_score: number | null
+          risk_tier:
+            | Database["public"]["Enums"]["verification_risk_tier"]
+            | null
+          smtp_accept_rate: number | null
+          suspicious_pattern_score: number | null
+          temporary_failure_rate: number | null
+          total_bounces: number
+          total_catch_all: number
+          total_invalid: number
           total_verifications: number
+          total_verified: number
           updated_at: string
           valid_count: number
         }
         Insert: {
           bounce_count?: number
+          bounce_rate?: number | null
+          catch_all_confidence?: number | null
+          catch_all_delivery_success_rate?: number | null
           created_at?: string
           domain: string
           id?: string
@@ -2486,16 +2520,34 @@ export type Database = {
           is_catch_all?: boolean | null
           is_disposable?: boolean | null
           is_free_provider?: boolean | null
+          last_seen_active?: string | null
           last_smtp_behavior?: Json | null
           last_verified_at?: string | null
+          mx_host?: string | null
           mx_provider?: string | null
+          mx_region?: string | null
+          provider_type?: string | null
           quality_score?: number | null
+          risk_score?: number | null
+          risk_tier?:
+            | Database["public"]["Enums"]["verification_risk_tier"]
+            | null
+          smtp_accept_rate?: number | null
+          suspicious_pattern_score?: number | null
+          temporary_failure_rate?: number | null
+          total_bounces?: number
+          total_catch_all?: number
+          total_invalid?: number
           total_verifications?: number
+          total_verified?: number
           updated_at?: string
           valid_count?: number
         }
         Update: {
           bounce_count?: number
+          bounce_rate?: number | null
+          catch_all_confidence?: number | null
+          catch_all_delivery_success_rate?: number | null
           created_at?: string
           domain?: string
           id?: string
@@ -2503,11 +2555,26 @@ export type Database = {
           is_catch_all?: boolean | null
           is_disposable?: boolean | null
           is_free_provider?: boolean | null
+          last_seen_active?: string | null
           last_smtp_behavior?: Json | null
           last_verified_at?: string | null
+          mx_host?: string | null
           mx_provider?: string | null
+          mx_region?: string | null
+          provider_type?: string | null
           quality_score?: number | null
+          risk_score?: number | null
+          risk_tier?:
+            | Database["public"]["Enums"]["verification_risk_tier"]
+            | null
+          smtp_accept_rate?: number | null
+          suspicious_pattern_score?: number | null
+          temporary_failure_rate?: number | null
+          total_bounces?: number
+          total_catch_all?: number
+          total_invalid?: number
           total_verifications?: number
+          total_verified?: number
           updated_at?: string
           valid_count?: number
         }
@@ -6517,6 +6584,39 @@ export type Database = {
         }
         Relationships: []
       }
+      provider_behavior_rules: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          provider_type: string
+          rule_key: string
+          rule_value: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          provider_type: string
+          rule_key: string
+          rule_value?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          provider_type?: string
+          rule_key?: string
+          rule_value?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       provider_connection_logs: {
         Row: {
           connection_id: string
@@ -7482,6 +7582,50 @@ export type Database = {
           },
         ]
       }
+      verification_audit_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          id: string
+          ip: string | null
+          metadata: Json
+          target_id: string | null
+          target_type: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          ip?: string | null
+          metadata?: Json
+          target_id?: string | null
+          target_type?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          ip?: string | null
+          metadata?: Json
+          target_id?: string | null
+          target_type?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "verification_audit_log_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       verification_cache: {
         Row: {
           cached_until: string
@@ -7554,14 +7698,192 @@ export type Database = {
         }
         Relationships: []
       }
+      verification_dead_letter: {
+        Row: {
+          attempt_count: number
+          email: string
+          escalated_at: string
+          id: string
+          job_id: string | null
+          last_error: string | null
+          payload: Json
+          reason: string
+          recovered_at: string | null
+          result_id: string | null
+          workspace_id: string
+        }
+        Insert: {
+          attempt_count?: number
+          email: string
+          escalated_at?: string
+          id?: string
+          job_id?: string | null
+          last_error?: string | null
+          payload?: Json
+          reason: string
+          recovered_at?: string | null
+          result_id?: string | null
+          workspace_id: string
+        }
+        Update: {
+          attempt_count?: number
+          email?: string
+          escalated_at?: string
+          id?: string
+          job_id?: string | null
+          last_error?: string | null
+          payload?: Json
+          reason?: string
+          recovered_at?: string | null
+          result_id?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "verification_dead_letter_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "verification_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verification_dead_letter_result_id_fkey"
+            columns: ["result_id"]
+            isOneToOne: false
+            referencedRelation: "verification_results"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verification_dead_letter_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      verification_engine_runs: {
+        Row: {
+          confidence: number | null
+          created_at: string
+          engine_name: string
+          engine_version: string | null
+          error: string | null
+          id: string
+          latency_ms: number | null
+          response: Json
+          result_id: string
+          status: Database["public"]["Enums"]["verification_status"] | null
+          workspace_id: string
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string
+          engine_name: string
+          engine_version?: string | null
+          error?: string | null
+          id?: string
+          latency_ms?: number | null
+          response?: Json
+          result_id: string
+          status?: Database["public"]["Enums"]["verification_status"] | null
+          workspace_id: string
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string
+          engine_name?: string
+          engine_version?: string | null
+          error?: string | null
+          id?: string
+          latency_ms?: number | null
+          response?: Json
+          result_id?: string
+          status?: Database["public"]["Enums"]["verification_status"] | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "verification_engine_runs_result_id_fkey"
+            columns: ["result_id"]
+            isOneToOne: false
+            referencedRelation: "verification_results"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verification_engine_runs_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      verification_engines: {
+        Row: {
+          avg_latency_ms: number | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          kind: Database["public"]["Enums"]["verification_engine_kind"]
+          last_heartbeat_at: string | null
+          name: string
+          notes: string | null
+          priority: number
+          status: Database["public"]["Enums"]["verification_worker_status"]
+          success_rate: number | null
+          total_runs: number
+          updated_at: string
+          version: string | null
+        }
+        Insert: {
+          avg_latency_ms?: number | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          kind?: Database["public"]["Enums"]["verification_engine_kind"]
+          last_heartbeat_at?: string | null
+          name: string
+          notes?: string | null
+          priority?: number
+          status?: Database["public"]["Enums"]["verification_worker_status"]
+          success_rate?: number | null
+          total_runs?: number
+          updated_at?: string
+          version?: string | null
+        }
+        Update: {
+          avg_latency_ms?: number | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          kind?: Database["public"]["Enums"]["verification_engine_kind"]
+          last_heartbeat_at?: string | null
+          name?: string
+          notes?: string | null
+          priority?: number
+          status?: Database["public"]["Enums"]["verification_worker_status"]
+          success_rate?: number | null
+          total_runs?: number
+          updated_at?: string
+          version?: string | null
+        }
+        Relationships: []
+      }
       verification_jobs: {
         Row: {
+          avg_latency_ms: number | null
+          cache_hit_rate: number | null
           cached_hit_count: number
           campaign_id: string | null
           catch_all_count: number
           completed_at: string | null
           created_at: string
           created_by: string | null
+          dead_letter_count: number
           disposable_count: number
           error_message: string | null
           failed_count: number
@@ -7571,6 +7893,7 @@ export type Database = {
           list_quality_score: number | null
           max_retries: number
           name: string | null
+          priority: number
           processed_count: number
           rate_limit_per_min: number
           risky_count: number
@@ -7586,12 +7909,15 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          avg_latency_ms?: number | null
+          cache_hit_rate?: number | null
           cached_hit_count?: number
           campaign_id?: string | null
           catch_all_count?: number
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
+          dead_letter_count?: number
           disposable_count?: number
           error_message?: string | null
           failed_count?: number
@@ -7601,6 +7927,7 @@ export type Database = {
           list_quality_score?: number | null
           max_retries?: number
           name?: string | null
+          priority?: number
           processed_count?: number
           rate_limit_per_min?: number
           risky_count?: number
@@ -7616,12 +7943,15 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          avg_latency_ms?: number | null
+          cache_hit_rate?: number | null
           cached_hit_count?: number
           campaign_id?: string | null
           catch_all_count?: number
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
+          dead_letter_count?: number
           disposable_count?: number
           error_message?: string | null
           failed_count?: number
@@ -7631,6 +7961,7 @@ export type Database = {
           list_quality_score?: number | null
           max_retries?: number
           name?: string | null
+          priority?: number
           processed_count?: number
           rate_limit_per_min?: number
           risky_count?: number
@@ -7662,27 +7993,93 @@ export type Database = {
           },
         ]
       }
+      verification_quotas: {
+        Row: {
+          abuse_flagged: boolean
+          abuse_reason: string | null
+          created_at: string
+          daily_limit: number
+          day_reset_at: string
+          month_reset_at: string
+          monthly_limit: number
+          updated_at: string
+          used_month: number
+          used_today: number
+          workspace_id: string
+        }
+        Insert: {
+          abuse_flagged?: boolean
+          abuse_reason?: string | null
+          created_at?: string
+          daily_limit?: number
+          day_reset_at?: string
+          month_reset_at?: string
+          monthly_limit?: number
+          updated_at?: string
+          used_month?: number
+          used_today?: number
+          workspace_id: string
+        }
+        Update: {
+          abuse_flagged?: boolean
+          abuse_reason?: string | null
+          created_at?: string
+          daily_limit?: number
+          day_reset_at?: string
+          month_reset_at?: string
+          monthly_limit?: number
+          updated_at?: string
+          used_month?: number
+          used_today?: number
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "verification_quotas_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: true
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       verification_results: {
         Row: {
+          ai_confidence: number | null
+          ai_risk_score: number | null
+          attempt_count: number
+          behavioral_signals: Json
           cached_until: string | null
           confidence: number | null
           contact_id: string | null
           created_at: string
+          dead_letter: boolean
           did_you_mean: string | null
           domain: string | null
           email: string
           email_normalized: string | null
+          engagement_correlation: number | null
+          engine_conflict: boolean
+          engine_consensus_score: number | null
+          engine_latency_ms: number | null
           engine_version: string | null
           error_message: string | null
+          fallback_engine: string | null
           from_cache: boolean
+          historical_outcome_score: number | null
           id: string
           is_catch_all: boolean | null
           is_disposable: boolean | null
           is_free_provider: boolean | null
           is_role_based: boolean | null
           job_id: string
+          last_attempt_at: string | null
           mx_provider: string | null
           mx_record: string | null
+          next_retry_at: string | null
+          primary_engine: string | null
+          priority: number
+          processing_started_at: string | null
           raw_response: Json | null
           retry_count: number
           risk_reasons: string[]
@@ -7691,28 +8088,45 @@ export type Database = {
           source_engine: string | null
           status: Database["public"]["Enums"]["verification_status"]
           verified_at: string | null
+          worker_id: string | null
           workspace_id: string
         }
         Insert: {
+          ai_confidence?: number | null
+          ai_risk_score?: number | null
+          attempt_count?: number
+          behavioral_signals?: Json
           cached_until?: string | null
           confidence?: number | null
           contact_id?: string | null
           created_at?: string
+          dead_letter?: boolean
           did_you_mean?: string | null
           domain?: string | null
           email: string
           email_normalized?: string | null
+          engagement_correlation?: number | null
+          engine_conflict?: boolean
+          engine_consensus_score?: number | null
+          engine_latency_ms?: number | null
           engine_version?: string | null
           error_message?: string | null
+          fallback_engine?: string | null
           from_cache?: boolean
+          historical_outcome_score?: number | null
           id?: string
           is_catch_all?: boolean | null
           is_disposable?: boolean | null
           is_free_provider?: boolean | null
           is_role_based?: boolean | null
           job_id: string
+          last_attempt_at?: string | null
           mx_provider?: string | null
           mx_record?: string | null
+          next_retry_at?: string | null
+          primary_engine?: string | null
+          priority?: number
+          processing_started_at?: string | null
           raw_response?: Json | null
           retry_count?: number
           risk_reasons?: string[]
@@ -7721,28 +8135,45 @@ export type Database = {
           source_engine?: string | null
           status?: Database["public"]["Enums"]["verification_status"]
           verified_at?: string | null
+          worker_id?: string | null
           workspace_id: string
         }
         Update: {
+          ai_confidence?: number | null
+          ai_risk_score?: number | null
+          attempt_count?: number
+          behavioral_signals?: Json
           cached_until?: string | null
           confidence?: number | null
           contact_id?: string | null
           created_at?: string
+          dead_letter?: boolean
           did_you_mean?: string | null
           domain?: string | null
           email?: string
           email_normalized?: string | null
+          engagement_correlation?: number | null
+          engine_conflict?: boolean
+          engine_consensus_score?: number | null
+          engine_latency_ms?: number | null
           engine_version?: string | null
           error_message?: string | null
+          fallback_engine?: string | null
           from_cache?: boolean
+          historical_outcome_score?: number | null
           id?: string
           is_catch_all?: boolean | null
           is_disposable?: boolean | null
           is_free_provider?: boolean | null
           is_role_based?: boolean | null
           job_id?: string
+          last_attempt_at?: string | null
           mx_provider?: string | null
           mx_record?: string | null
+          next_retry_at?: string | null
+          primary_engine?: string | null
+          priority?: number
+          processing_started_at?: string | null
           raw_response?: Json | null
           retry_count?: number
           risk_reasons?: string[]
@@ -7751,6 +8182,7 @@ export type Database = {
           source_engine?: string | null
           status?: Database["public"]["Enums"]["verification_status"]
           verified_at?: string | null
+          worker_id?: string | null
           workspace_id?: string
         }
         Relationships: [
@@ -7776,6 +8208,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      verification_workers: {
+        Row: {
+          avg_latency_ms: number | null
+          claimed_batch_size: number | null
+          created_at: string
+          host: string | null
+          id: string
+          in_flight_count: number | null
+          last_error: string | null
+          last_heartbeat_at: string | null
+          metadata: Json
+          status: Database["public"]["Enums"]["verification_worker_status"]
+          total_processed: number
+          updated_at: string
+          version: string | null
+          worker_id: string
+        }
+        Insert: {
+          avg_latency_ms?: number | null
+          claimed_batch_size?: number | null
+          created_at?: string
+          host?: string | null
+          id?: string
+          in_flight_count?: number | null
+          last_error?: string | null
+          last_heartbeat_at?: string | null
+          metadata?: Json
+          status?: Database["public"]["Enums"]["verification_worker_status"]
+          total_processed?: number
+          updated_at?: string
+          version?: string | null
+          worker_id: string
+        }
+        Update: {
+          avg_latency_ms?: number | null
+          claimed_batch_size?: number | null
+          created_at?: string
+          host?: string | null
+          id?: string
+          in_flight_count?: number | null
+          last_error?: string | null
+          last_heartbeat_at?: string | null
+          metadata?: Json
+          status?: Database["public"]["Enums"]["verification_worker_status"]
+          total_processed?: number
+          updated_at?: string
+          version?: string | null
+          worker_id?: string
+        }
+        Relationships: []
       }
       workspace_kpis: {
         Row: {
@@ -7962,6 +8445,10 @@ export type Database = {
     }
     Functions: {
       assert_email_allowed: { Args: never; Returns: undefined }
+      check_campaign_list_safety: {
+        Args: { _campaign_id: string }
+        Returns: Json
+      }
       check_email_send_eligibility: {
         Args: { _email: string; _workspace_id: string }
         Returns: Json
@@ -7979,6 +8466,12 @@ export type Database = {
       classify_inbound_message: {
         Args: { p_body: string; p_subject: string }
         Returns: Database["public"]["Enums"]["reply_category"]
+      }
+      compute_domain_risk: { Args: { _domain: string }; Returns: Json }
+      compute_list_health: { Args: { _job_id: string }; Returns: Json }
+      consume_verification_quota: {
+        Args: { _count: number; _workspace_id: string }
+        Returns: Json
       }
       create_workspace_for_user: {
         Args: { p_name: string; p_user_id: string }
@@ -8169,6 +8662,18 @@ export type Database = {
         Returns: string
       }
       pick_campaign_mailbox: { Args: { _campaign_id: string }; Returns: string }
+      record_bounce: {
+        Args: {
+          _campaign_id?: string
+          _category: Database["public"]["Enums"]["bounce_category"]
+          _email: string
+          _provider?: string
+          _smtp_code?: number
+          _smtp_response?: string
+          _workspace_id: string
+        }
+        Returns: Json
+      }
       record_verification_result: {
         Args: {
           _confidence?: number
@@ -8191,14 +8696,33 @@ export type Database = {
         }
         Returns: Json
       }
+      recover_stuck_verification_jobs: { Args: never; Returns: Json }
       retry_verification_result: {
         Args: { _error: string; _result_id: string }
         Returns: undefined
       }
       user_workspace_ids: { Args: never; Returns: string[] }
+      worker_heartbeat: {
+        Args: {
+          _avg_latency?: number
+          _batch_size?: number
+          _host?: string
+          _in_flight?: number
+          _last_error?: string
+          _metadata?: Json
+          _status?: Database["public"]["Enums"]["verification_worker_status"]
+          _version?: string
+          _worker_id: string
+        }
+        Returns: string
+      }
       workspace_role: {
         Args: { _user_id: string; _workspace_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
+      }
+      workspace_verification_overview: {
+        Args: { _workspace_id: string }
+        Returns: Json
       }
     }
     Enums: {
@@ -8239,6 +8763,15 @@ export type Database = {
         | "summary"
       app_role: "admin" | "manager" | "operator" | "viewer"
       attribution_type: "first_touch" | "last_touch" | "multi_touch"
+      bounce_category:
+        | "hard_bounce"
+        | "soft_bounce"
+        | "mailbox_full"
+        | "spam_block"
+        | "greylisted"
+        | "invalid_recipient"
+        | "policy_block"
+        | "temporary_failure"
       call_outcome:
         | "no_answer"
         | "voicemail"
@@ -8436,6 +8969,7 @@ export type Database = {
         | "completed"
         | "skipped"
         | "cancelled"
+      verification_engine_kind: "primary" | "fallback" | "consensus" | "ai"
       verification_job_source:
         | "csv_upload"
         | "import_clean"
@@ -8450,6 +8984,7 @@ export type Database = {
         | "completed"
         | "failed"
         | "cancelled"
+      verification_risk_tier: "low" | "medium" | "high" | "critical"
       verification_status:
         | "safe"
         | "valid"
@@ -8461,6 +8996,7 @@ export type Database = {
         | "unknown"
         | "suppressed"
         | "failed"
+      verification_worker_status: "online" | "idle" | "degraded" | "offline"
       warmup_status: "off" | "active" | "paused" | "complete"
     }
     CompositeTypes: {
@@ -8628,6 +9164,16 @@ export const Constants = {
       ],
       app_role: ["admin", "manager", "operator", "viewer"],
       attribution_type: ["first_touch", "last_touch", "multi_touch"],
+      bounce_category: [
+        "hard_bounce",
+        "soft_bounce",
+        "mailbox_full",
+        "spam_block",
+        "greylisted",
+        "invalid_recipient",
+        "policy_block",
+        "temporary_failure",
+      ],
       call_outcome: [
         "no_answer",
         "voicemail",
@@ -8848,6 +9394,7 @@ export const Constants = {
         "skipped",
         "cancelled",
       ],
+      verification_engine_kind: ["primary", "fallback", "consensus", "ai"],
       verification_job_source: [
         "csv_upload",
         "import_clean",
@@ -8864,6 +9411,7 @@ export const Constants = {
         "failed",
         "cancelled",
       ],
+      verification_risk_tier: ["low", "medium", "high", "critical"],
       verification_status: [
         "safe",
         "valid",
@@ -8876,6 +9424,7 @@ export const Constants = {
         "suppressed",
         "failed",
       ],
+      verification_worker_status: ["online", "idle", "degraded", "offline"],
       warmup_status: ["off", "active", "paused", "complete"],
     },
   },
