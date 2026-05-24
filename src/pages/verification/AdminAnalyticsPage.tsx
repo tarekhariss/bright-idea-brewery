@@ -1,13 +1,31 @@
 import { PageContainer, SectionHeader, KpiCard } from "@/components/verification/kit";
-import { useVerificationOverview, useVerificationWorkers, useVerificationEngines, useDeadLetter } from "@/hooks/use-verification-platform";
+import { useVerificationOverview, useVerificationWorkers, useVerificationEngines, useDeadLetter, useIsPlatformAdmin } from "@/hooks/use-verification-platform";
 import { Card } from "@/components/ui/card";
-import { Activity, ServerCog, Cpu, Skull, ShieldAlert, BarChart3 } from "lucide-react";
+import { Activity, ServerCog, Cpu, Skull, ShieldAlert, BarChart3, Lock } from "lucide-react";
 
 export default function AdminAnalyticsPage() {
+  const { data: isAdmin, isLoading: adminLoading } = useIsPlatformAdmin();
   const { data: overview } = useVerificationOverview();
   const { data: workers = [] } = useVerificationWorkers();
   const { data: engines = [] } = useVerificationEngines();
   const { data: dlq = [] } = useDeadLetter();
+
+  if (adminLoading) {
+    return <PageContainer><div className="text-sm text-muted-foreground">Checking permissions…</div></PageContainer>;
+  }
+  if (!isAdmin) {
+    return (
+      <PageContainer>
+        <Card className="flex flex-col items-center justify-center gap-3 p-12 text-center">
+          <Lock className="h-8 w-8 text-muted-foreground" />
+          <h3 className="text-base font-semibold">Platform admins only</h3>
+          <p className="max-w-md text-sm text-muted-foreground">
+            This dashboard exposes platform-wide verification health. Ask a platform administrator for access.
+          </p>
+        </Card>
+      </PageContainer>
+    );
+  }
 
   const onlineWorkers = workers.filter((w: any) => w.status === "online" || w.status === "idle").length;
   const dlqOpen = dlq.filter((d: any) => !d.recovered_at).length;
