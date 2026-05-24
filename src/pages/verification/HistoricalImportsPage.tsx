@@ -11,9 +11,10 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Database, Upload, FileSpreadsheet, Brain, Sparkles, ChevronRight, ChevronLeft } from "lucide-react";
+import { Database, Upload, FileSpreadsheet, Brain, Sparkles, ChevronRight, ChevronLeft, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
+import { useNavigate } from "react-router-dom";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 
@@ -116,9 +117,10 @@ async function parseFile(file: File): Promise<{ headers: string[]; rows: Record<
 
 export default function HistoricalImportsPage() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const { user, workspaceId } = useAuth();
   const [open, setOpen] = useState(false);
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
   const [file, setFile] = useState<File | null>(null);
   const [headers, setHeaders] = useState<string[]>([]);
   const [rows, setRows] = useState<Record<string, any>[]>([]);
@@ -127,6 +129,7 @@ export default function HistoricalImportsPage() {
   const [datasetName, setDatasetName] = useState("");
   const [tags, setTags] = useState("");
   const [autoSeedProspects, setAutoSeedProspects] = useState(true);
+  const [completedDatasetId, setCompletedDatasetId] = useState<string | null>(null);
 
   const [progress, setProgress] = useState({ done: 0, total: 0 });
 
@@ -140,9 +143,21 @@ export default function HistoricalImportsPage() {
     refetchInterval: 4000,
   });
 
+  const { data: completedDataset } = useQuery({
+    queryKey: ["imported_dataset", completedDatasetId],
+    enabled: !!completedDatasetId,
+    refetchInterval: completedDatasetId ? 2000 : false,
+    queryFn: async () => {
+      const { data, error } = await sb.from("imported_datasets").select("*").eq("id", completedDatasetId).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const reset = () => {
     setStep(1); setFile(null); setHeaders([]); setRows([]); setMapping({});
     setDatasetName(""); setTags(""); setAutoSeedProspects(true); setProgress({ done: 0, total: 0 });
+    setCompletedDatasetId(null);
   };
 
   const onPickFile = async (f: File) => {
@@ -208,12 +223,12 @@ export default function HistoricalImportsPage() {
       }
       return datasetId;
     },
-    onSuccess: () => {
+    onSuccess: (datasetId: string) => {
       toast.success("Dataset imported — intelligence and learning tables updated.");
       qc.invalidateQueries({ queryKey: ["imported_datasets"] });
       qc.invalidateQueries({ queryKey: ["historical_imports"] });
-      setOpen(false);
-      reset();
+      setCompletedDatasetId(datasetId);
+      setStep(5);
     },
     onError: (e: any) => toast.error(e.message ?? "Import failed"),
   });
@@ -257,8 +272,17 @@ export default function HistoricalImportsPage() {
             </TableHeader>
             <TableBody>
               {datasets.map((d: any) => (
-                <TableRow key={d.id}>
-                  <TableCell className="font-medium">{d.filename ?? "(unnamed)"}</TableCell>
+                <TableRow
+                  key={d.id}
+                  className="cursor-pointer hover:bg-muted/40"
+                  onClick={() => navigate(`/verification/historical-imports/${d.id}`)}
+                >
+                  <TableCell className="font-medium">
+                    <span className="inline-flex items-center gap-1.5">
+                      {d.filename ?? "(unnamed)"}
+                      <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                    </span>
+                  </TableCell>
                   <TableCell className="text-xs"><Badge variant="outline">{d.source}</Badge></TableCell>
                   <TableCell className="text-xs uppercase text-muted-foreground">{d.file_type ?? "—"}</TableCell>
                   <TableCell><StatusPill status={d.status} /></TableCell>
@@ -276,16 +300,19 @@ export default function HistoricalImportsPage() {
       </Card>
 
       <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {step === 1 && "Upload dataset"}
               {step === 2 && "Map columns"}
               {step === 3 && "Preview & dataset details"}
               {step === 4 && "Importing…"}
+              {step === 5 && "Import complete — intelligence updated"}
             </DialogTitle>
             <DialogDescription>
-              Step {step} of 4 — historical data is marked <code>historical_only=true</code>, scored for freshness, and never overrides live verification.
+              {step < 5
+                ? `Step ${step} of 4 — historical data is marked historical_only=true, scored for freshness, and never overrides live verification.`
+                : "Summary of what was learned from this dataset."}
             </DialogDescription>
           </DialogHeader>
 
@@ -445,6 +472,63 @@ export default function HistoricalImportsPage() {
             </div>
           )}
 
+          {step === 5 && (() => {
+            const s: any = completedDataset?.stats ?? {};
+            const items: { label: string; value: any; tone?: string }[] = [
+              { label: "Total rows imported", value: completedDataset?.processed_count ?? 0 },
+              { label: "Prospects added", value: s.prospects_created ?? 0, tone: "text-emerald-600" },
+              { label: "Duplicates merged", value: s.prospects_merged ?? 0, tone: "text-sky-600" },
+              { label: "Skipped duplicates", value: s.skipped_duplicates ?? 0, tone: "text-amber-600" },
+              { label: "Safe to send", value: s.safe_to_send ?? 0, tone: "text-emerald-600" },
+              { label: "Risky", value: s.risky_total ?? s.risky ?? 0, tone: "text-rose-600" },
+              { label: "Catch-all", value: s.catch_all ?? 0 },
+              { label: "Unknown", value: s.unknown ?? 0 },
+              { label: "Disposable", value: s.disposable ?? s.subtypes?.disposable ?? 0 },
+              { label: "Spamtrap", value: s.subtypes?.spamtrap ?? 0 },
+              { label: "Dead server", value: s.subtypes?.dead_server ?? 0 },
+              { label: "Invalid MX", value: s.subtypes?.invalid_mx ?? 0 },
+              { label: "Email disabled", value: s.subtypes?.email_disabled ?? 0 },
+              { label: "Provider blocked", value: s.subtypes?.provider_blocked ?? 0 },
+              { label: "Greylisted patterns", value: s.greylisted_patterns ?? s.subtypes?.greylisted ?? 0 },
+              { label: "Domains learned", value: s.domains_learned ?? 0, tone: "text-violet-600" },
+              { label: "Providers learned", value: s.providers_learned ?? 0, tone: "text-violet-600" },
+              { label: "Avg confidence", value: s.avg_confidence != null ? Math.round(s.avg_confidence) : "—" },
+              { label: "Avg bounce prob", value: s.avg_bounce_probability != null ? `${(s.avg_bounce_probability * 100).toFixed(1)}%` : "—" },
+              { label: "Avg safe-to-send", value: s.avg_safe_to_send_score != null ? Math.round(s.avg_safe_to_send_score) : "—" },
+            ];
+            return (
+              <div className="space-y-4">
+                <div className="rounded-md border bg-primary/5 px-4 py-3 text-sm">
+                  <Sparkles className="mr-2 inline h-4 w-4 text-primary" />
+                  Improved intelligence for <b>{(s.domains_learned ?? 0).toLocaleString()}</b> domains,{" "}
+                  <b>{(s.providers_learned ?? 0).toLocaleString()}</b> providers, and{" "}
+                  <b>{((s.prospects_created ?? 0) + (s.prospects_merged ?? 0)).toLocaleString()}</b> prospects.
+                </div>
+                <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+                  {items.map((it) => (
+                    <div key={it.label} className="rounded-md border bg-card p-3">
+                      <div className="text-[11px] uppercase tracking-wider text-muted-foreground">{it.label}</div>
+                      <div className={`mt-1 text-xl font-semibold tabular-nums ${it.tone ?? ""}`}>
+                        {typeof it.value === "number" ? it.value.toLocaleString() : it.value}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="rounded-md border p-3">
+                  <div className="mb-2 text-xs font-medium text-foreground">Freshness breakdown</div>
+                  <div className="grid grid-cols-4 gap-2 text-xs">
+                    {(["fresh","aging","stale","expired"] as const).map((k) => (
+                      <div key={k} className="rounded bg-muted/40 p-2 text-center">
+                        <div className="text-muted-foreground capitalize">{k}</div>
+                        <div className="text-base font-semibold tabular-nums">{(s.freshness?.[k] ?? 0).toLocaleString()}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
           <DialogFooter className="gap-2">
             {step > 1 && step < 4 && (
               <Button variant="ghost" onClick={() => setStep((s) => (s - 1) as any)}>
@@ -464,6 +548,16 @@ export default function HistoricalImportsPage() {
               >
                 Start import
               </Button>
+            )}
+            {step === 5 && (
+              <>
+                <Button variant="ghost" onClick={() => { setOpen(false); reset(); }}>Close</Button>
+                {completedDatasetId && (
+                  <Button onClick={() => { const id = completedDatasetId; setOpen(false); reset(); navigate(`/verification/historical-imports/${id}`); }}>
+                    Open dataset detail
+                  </Button>
+                )}
+              </>
             )}
           </DialogFooter>
         </DialogContent>

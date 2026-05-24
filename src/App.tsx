@@ -94,6 +94,7 @@ import VfRetryPage from "./pages/verification/RetryPipelinePage";
 import VfDLQPage from "./pages/verification/DeadLetterPage";
 import VfImportsPage from "./pages/verification/ImportsCenterPage";
 import VfHistoricalImportsPage from "./pages/verification/HistoricalImportsPage";
+import VfHistoricalImportDetailPage from "./pages/verification/HistoricalImportDetailPage";
 import VfHistoryPage from "./pages/verification/HistoryExplorerPage";
 import VfListQualityPage from "./pages/verification/ListQualityPage";
 import VfRulesPage from "./pages/verification/RulesEnginePage";
@@ -263,6 +264,7 @@ const App = () => (
             <Route path="/verification/catch-all" element={<VL><VfCatchAllPage /></VL>} />
             <Route path="/verification/imports" element={<VL><VfImportsPage /></VL>} />
             <Route path="/verification/historical-imports" element={<VL><VfHistoricalImportsPage /></VL>} />
+            <Route path="/verification/historical-imports/:id" element={<VL><VfHistoricalImportDetailPage /></VL>} />
             <Route path="/verification/history" element={<VL><VfHistoryPage /></VL>} />
             <Route path="/verification/suppression" element={<VL><VfSuppressionPage /></VL>} />
             <Route path="/verification/list-quality" element={<VL><VfListQualityPage /></VL>} />
