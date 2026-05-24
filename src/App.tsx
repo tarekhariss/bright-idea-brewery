@@ -240,6 +240,30 @@ const App = () => (
             <Route path="/tools/verification" element={<PL><VerificationPage /></PL>} />
             <Route path="/tools/verification/:id" element={<PL><VerificationJobDetailPage /></PL>} />
 
+            {/* Verification — standalone platform */}
+            <Route path="/verification" element={<VL><VfDashboardPage /></VL>} />
+            <Route path="/verification/jobs" element={<VL><VfJobsPage /></VL>} />
+            <Route path="/verification/queue" element={<VL><VfQueuePage /></VL>} />
+            <Route path="/verification/workers" element={<VL><VfWorkersPage /></VL>} />
+            <Route path="/verification/retries" element={<VL><VfRetryPage /></VL>} />
+            <Route path="/verification/dead-letter" element={<VL><VfDLQPage /></VL>} />
+            <Route path="/verification/domains" element={<VL><VfDomainsPage /></VL>} />
+            <Route path="/verification/providers" element={<VL><VfProvidersPage /></VL>} />
+            <Route path="/verification/bounces" element={<VL><VfBouncesPage /></VL>} />
+            <Route path="/verification/catch-all" element={<VL><VfCatchAllPage /></VL>} />
+            <Route path="/verification/imports" element={<VL><VfImportsPage /></VL>} />
+            <Route path="/verification/history" element={<VL><VfHistoryPage /></VL>} />
+            <Route path="/verification/suppression" element={<VL><VfSuppressionPage /></VL>} />
+            <Route path="/verification/list-quality" element={<VL><VfListQualityPage /></VL>} />
+            <Route path="/verification/rules" element={<VL><VfRulesPage /></VL>} />
+            <Route path="/verification/engines" element={<VL><VfEnginesPage /></VL>} />
+            <Route path="/verification/api" element={<VL><VfApiPage /></VL>} />
+            <Route path="/verification/quotas" element={<VL><VfQuotasPage /></VL>} />
+            <Route path="/verification/audit" element={<VL><VfAuditPage /></VL>} />
+            <Route path="/verification/campaign-safety" element={<VL><VfCampaignSafetyPage /></VL>} />
+            <Route path="/verification/admin" element={<VL><VfAdminPage /></VL>} />
+            <Route path="/verification/ai" element={<VL><VfAIPage /></VL>} />
+
 
             {/* Records (reuse existing) */}
             <Route path="/records" element={<PL><ContactsPage /></PL>} />
