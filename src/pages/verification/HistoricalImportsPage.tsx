@@ -21,7 +21,7 @@ const sb = supabase as any;
 
 const CANONICAL: { key: string; label: string; required?: boolean; hints: string[]; group?: "verification" | "prospect" }[] = [
   { key: "email", label: "Email", required: true, hints: ["email", "emailaddress", "email_address", "address", "mail", "recipient", "to"], group: "verification" },
-  { key: "status", label: "Verification status", hints: ["status", "verification_status", "verificationstatus", "state", "elv_status", "validation_status", "valid"], group: "verification" },
+  { key: "status", label: "Verification status", hints: ["status", "verification_status", "verificationstatus", "elv_status", "elv_result", "emaillistverify_result", "emaillistverify_status", "validation_status", "validation_result", "validity", "email_status"], group: "verification" },
   { key: "result", label: "Result (alt)", hints: ["result", "verdict", "outcome", "verification_result", "validation_result"], group: "verification" },
   { key: "confidence", label: "Confidence / score", hints: ["confidence", "confidence_score", "score", "deliverability_score", "deliverability", "quality_score", "verification_score"], group: "verification" },
   { key: "reason", label: "Reason", hints: ["reason", "verification_reason", "sub_status", "substatus", "details", "message", "error", "notes"], group: "verification" },
@@ -85,15 +85,10 @@ function autoMap(headers: string[]): Record<string, string> {
     const hit = normalized.find(h => !used.has(h.raw) && targets.has(h.n));
     if (hit) { m[c.key] = hit.raw; used.add(hit.raw); }
   }
-  // Pass 2: aggressive fuzzy — header contains hint OR hint contains header
-  for (const c of CANONICAL) {
-    if (m[c.key]) continue;
-    const targets = [c.key, ...c.hints].map(norm).filter(t => t.length >= 3);
-    const hit = normalized.find(h =>
-      !used.has(h.raw) && h.n.length >= 3 && targets.some(t => h.n.includes(t) || t.includes(h.n))
-    );
-    if (hit) { m[c.key] = hit.raw; used.add(hit.raw); }
-  }
+  // Note: no fuzzy/substring pass — it causes false positives like
+  // "Company State" → verification status. Unmapped columns are preserved
+  // as custom fields verbatim, so we prefer correctness over coverage here.
+
   return m;
 }
 
@@ -328,6 +323,10 @@ export default function HistoricalImportsPage() {
                 <Badge variant="outline" className="uppercase">{stats.fileType}</Badge>
                 {mapping.email && <Badge className="bg-emerald-100 text-emerald-700"><Sparkles className="mr-1 h-3 w-3" />Email column detected</Badge>}
               </div>
+              <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-200">
+                <Sparkles className="mr-1 inline h-3 w-3" />
+                Unmapped columns will be preserved as custom fields automatically — no column is dropped unless you manually choose <b>Skip column entirely</b>.
+              </div>
               <div className="max-h-[420px] space-y-2 overflow-y-auto rounded-md border p-3">
                 {CANONICAL.map(c => (
                   <div key={c.key} className="grid grid-cols-[180px_1fr] items-center gap-2 text-xs">
@@ -338,15 +337,16 @@ export default function HistoricalImportsPage() {
                       value={mapping[c.key] ?? "__none__"}
                       onValueChange={(v) => setMapping(m => ({ ...m, [c.key]: v === "__none__" ? "" : v }))}
                     >
-                      <SelectTrigger className="h-8"><SelectValue placeholder="(skip)" /></SelectTrigger>
+                      <SelectTrigger className="h-8"><SelectValue placeholder="Preserve as custom field" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="__none__">(skip)</SelectItem>
+                        <SelectItem value="__none__">Preserve as custom field (default)</SelectItem>
                         {headers.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
                 ))}
               </div>
+
               {(() => {
                 const mapped = new Set(Object.values(mapping).filter(Boolean));
                 const unmapped = headers.filter(h => !mapped.has(h));
@@ -354,7 +354,7 @@ export default function HistoricalImportsPage() {
                 return (
                   <div className="rounded-md border bg-muted/30 p-3 text-xs">
                     <div className="mb-1 font-medium text-foreground">
-                      {unmapped.length} unmapped column{unmapped.length === 1 ? "" : "s"} — preserved as custom fields
+                      {unmapped.length} column{unmapped.length === 1 ? "" : "s"} will be preserved as custom fields
                     </div>
                     <div className="mb-2 text-muted-foreground">
                       These are kept verbatim on every imported row and on seeded prospects (under <code>custom_fields.imported_columns</code>) so they remain available for exports, filtering, and CRM enrichment.
