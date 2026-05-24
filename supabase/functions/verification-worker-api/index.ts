@@ -107,6 +107,13 @@ Deno.serve(async (req) => {
           if (r.probe_metadata != null) patch.probe_metadata = r.probe_metadata;
           if (r.provider_type != null) patch.provider_type = String(r.provider_type).slice(0, 80);
           if (r.engine_latency_ms != null) patch.engine_latency_ms = Number(r.engine_latency_ms);
+          if (r.deliverability_score != null) patch.deliverability_score = Number(r.deliverability_score);
+          if (r.bounce_risk_score != null) patch.bounce_risk_score = Number(r.bounce_risk_score);
+          if (r.unknown_confidence != null) patch.unknown_confidence = Number(r.unknown_confidence);
+          if (r.unknown_subclass != null) patch.unknown_subclass = String(r.unknown_subclass).slice(0, 60);
+          if (r.confidence_breakdown != null) patch.confidence_breakdown = r.confidence_breakdown;
+          if (r.confidence_score != null) patch.confidence_score = Number(r.confidence_score);
+          if (r.risk_level != null) patch.risk_level = String(r.risk_level).slice(0, 20);
           if (Object.keys(patch).length > 0 && r.result_id) {
             await admin.from("verification_results").update(patch).eq("id", r.result_id);
           }
