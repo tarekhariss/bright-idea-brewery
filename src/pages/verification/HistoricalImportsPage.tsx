@@ -323,6 +323,10 @@ export default function HistoricalImportsPage() {
                 <Badge variant="outline" className="uppercase">{stats.fileType}</Badge>
                 {mapping.email && <Badge className="bg-emerald-100 text-emerald-700"><Sparkles className="mr-1 h-3 w-3" />Email column detected</Badge>}
               </div>
+              <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-200">
+                <Sparkles className="mr-1 inline h-3 w-3" />
+                Unmapped columns will be preserved as custom fields automatically — no column is dropped unless you manually choose <b>Skip column entirely</b>.
+              </div>
               <div className="max-h-[420px] space-y-2 overflow-y-auto rounded-md border p-3">
                 {CANONICAL.map(c => (
                   <div key={c.key} className="grid grid-cols-[180px_1fr] items-center gap-2 text-xs">
@@ -333,15 +337,16 @@ export default function HistoricalImportsPage() {
                       value={mapping[c.key] ?? "__none__"}
                       onValueChange={(v) => setMapping(m => ({ ...m, [c.key]: v === "__none__" ? "" : v }))}
                     >
-                      <SelectTrigger className="h-8"><SelectValue placeholder="(skip)" /></SelectTrigger>
+                      <SelectTrigger className="h-8"><SelectValue placeholder="Preserve as custom field" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="__none__">(skip)</SelectItem>
+                        <SelectItem value="__none__">Preserve as custom field (default)</SelectItem>
                         {headers.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
                 ))}
               </div>
+
               {(() => {
                 const mapped = new Set(Object.values(mapping).filter(Boolean));
                 const unmapped = headers.filter(h => !mapped.has(h));
