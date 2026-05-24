@@ -164,13 +164,23 @@ export default function VfJobDetailPage() {
   const avgLatency = job?.avg_latency_ms ?? 0;
   const progressPct = grandTotal > 0 ? Math.min(100, Math.round((processed / grandTotal) * 100)) : 0;
 
-  // Throughput / ETA
+  // --- Reuse / live-vs-cache execution trace ---
+  const liveSmtpCount     = job?.live_smtp_count ?? 0;
+  const recoveryCount     = job?.recovery_count ?? 0;
+  const reusedCache       = job?.reused_from_cache_count ?? job?.cached_hit_count ?? 0;
+  const skippedLive       = job?.skipped_live_verification_count ?? 0;
+  const cachePolicy       = job?.cache_policy ?? "default";
+  const verificationQ     = job?.verification_quality ?? "balanced";
+  const isAllReused       = grandTotal > 0 && liveSmtpCount === 0 && reusedCache >= grandTotal;
+
+  // Throughput / ETA — only meaningful for live work
   const throughputPerMin = useMemo(() => {
-    if (!job?.started_at) return 0;
+    if (!job?.started_at || liveSmtpCount === 0) return 0;
     const elapsedMin = Math.max(0.5, (Date.now() - new Date(job.started_at).getTime()) / 60000);
-    return Math.round(processed / elapsedMin);
-  }, [job?.started_at, processed]);
+    return Math.round(liveSmtpCount / elapsedMin);
+  }, [job?.started_at, liveSmtpCount]);
   const etaMin = throughputPerMin > 0 ? Math.ceil(pendingCount / throughputPerMin) : null;
+
 
   // Freshness distribution
   const freshDist = useMemo(() => {
@@ -339,10 +349,17 @@ export default function VfJobDetailPage() {
 
       {/* Live processing intelligence */}
       <Card className="p-4">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Activity className="w-4 h-4 text-emerald-500" />
-            <span className="text-sm font-medium">Live processing</span>
+            <span className="text-sm font-medium">Execution trace</span>
+            <Badge variant="outline" className="text-[10px] uppercase">{verificationQ}</Badge>
+            <Badge variant="outline" className="text-[10px]">cache: {cachePolicy}</Badge>
+            {isAllReused && (
+              <Badge variant="outline" className="text-[10px] text-amber-400 border-amber-400/40">
+                All rows reused from cache · no live SMTP performed
+              </Badge>
+            )}
           </div>
           <span className="text-xs text-muted-foreground tabular-nums">
             {processed.toLocaleString()} / {grandTotal.toLocaleString()} ({progressPct}%)
@@ -353,18 +370,37 @@ export default function VfJobDetailPage() {
           <Mini icon={ShieldCheck} label="Processed" value={processed.toLocaleString()} tone="text-emerald-500" />
           <Mini icon={Clock}       label="Pending"   value={pendingCount.toLocaleString()} tone="text-amber-400" />
           <Mini icon={AlertTriangle} label="Failed"  value={failedCount.toLocaleString()} tone={failedCount > 0 ? "text-rose-500" : "text-foreground"} />
-          <Mini icon={RefreshCw}   label="Retrying" value={(rows.filter((r: any) => r.next_recheck_at).length).toLocaleString()} tone="text-sky-400" />
-          <Mini icon={Activity}    label="Throughput" value={`${throughputPerMin}/min`} tone="text-foreground" />
-          <Mini icon={Server}      label="Workers"   value={`${onlineWorkers}/${workers.length}`} tone={onlineWorkers > 0 ? "text-emerald-500" : "text-rose-500"} />
-          <Mini icon={Cpu}         label="Avg latency" value={`${Math.round(avgLatency)}ms`} tone="text-foreground" />
+          <Mini icon={RefreshCw}   label="Recovery"  value={recoveryCount.toLocaleString()} tone="text-sky-400" />
+          <Mini
+            icon={Activity}
+            label="Throughput"
+            value={liveSmtpCount === 0 ? "— (no live)" : `${throughputPerMin}/min`}
+            tone={liveSmtpCount === 0 ? "text-muted-foreground" : "text-foreground"}
+          />
+          <Mini
+            icon={Server}
+            label="Workers"
+            value={liveSmtpCount === 0 ? "n/a" : `${onlineWorkers}/${workers.length}`}
+            tone={liveSmtpCount === 0 ? "text-muted-foreground" : onlineWorkers > 0 ? "text-emerald-500" : "text-rose-500"}
+          />
+          <Mini
+            icon={Cpu}
+            label="Avg latency"
+            value={liveSmtpCount === 0 ? "— (cached)" : `${Math.round(avgLatency)}ms`}
+            tone={liveSmtpCount === 0 ? "text-muted-foreground" : "text-foreground"}
+          />
           <Mini icon={Sparkles}    label="ETA" value={etaMin === null ? "—" : etaMin < 1 ? "<1m" : `${etaMin}m`} tone="text-foreground" />
         </div>
-        <div className="flex items-center gap-4 mt-3 text-[11px] text-muted-foreground">
+        <div className="flex items-center gap-4 mt-3 text-[11px] text-muted-foreground flex-wrap">
+          <span>Live SMTP: <b className="text-foreground tabular-nums">{liveSmtpCount.toLocaleString()}</b></span>
+          <span>Reused from cache: <b className="text-foreground tabular-nums">{reusedCache.toLocaleString()}</b></span>
+          <span>Skipped live: <b className="text-foreground tabular-nums">{skippedLive.toLocaleString()}</b></span>
           <span>Cache hit: <b className="text-foreground tabular-nums">{cacheRate}%</b></span>
           <span>Dead letter: <b className={dlqCount > 0 ? "text-amber-400" : "text-foreground"}>{dlqCount}</b></span>
           <span>Greylisted recovery: <b className="text-foreground">{rows.filter((r: any) => r.greylisting_detected).length}</b></span>
         </div>
       </Card>
+
 
       {/* Status Intelligence Cards (14) */}
       <div>
@@ -548,6 +584,7 @@ export default function VfJobDetailPage() {
                     <TableRow>
                       <TableHead>Email</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead>Source</TableHead>
                       <TableHead>Sub-class</TableHead>
                       <TableHead className="text-right">Conf</TableHead>
                       <TableHead className="text-right">Deliver</TableHead>
@@ -556,9 +593,11 @@ export default function VfJobDetailPage() {
                       <TableHead>Freshness</TableHead>
                       <TableHead>Provider</TableHead>
                       <TableHead>SMTP</TableHead>
+                      <TableHead>Worker</TableHead>
                       <TableHead>Recheck</TableHead>
                     </TableRow>
                   </TableHeader>
+
                   <TableBody>
                     {filteredRows.map((r: any) => {
                       const k = bucketResult(r);
@@ -569,6 +608,23 @@ export default function VfJobDetailPage() {
                         <TableRow key={r.id}>
                           <TableCell className="font-mono text-[11px]">{r.email}</TableCell>
                           <TableCell><Badge variant="outline" className={`text-[10px] ${STATUS_META[k].tone}`}>{STATUS_META[k].label}</Badge></TableCell>
+                          <TableCell className="text-xs">
+                            {r.result_source ? (
+                              <span
+                                title={r.finalization_reason ?? ""}
+                                className={
+                                  r.result_source === "cache"     ? "text-amber-400" :
+                                  r.result_source === "recovery"  ? "text-sky-400" :
+                                  r.result_source === "live_smtp" ? "text-emerald-400" :
+                                  "text-muted-foreground"
+                                }
+                              >
+                                {r.result_source}
+                                {r.pass_number > 1 ? ` ·p${r.pass_number}` : ""}
+                              </span>
+                            ) : r.from_cache ? <span className="text-amber-400">cache</span>
+                              : <span className="text-muted-foreground">—</span>}
+                          </TableCell>
                           <TableCell className="text-xs">
                             {sub ? (
                               <span title={sub.hint} className={sub.tone}>{sub.label}</span>
@@ -581,11 +637,15 @@ export default function VfJobDetailPage() {
                           <TableCell className={`text-right tabular-nums text-xs ${bouncePct != null && bouncePct >= 50 ? "text-rose-400" : ""}`}>{bouncePct != null ? bouncePct : "—"}</TableCell>
                           <TableCell className="text-xs">{r.risk_level ?? "—"}</TableCell>
                           <TableCell className={`text-xs ${FRESHNESS_TONE[r.freshness_label] ?? ""}`}>{r.freshness_label ?? "—"}</TableCell>
-                          <TableCell className="text-xs text-muted-foreground">{r.provider_type ?? r.mx_provider ?? "—"}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground">{r.provider_detected ?? r.provider_type ?? r.mx_provider ?? "—"}</TableCell>
                           <TableCell className="text-xs text-muted-foreground truncate max-w-[160px]">{r.smtp_code ?? ""} {r.smtp_result ?? r.smtp_response ?? ""}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground truncate max-w-[120px]" title={r.claimed_by_worker ?? ""}>
+                            {r.claimed_by_worker ? `${r.claimed_by_worker}${r.worker_version ? ` (${r.worker_version})` : ""}` : "—"}
+                          </TableCell>
                           <TableCell className="text-xs">{r.recheck_required ? <Badge variant="outline" className="text-[10px] text-amber-400">required</Badge> : "—"}</TableCell>
                         </TableRow>
                       );
+
                     })}
                   </TableBody>
                 </Table>

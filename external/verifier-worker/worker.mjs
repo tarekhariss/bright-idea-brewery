@@ -22,7 +22,7 @@ const cfg = {
   base: `${requireEnv("SUPABASE_URL")}/functions/v1/verification-worker-api`,
   secret: requireEnv("VERIFICATION_WORKER_SECRET"),
   workerId: process.env.WORKER_ID ?? `worker-${process.pid}`,
-  workerVersion: process.env.WORKER_VERSION ?? "1.2.1-test",
+  workerVersion: process.env.WORKER_VERSION ?? "1.3.0",
   host: process.env.WORKER_HOST ?? "unknown",
   verifierUrl: process.env.VERIFIER_URL ?? "http://email-verifier:8080",
   engine: process.env.VERIFIER_ENGINE ?? "aftership-email-verifier",
@@ -582,6 +582,8 @@ async function processOne(job) {
 
     await api("/submit", {
       result_id: job.result_id ?? job.id,
+      job_id: job.job_id ?? null,
+      workspace_id: job.workspace_id ?? null,
       email: job.email,
       normalized_email: job.email.toLowerCase(),
       retry_count: attempt,
@@ -611,7 +613,24 @@ async function processOne(job) {
         mode,
         unknown_subclass: subclass,
       } : { mode, provider: providerKey, mx_host: mxHost, probed: false, unknown_subclass: subclass },
+      // Execution trace
+      result_source: "live_smtp",
+      claimed_by_worker: cfg.workerId,
+      worker_id: cfg.workerId,
+      worker_version: cfg.workerVersion,
+      pass_number: 1,
+      smtp_attempt_count: (attempt ?? 0) + 1,
+      recovery_attempt_count: 0,
+      provider_detected: providerKey,
+      used_probe: !!probe,
+      finalization_reason:
+        `engine=${cfg.engine}:${mapped.status}` +
+        (subclass ? `:${subclass}` : "") +
+        `:mode=${mode}` +
+        (probe ? ":probed" : "") +
+        (mapped.smtp_code ? `:smtp=${mapped.smtp_code}` : ""),
     });
+
 
     stats.latencies.push(mapped.engine_latency_ms);
     if (stats.latencies.length > 100) stats.latencies.shift();
