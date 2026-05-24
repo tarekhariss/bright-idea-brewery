@@ -18,6 +18,13 @@ const admin = createClient(SUPABASE_URL, SERVICE_KEY, {
   auth: { persistSession: false },
 });
 
+function logWorkerEvent(action: string, details: Record<string, unknown> = {}) {
+  console.log(`[verification-worker-api:${action}]`, {
+    ...details,
+    backend_ref: new URL(SUPABASE_URL).hostname.split(".")[0],
+  });
+}
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -37,18 +44,33 @@ Deno.serve(async (req) => {
   try {
     const workerActions = ["claim", "submit", "retry", "bounce", "heartbeat", "dead-letter", "quota", "fail"];
     if (workerActions.includes(action)) {
-      if (!workerOk(req)) return json({ error: "Worker secret required" }, 401);
+      if (!workerOk(req)) {
+        logWorkerEvent("secret-mismatch", {
+          action,
+          has_configured_secret: WORKER_SECRET.length > 0,
+          has_header: req.headers.has("x-worker-secret"),
+          user_agent: req.headers.get("user-agent") ?? null,
+        });
+        return json({ error: "Worker secret required" }, 401);
+      }
       const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
 
       if (action === "claim") {
         const limit = Math.min(Number(body.limit ?? 50), 200);
+        logWorkerEvent("claim:start", { requested_limit: body.limit ?? null, limit });
         const { data, error } = await admin.rpc("claim_verification_batch", { _limit: limit });
         if (error) throw error;
+        logWorkerEvent("claim:done", { claimed_count: data?.length ?? 0 });
         return json({ batch: data ?? [] });
       }
 
       if (action === "submit") {
         const r = body || {};
+        logWorkerEvent("submit:start", {
+          result_id: r.result_id ?? null,
+          status: r.status ?? null,
+          source_engine: r.source_engine ?? null,
+        });
         const { data, error } = await admin.rpc("record_verification_result", {
           _result_id: r.result_id,
           _status: r.status,
@@ -69,6 +91,7 @@ Deno.serve(async (req) => {
           _error: r.error ?? null,
         });
         if (error) throw error;
+        logWorkerEvent("submit:done", { result_id: r.result_id ?? null });
         return json({ ok: true, result: data });
       }
 
@@ -97,6 +120,13 @@ Deno.serve(async (req) => {
 
       if (action === "heartbeat") {
         if (!body.worker_id) return json({ error: "worker_id required" }, 400);
+        logWorkerEvent("heartbeat:start", {
+          worker_id: body.worker_id,
+          status: body.status ?? "online",
+          in_flight: body.in_flight ?? 0,
+          host: body.host ?? null,
+          version: body.version ?? null,
+        });
         const { error } = await admin.rpc("worker_heartbeat", {
           _worker_id: body.worker_id,
           _status: body.status ?? "online",
@@ -109,12 +139,20 @@ Deno.serve(async (req) => {
           _metadata: body.metadata ?? {},
         });
         if (error) throw error;
+        logWorkerEvent("heartbeat:done", { worker_id: body.worker_id });
         return json({ ok: true });
       }
 
       if (action === "dead-letter") {
         // Report a permanently failed verification → push to DLQ
         if (!body.workspace_id || !body.email) return json({ error: "workspace_id + email required" }, 400);
+        logWorkerEvent("dead-letter:start", {
+          workspace_id: body.workspace_id,
+          result_id: body.result_id ?? null,
+          job_id: body.job_id ?? null,
+          email_domain: typeof body.email === "string" ? body.email.split("@")[1] ?? null : null,
+          reason: body.reason ?? "max_retries_exceeded",
+        });
         const { error } = await admin.from("verification_dead_letter").insert({
           workspace_id: body.workspace_id,
           result_id: body.result_id ?? null,
@@ -129,18 +167,21 @@ Deno.serve(async (req) => {
         if (body.result_id) {
           await admin.from("verification_results").update({ dead_letter: true }).eq("id", body.result_id);
         }
+        logWorkerEvent("dead-letter:done", { result_id: body.result_id ?? null });
         return json({ ok: true });
       }
 
       if (action === "fail") {
         // Report failed job state without DLQ escalation (transient worker errors)
         if (!body.result_id) return json({ error: "result_id required" }, 400);
+        logWorkerEvent("fail:start", { result_id: body.result_id, error: body.error ?? "worker_failure" });
         const { error } = await admin.from("verification_results").update({
           processing_started_at: null,
           last_attempt_at: new Date().toISOString(),
           error_message: body.error ?? "worker_failure",
         }).eq("id", body.result_id);
         if (error) throw error;
+        logWorkerEvent("fail:done", { result_id: body.result_id });
         return json({ ok: true });
       }
 
