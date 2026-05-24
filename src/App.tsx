@@ -104,6 +104,7 @@ import VfQuotasPage from "./pages/verification/QuotasPage";
 import VfAuditPage from "./pages/verification/AuditLogPage";
 import VfAdminPage from "./pages/verification/AdminAnalyticsPage";
 import VfCampaignSafetyPage from "./pages/verification/CampaignSafetyPage";
+import VfOperationsPage from "./pages/verification/OperationsDashboardPage";
 
 // Deliverability pages
 import DeliverabilityOverview from "./pages/settings/deliverability/DeliverabilityOverview";
@@ -265,6 +266,7 @@ const App = () => (
             <Route path="/verification/campaign-safety" element={<VL><VfCampaignSafetyPage /></VL>} />
             <Route path="/verification/admin" element={<VL><VfAdminPage /></VL>} />
             <Route path="/verification/ai" element={<VL><VfAIPage /></VL>} />
+            <Route path="/verification/operations" element={<VL><VfOperationsPage /></VL>} />
 
 
             {/* Records (reuse existing) */}
