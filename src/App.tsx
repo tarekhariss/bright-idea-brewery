@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminRoute } from "@/components/AdminRoute";
@@ -76,8 +76,7 @@ import AnalyticsPage from "./pages/tools/AnalyticsPage";
 import ExportHistoryPage from "./pages/tools/ExportHistoryPage";
 import BulkUpdatePage from "./pages/tools/BulkUpdatePage";
 import DuplicateReviewPage from "./pages/tools/DuplicateReviewPage";
-import VerificationPage from "./pages/tools/VerificationPage";
-import VerificationJobDetailPage from "./pages/tools/VerificationJobDetailPage";
+// Legacy /tools/verification → redirected to /verification
 
 // Verification standalone module
 import { VerificationLayout } from "./components/verification/VerificationLayout";
@@ -105,6 +104,14 @@ import VfAuditPage from "./pages/verification/AuditLogPage";
 import VfAdminPage from "./pages/verification/AdminAnalyticsPage";
 import VfCampaignSafetyPage from "./pages/verification/CampaignSafetyPage";
 import VfOperationsPage from "./pages/verification/OperationsDashboardPage";
+import VfJobDetailPage from "./pages/verification/JobDetailPage";
+
+// Legacy /tools/verification/:id → redirect to new detail page
+function RedirectToVfJob() {
+  const path = window.location.pathname.split("/").pop();
+  return <Navigate to={`/verification/jobs/${path}`} replace />;
+}
+
 
 // Deliverability pages
 import DeliverabilityOverview from "./pages/settings/deliverability/DeliverabilityOverview";
@@ -239,12 +246,13 @@ const App = () => (
             <Route path="/tools/exports" element={<PL><ExportHistoryPage /></PL>} />
             <Route path="/tools/duplicates" element={<PL><DuplicateReviewPage /></PL>} />
             <Route path="/tools/bulk-update" element={<PL><BulkUpdatePage /></PL>} />
-            <Route path="/tools/verification" element={<PL><VerificationPage /></PL>} />
-            <Route path="/tools/verification/:id" element={<PL><VerificationJobDetailPage /></PL>} />
+            <Route path="/tools/verification" element={<Navigate to="/verification" replace />} />
+            <Route path="/tools/verification/:id" element={<RedirectToVfJob />} />
 
             {/* Verification — standalone platform */}
             <Route path="/verification" element={<VL><VfDashboardPage /></VL>} />
             <Route path="/verification/jobs" element={<VL><VfJobsPage /></VL>} />
+            <Route path="/verification/jobs/:id" element={<VL><VfJobDetailPage /></VL>} />
             <Route path="/verification/queue" element={<VL><VfQueuePage /></VL>} />
             <Route path="/verification/workers" element={<VL><VfWorkersPage /></VL>} />
             <Route path="/verification/retries" element={<VL><VfRetryPage /></VL>} />
