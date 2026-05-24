@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -15,9 +16,11 @@ import { AlertTriangle, CheckCircle2, Upload, Trash2, Plus } from "lucide-react"
 import {
   useEnqueueVerification, useVerificationHealth, useVerificationJobs,
   useSuppressionList, useAddSuppression, useRemoveSuppression, type VerificationStatus,
+  type CachePolicy,
 } from "@/hooks/use-verification";
 import { Link } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
+
 
 const STATUS_COLOR: Record<VerificationStatus, string> = {
   safe: "bg-emerald-100 text-emerald-700 border-emerald-200",
