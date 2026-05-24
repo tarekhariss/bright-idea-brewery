@@ -97,8 +97,7 @@ Deno.serve(async (req) => {
         });
         if (error) throw error;
 
-        // Persist SMTP intelligence fields the RPC doesn't accept yet.
-        // These come from the Node-side SMTP probe in the worker.
+        // Persist SMTP intelligence + execution-trace fields the RPC doesn't accept.
         try {
           const patch: Record<string, unknown> = {};
           if (r.smtp_banner != null) patch.smtp_banner = String(r.smtp_banner).slice(0, 1000);
@@ -109,17 +108,39 @@ Deno.serve(async (req) => {
           if (r.engine_latency_ms != null) patch.engine_latency_ms = Number(r.engine_latency_ms);
           if (r.deliverability_score != null) patch.deliverability_score = Number(r.deliverability_score);
           if (r.bounce_risk_score != null) patch.bounce_risk_score = Number(r.bounce_risk_score);
-          if (r.unknown_confidence != null) patch.unknown_confidence = Number(r.unknown_confidence);
+          if (r.unknown_confidence != null) patch.unknown_confidence = String(r.unknown_confidence);
           if (r.unknown_subclass != null) patch.unknown_subclass = String(r.unknown_subclass).slice(0, 60);
           if (r.confidence_breakdown != null) patch.confidence_breakdown = r.confidence_breakdown;
           if (r.confidence_score != null) patch.confidence_score = Number(r.confidence_score);
           if (r.risk_level != null) patch.risk_level = String(r.risk_level).slice(0, 20);
-          if (Object.keys(patch).length > 0 && r.result_id) {
+
+          // Execution trace
+          const traceSource = r.result_source ?? "live_smtp";
+          patch.result_source = String(traceSource).slice(0, 40);
+          if (r.claimed_by_worker != null) patch.claimed_by_worker = String(r.claimed_by_worker).slice(0, 80);
+          else if (r.worker_id != null) patch.claimed_by_worker = String(r.worker_id).slice(0, 80);
+          if (r.worker_version != null) patch.worker_version = String(r.worker_version).slice(0, 40);
+          if (r.pass_number != null) patch.pass_number = Number(r.pass_number);
+          if (r.smtp_attempt_count != null) patch.smtp_attempt_count = Number(r.smtp_attempt_count);
+          if (r.recovery_attempt_count != null) patch.recovery_attempt_count = Number(r.recovery_attempt_count);
+          if (r.provider_detected != null) patch.provider_detected = String(r.provider_detected).slice(0, 80);
+          else if (r.provider_type != null) patch.provider_detected = String(r.provider_type).slice(0, 80);
+          if (r.used_probe != null) patch.used_probe = !!r.used_probe;
+          if (r.finalization_reason != null) patch.finalization_reason = String(r.finalization_reason).slice(0, 200);
+
+          if (r.result_id) {
             await admin.from("verification_results").update(patch).eq("id", r.result_id);
           }
+
+          // Bump job-level counters for live vs recovery results
+          if (r.job_id) {
+            const kind = traceSource === "recovery" ? "recovery" : "live_smtp";
+            await admin.rpc("bump_job_trace_counters", { _job_id: r.job_id, _kind: kind });
+          }
         } catch (patchErr) {
-          console.warn("[verification-worker-api:submit] smtp intelligence patch failed", patchErr);
+          console.warn("[verification-worker-api:submit] trace patch failed", patchErr);
         }
+
 
         // Continuous learning: feed provider behavior + SMTP pattern + domain/score
         try {
