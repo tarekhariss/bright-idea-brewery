@@ -8461,6 +8461,7 @@ export type Database = {
           email: string
           job_id: string
           result_id: string
+          workspace_id: string
         }[]
       }
       classify_inbound_message: {
