@@ -20,6 +20,9 @@ import {
 } from "@/hooks/use-verification";
 import { Link } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
+import { parseUploadFile, uploadRawVerificationFile, extractEmailsFromText } from "@/lib/verification-upload";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 
 const STATUS_COLOR: Record<VerificationStatus, string> = {
@@ -63,26 +66,73 @@ export default function VerificationPage() {
     );
   }, [jobs]);
 
-  function extractEmails(text: string): string[] {
-    const re = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
-    return Array.from(new Set((text.match(re) ?? []).map((s) => s.toLowerCase())));
-  }
-
   async function handleSubmit() {
-    let text = pasted;
     const f = fileRef.current?.files?.[0];
-    if (f) text = (text ? text + "\n" : "") + (await f.text());
-    const emails = extractEmails(text);
-    if (!emails.length) { return; }
-    await enqueue.mutateAsync({
-      name: name || `Job · ${new Date().toLocaleString()}`,
-      emails,
-      quality,
-      cache_policy: cachePolicy === "auto" ? undefined : cachePolicy,
-    });
-    setOpen(false);
-    setName(""); setPasted("");
-    if (fileRef.current) fileRef.current.value = "";
+    let emails: string[] = [];
+    let originalHeaders: string[] = [];
+    let parsedFromFile: Awaited<ReturnType<typeof parseUploadFile>> | null = null;
+
+    if (f) {
+      try {
+        parsedFromFile = await parseUploadFile(f);
+        emails = parsedFromFile.emails;
+        originalHeaders = parsedFromFile.headers;
+      } catch (e: any) {
+        toast.error(`Failed to parse file: ${e?.message ?? e}`);
+        return;
+      }
+    }
+    if (pasted.trim()) emails = Array.from(new Set([...emails, ...extractEmailsFromText(pasted)]));
+
+    if (!emails.length) {
+      toast.error("No emails found in the file or pasted text.");
+      return;
+    }
+
+    try {
+      const jobId = await enqueue.mutateAsync({
+        name: name || (f?.name ?? `Job · ${new Date().toLocaleString()}`),
+        emails,
+        quality,
+        cache_policy: cachePolicy === "auto" ? undefined : cachePolicy,
+      });
+
+      // Preserve the original uploaded file so exports can reproduce the
+      // user's exact column structure with verification_status prepended.
+      if (f && jobId && parsedFromFile) {
+        try {
+          const { data: jobRow } = await (supabase as any)
+            .from("verification_jobs")
+            .select("workspace_id")
+            .eq("id", jobId)
+            .maybeSingle();
+          const wsId = jobRow?.workspace_id;
+          if (wsId) {
+            const path = await uploadRawVerificationFile(f, wsId, jobId);
+            await (supabase as any)
+              .from("verification_jobs")
+              .update({
+                uploaded_file_path: path,
+                source_file_path: path,
+                source_file_name: f.name,
+                source_columns: originalHeaders,
+                original_columns_json: originalHeaders,
+              })
+              .eq("id", jobId);
+          }
+        } catch (e: any) {
+          // Non-fatal: verification still proceeds, only export-original-layout is degraded.
+          console.warn("upload-raw-file failed", e);
+          toast.message("Verification queued, but original file could not be saved — exports will fall back to email-only layout.");
+        }
+      }
+
+      setOpen(false);
+      setName(""); setPasted("");
+      if (fileRef.current) fileRef.current.value = "";
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to queue verification");
+    }
   }
 
   return (
@@ -99,10 +149,14 @@ export default function VerificationPage() {
             <div className="space-y-3">
               <Input placeholder="Job name (optional)" value={name} onChange={(e) => setName(e.target.value)} />
               <Textarea
-                placeholder="Paste one email per line, or upload a CSV below"
+                placeholder="Paste one email per line, or upload a CSV/XLSX below"
                 rows={8} value={pasted} onChange={(e) => setPasted(e.target.value)}
               />
-              <Input type="file" accept=".csv,.txt" ref={fileRef} />
+              <Input type="file" accept=".csv,.xlsx,.xls,.txt" ref={fileRef} />
+              <p className="text-[11px] text-muted-foreground">
+                CSV / XLSX uploads are preserved exactly — your exports will include every original column
+                with a <b>verification_status</b> column added at the front.
+              </p>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
