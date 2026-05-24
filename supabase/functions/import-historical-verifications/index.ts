@@ -857,6 +857,10 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({
       ok: true, processed, failed, stats,
+      subtypes: subtypeStats, tiers: tierStats, freshness: freshStats,
+      safe_to_send: safeToSendCount, risky_total: riskyCount,
+      skipped_duplicates: skippedDuplicates,
+      domains_seen: domainAgg.size, providers_seen: providerAgg.size,
       prospects_created: prospectsCreated, prospects_merged: prospectsMerged,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
