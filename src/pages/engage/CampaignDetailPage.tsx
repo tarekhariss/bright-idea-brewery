@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Play, Pause, Megaphone, BarChart3, Users, GitBranch, Calendar, Settings,
@@ -13,6 +14,7 @@ import { CampaignLeadsTab } from "@/components/engage/campaign/CampaignLeadsTab"
 import { CampaignSequencesTab } from "@/components/engage/campaign/CampaignSequencesTab";
 import { CampaignScheduleTab } from "@/components/engage/campaign/CampaignScheduleTab";
 import { CampaignOptionsTab } from "@/components/engage/campaign/CampaignOptionsTab";
+import { CampaignSafetyDialog } from "@/components/engage/campaign/CampaignSafetyDialog";
 import { cn } from "@/lib/utils";
 
 const statusBadge = (s: string) => {
@@ -31,6 +33,7 @@ export default function CampaignDetailPage() {
   const { data: campaign, isLoading } = useCampaign(id || null);
   const { data: leads } = useCampaignLeads(id || null);
   const updateCampaign = useUpdateCampaign();
+  const [safetyOpen, setSafetyOpen] = useState(false);
 
   if (isLoading) {
     return (
@@ -65,7 +68,7 @@ export default function CampaignDetailPage() {
         </div>
         <div className="flex items-center gap-2">
           {campaign.status === "draft" && (
-            <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={() => updateCampaign.mutate({ id, status: "active" as any })}>
+            <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={() => setSafetyOpen(true)}>
               <Play className="h-3.5 w-3.5" /> Activate
             </Button>
           )}
@@ -75,12 +78,19 @@ export default function CampaignDetailPage() {
             </Button>
           )}
           {campaign.status === "paused" && (
-            <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={() => updateCampaign.mutate({ id, status: "active" as any })}>
+            <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={() => setSafetyOpen(true)}>
               <Play className="h-3.5 w-3.5" /> Resume
             </Button>
           )}
         </div>
       </div>
+
+      <CampaignSafetyDialog
+        campaignId={id}
+        open={safetyOpen}
+        onClose={() => setSafetyOpen(false)}
+        onConfirm={() => updateCampaign.mutate({ id, status: "active" as any })}
+      />
 
       {/* Tabbed workspace */}
       <Tabs defaultValue="analytics" className="flex flex-1 flex-col overflow-hidden">

@@ -79,6 +79,31 @@ import DuplicateReviewPage from "./pages/tools/DuplicateReviewPage";
 import VerificationPage from "./pages/tools/VerificationPage";
 import VerificationJobDetailPage from "./pages/tools/VerificationJobDetailPage";
 
+// Verification standalone module
+import { VerificationLayout } from "./components/verification/VerificationLayout";
+import VfDashboardPage from "./pages/verification/DashboardPage";
+import VfJobsPage from "./pages/verification/JobsPage";
+import VfQueuePage from "./pages/verification/QueueMonitorPage";
+import VfWorkersPage from "./pages/verification/WorkersPage";
+import VfSuppressionPage from "./pages/verification/SuppressionPage";
+import VfAIPage from "./pages/verification/AIScoringPlaceholderPage";
+import VfDomainsPage from "./pages/verification/DomainIntelligencePage";
+import VfProvidersPage from "./pages/verification/ProviderIntelligencePage";
+import VfBouncesPage from "./pages/verification/BounceIntelligencePage";
+import VfCatchAllPage from "./pages/verification/CatchAllIntelligencePage";
+import VfRetryPage from "./pages/verification/RetryPipelinePage";
+import VfDLQPage from "./pages/verification/DeadLetterPage";
+import VfImportsPage from "./pages/verification/ImportsCenterPage";
+import VfHistoryPage from "./pages/verification/HistoryExplorerPage";
+import VfListQualityPage from "./pages/verification/ListQualityPage";
+import VfRulesPage from "./pages/verification/RulesEnginePage";
+import VfEnginesPage from "./pages/verification/EnginesRegistryPage";
+import VfApiPage from "./pages/verification/ApiManagementPage";
+import VfQuotasPage from "./pages/verification/QuotasPage";
+import VfAuditPage from "./pages/verification/AuditLogPage";
+import VfAdminPage from "./pages/verification/AdminAnalyticsPage";
+import VfCampaignSafetyPage from "./pages/verification/CampaignSafetyPage";
+
 // Deliverability pages
 import DeliverabilityOverview from "./pages/settings/deliverability/DeliverabilityOverview";
 import DomainsPage from "./pages/settings/deliverability/DomainsPage";
@@ -136,6 +161,10 @@ function LL({ children }: { children: React.ReactNode }) {
 
 function SL({ children }: { children: React.ReactNode }) {
   return <PL><SettingsLayout>{children}</SettingsLayout></PL>;
+}
+
+function VL({ children }: { children: React.ReactNode }) {
+  return <ProtectedRoute><VerificationLayout>{children}</VerificationLayout></ProtectedRoute>;
 }
 
 const App = () => (
@@ -210,6 +239,30 @@ const App = () => (
             <Route path="/tools/bulk-update" element={<PL><BulkUpdatePage /></PL>} />
             <Route path="/tools/verification" element={<PL><VerificationPage /></PL>} />
             <Route path="/tools/verification/:id" element={<PL><VerificationJobDetailPage /></PL>} />
+
+            {/* Verification — standalone platform */}
+            <Route path="/verification" element={<VL><VfDashboardPage /></VL>} />
+            <Route path="/verification/jobs" element={<VL><VfJobsPage /></VL>} />
+            <Route path="/verification/queue" element={<VL><VfQueuePage /></VL>} />
+            <Route path="/verification/workers" element={<VL><VfWorkersPage /></VL>} />
+            <Route path="/verification/retries" element={<VL><VfRetryPage /></VL>} />
+            <Route path="/verification/dead-letter" element={<VL><VfDLQPage /></VL>} />
+            <Route path="/verification/domains" element={<VL><VfDomainsPage /></VL>} />
+            <Route path="/verification/providers" element={<VL><VfProvidersPage /></VL>} />
+            <Route path="/verification/bounces" element={<VL><VfBouncesPage /></VL>} />
+            <Route path="/verification/catch-all" element={<VL><VfCatchAllPage /></VL>} />
+            <Route path="/verification/imports" element={<VL><VfImportsPage /></VL>} />
+            <Route path="/verification/history" element={<VL><VfHistoryPage /></VL>} />
+            <Route path="/verification/suppression" element={<VL><VfSuppressionPage /></VL>} />
+            <Route path="/verification/list-quality" element={<VL><VfListQualityPage /></VL>} />
+            <Route path="/verification/rules" element={<VL><VfRulesPage /></VL>} />
+            <Route path="/verification/engines" element={<VL><VfEnginesPage /></VL>} />
+            <Route path="/verification/api" element={<VL><VfApiPage /></VL>} />
+            <Route path="/verification/quotas" element={<VL><VfQuotasPage /></VL>} />
+            <Route path="/verification/audit" element={<VL><VfAuditPage /></VL>} />
+            <Route path="/verification/campaign-safety" element={<VL><VfCampaignSafetyPage /></VL>} />
+            <Route path="/verification/admin" element={<VL><VfAdminPage /></VL>} />
+            <Route path="/verification/ai" element={<VL><VfAIPage /></VL>} />
 
 
             {/* Records (reuse existing) */}

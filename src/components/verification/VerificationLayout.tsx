@@ -3,7 +3,7 @@ import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import {
   ShieldCheck, LayoutDashboard, Activity, ServerCog, Cpu, ListChecks, Skull, RotateCw,
   Globe, Boxes, AlertOctagon, BadgeAlert, Upload, History, Gauge, KeyRound, Settings2,
-  ScrollText, Sparkles, ArrowLeft, LogOut, Inbox,
+  ScrollText, Sparkles, ArrowLeft, LogOut, Inbox, ShieldAlert, BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -65,6 +65,8 @@ const sections: NavSection[] = [
       { title: "API", url: "/verification/api", icon: KeyRound },
       { title: "Quotas", url: "/verification/quotas", icon: Gauge },
       { title: "Audit Log", url: "/verification/audit", icon: ScrollText },
+      { title: "Campaign Safety", url: "/verification/campaign-safety", icon: ShieldAlert },
+      { title: "Admin Analytics", url: "/verification/admin", icon: BarChart3 },
     ],
   },
   {
