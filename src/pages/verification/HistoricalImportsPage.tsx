@@ -461,6 +461,17 @@ export default function HistoricalImportsPage() {
             </div>
           )}
 
+          {step === 4 && (
+            <div className="space-y-3 py-6 text-center">
+              <Brain className="mx-auto h-10 w-10 text-primary animate-pulse" />
+              <div className="text-sm">Importing chunk {progress.done} of {progress.total}…</div>
+              <div className="mx-auto h-2 w-3/4 overflow-hidden rounded-full bg-muted">
+                <div className="h-full bg-primary transition-all" style={{ width: `${progress.total ? (progress.done / progress.total) * 100 : 0}%` }} />
+              </div>
+              <p className="text-xs text-muted-foreground">Updating intelligence and learning tables.</p>
+            </div>
+          )}
+
           {step === 5 && (() => {
             const s: any = completedDataset?.stats ?? {};
             const items: { label: string; value: any; tone?: string }[] = [
