@@ -34,8 +34,23 @@ jobs:
             git fetch --all --prune
             git reset --hard origin/main
             cd external/verifier-worker
+
+            # Cleanup to avoid legacy docker-compose 'ContainerConfig' KeyError on Ubuntu 24
+            docker-compose down --remove-orphans || true
+            docker rm -f tlbg-email-verifier tlbg-verifier-worker || true
+            docker container prune -f || true
+
             docker-compose pull || true
-            docker-compose up -d --build
+
+            # Primary deploy; self-heal with one retry if legacy compose metadata bug strikes
+            if ! docker-compose up -d --build --force-recreate; then
+              echo "[deploy] First 'up' failed — cleaning containers and retrying once..."
+              docker-compose down --remove-orphans || true
+              docker rm -f tlbg-email-verifier tlbg-verifier-worker || true
+              docker container prune -f || true
+              docker-compose up -d --build --force-recreate
+            fi
+
             docker image prune -f
             docker-compose ps
           EOF
