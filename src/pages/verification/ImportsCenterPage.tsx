@@ -9,10 +9,19 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Upload } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Upload, Zap, Scale, ShieldCheck } from "lucide-react";
 import { Link } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
+
+type Quality = "fast" | "balanced" | "high_accuracy";
+
+const QUALITY_OPTIONS: Array<{ value: Quality; title: string; desc: string; icon: typeof Zap }> = [
+  { value: "fast",          title: "Fast",          desc: "Highest throughput, single retry, no deep SMTP probe.",                 icon: Zap },
+  { value: "balanced",      title: "Balanced",      desc: "Recommended. Provider-aware pacing, probe on unknowns and retries.",   icon: Scale },
+  { value: "high_accuracy", title: "High Accuracy", desc: "Slowest. Deep SMTP probe on every email, multi-pass recovery.",         icon: ShieldCheck },
+];
 
 function extractEmails(text: string): string[] {
   const re = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
@@ -25,6 +34,7 @@ export default function ImportsCenterPage() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [pasted, setPasted] = useState("");
+  const [quality, setQuality] = useState<Quality>("balanced");
   const [previewCount, setPreviewCount] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -45,9 +55,10 @@ export default function ImportsCenterPage() {
       name: name || `Import · ${new Date().toLocaleString()}`,
       emails,
       source: "csv_upload",
+      quality,
     });
     setOpen(false);
-    setName(""); setPasted(""); setPreviewCount(0);
+    setName(""); setPasted(""); setPreviewCount(0); setQuality("balanced");
     if (fileRef.current) fileRef.current.value = "";
   }
 
@@ -74,6 +85,7 @@ export default function ImportsCenterPage() {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Mode</TableHead>
                 <TableHead className="text-right">Total</TableHead>
                 <TableHead className="text-right">Processed</TableHead>
                 <TableHead className="text-right">Quality</TableHead>
@@ -87,6 +99,7 @@ export default function ImportsCenterPage() {
                     <Link to={`/verification/jobs/${j.id}`} className="font-medium hover:underline">{j.name ?? `Import ${j.id.slice(0, 8)}`}</Link>
                   </TableCell>
                   <TableCell><StatusPill status={j.status} /></TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{j.verification_quality ?? "balanced"}</TableCell>
                   <TableCell className="text-right tabular-nums">{j.total_count?.toLocaleString()}</TableCell>
                   <TableCell className="text-right tabular-nums">{j.processed_count?.toLocaleString()}</TableCell>
                   <TableCell className="text-right tabular-nums">{j.list_quality_score ? `${Number(j.list_quality_score).toFixed(0)}%` : "—"}</TableCell>
@@ -116,6 +129,30 @@ export default function ImportsCenterPage() {
               <Label>Or paste emails</Label>
               <Textarea value={pasted} onChange={(e) => { setPasted(e.target.value); }} onBlur={refreshPreview} rows={5} placeholder="one per line, or any text containing emails" />
             </div>
+
+            <div className="space-y-2">
+              <Label>Verification mode</Label>
+              <RadioGroup value={quality} onValueChange={(v) => setQuality(v as Quality)} className="grid gap-2">
+                {QUALITY_OPTIONS.map((opt) => {
+                  const Icon = opt.icon;
+                  return (
+                    <label
+                      key={opt.value}
+                      htmlFor={`quality-${opt.value}`}
+                      className="flex cursor-pointer items-start gap-3 rounded-md border bg-card/40 p-3 text-sm hover:bg-muted/40"
+                    >
+                      <RadioGroupItem id={`quality-${opt.value}`} value={opt.value} className="mt-0.5" />
+                      <Icon className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                      <div className="space-y-0.5">
+                        <div className="font-medium">{opt.title}</div>
+                        <div className="text-xs text-muted-foreground">{opt.desc}</div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </RadioGroup>
+            </div>
+
             {previewCount > 0 && (
               <p className="text-xs text-muted-foreground">{previewCount.toLocaleString()} unique emails detected.</p>
             )}

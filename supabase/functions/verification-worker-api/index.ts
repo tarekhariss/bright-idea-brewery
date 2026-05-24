@@ -97,13 +97,30 @@ Deno.serve(async (req) => {
         });
         if (error) throw error;
 
+        // Persist SMTP intelligence fields the RPC doesn't accept yet.
+        // These come from the Node-side SMTP probe in the worker.
+        try {
+          const patch: Record<string, unknown> = {};
+          if (r.smtp_banner != null) patch.smtp_banner = String(r.smtp_banner).slice(0, 1000);
+          if (r.tls_supported != null) patch.tls_supported = !!r.tls_supported;
+          if (r.disconnect_reason != null) patch.disconnect_reason = String(r.disconnect_reason).slice(0, 300);
+          if (r.probe_metadata != null) patch.probe_metadata = r.probe_metadata;
+          if (r.provider_type != null) patch.provider_type = String(r.provider_type).slice(0, 80);
+          if (r.engine_latency_ms != null) patch.engine_latency_ms = Number(r.engine_latency_ms);
+          if (Object.keys(patch).length > 0 && r.result_id) {
+            await admin.from("verification_results").update(patch).eq("id", r.result_id);
+          }
+        } catch (patchErr) {
+          console.warn("[verification-worker-api:submit] smtp intelligence patch failed", patchErr);
+        }
+
         // Continuous learning: feed provider behavior + SMTP pattern + domain/score
         try {
           if (r.provider_type || r.mx_provider) {
             await admin.rpc("bump_provider_behavior", {
               _provider: r.provider_type ?? r.mx_provider,
               _status: r.status,
-              _latency_ms: r.latency_ms ?? null,
+              _latency_ms: r.latency_ms ?? r.engine_latency_ms ?? null,
               _smtp_response: r.smtp_response ?? null,
             });
           }
@@ -127,6 +144,7 @@ Deno.serve(async (req) => {
         } catch (learnErr) {
           console.warn("[verification-worker-api:submit] learning hook failed", learnErr);
         }
+
 
         logWorkerEvent("submit:done", { result_id: r.result_id ?? null });
         return json({ ok: true, result: data });
