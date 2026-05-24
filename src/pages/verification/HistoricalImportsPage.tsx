@@ -21,7 +21,7 @@ const sb = supabase as any;
 
 const CANONICAL: { key: string; label: string; required?: boolean; hints: string[]; group?: "verification" | "prospect" }[] = [
   { key: "email", label: "Email", required: true, hints: ["email", "emailaddress", "email_address", "address", "mail", "recipient", "to"], group: "verification" },
-  { key: "status", label: "Verification status", hints: ["status", "verification_status", "verificationstatus", "state", "elv_status", "validation_status", "valid"], group: "verification" },
+  { key: "status", label: "Verification status", hints: ["status", "verification_status", "verificationstatus", "elv_status", "elv_result", "emaillistverify_result", "emaillistverify_status", "validation_status", "validation_result", "validity", "email_status"], group: "verification" },
   { key: "result", label: "Result (alt)", hints: ["result", "verdict", "outcome", "verification_result", "validation_result"], group: "verification" },
   { key: "confidence", label: "Confidence / score", hints: ["confidence", "confidence_score", "score", "deliverability_score", "deliverability", "quality_score", "verification_score"], group: "verification" },
   { key: "reason", label: "Reason", hints: ["reason", "verification_reason", "sub_status", "substatus", "details", "message", "error", "notes"], group: "verification" },
