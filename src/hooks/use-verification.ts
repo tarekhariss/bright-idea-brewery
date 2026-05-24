@@ -80,6 +80,7 @@ export function useEnqueueVerification() {
       emails: string[];
       source?: string;
       campaign_id?: string | null;
+      quality?: "fast" | "balanced" | "high_accuracy";
     }) => {
       if (!workspaceId) throw new Error("No workspace");
       const { data, error } = await sb.rpc("enqueue_verification_job", {
@@ -89,10 +90,12 @@ export function useEnqueueVerification() {
         _source: vars.source ?? "csv_upload",
         _campaign_id: vars.campaign_id ?? null,
         _list_id: null,
-      });
+        _quality: vars.quality ?? "balanced",
+      } as any);
       if (error) throw error;
       return data as string;
     },
+
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["verification_jobs"] });
       toast.success("Verification job queued");
