@@ -1,7 +1,5 @@
-// External email verification engine API
-// The open-source verifier (AfterShip email-verifier, truemail-go, etc.) calls
-// this function with the VERIFICATION_WORKER_SECRET header to claim batches and
-// post results. End-user routes (job status) authenticate via JWT.
+// External email verification engine API.
+// Worker actions authenticate via x-worker-secret. Dashboard/admin reads via JWT.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
@@ -27,24 +25,24 @@ function json(body: unknown, status = 200) {
   });
 }
 
+function workerOk(req: Request) {
+  return WORKER_SECRET && req.headers.get("x-worker-secret") === WORKER_SECRET;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const url = new URL(req.url);
   const action = url.pathname.split("/").pop() || "";
 
   try {
-    // Worker-authenticated actions
-    if (["claim", "submit", "retry", "bounce"].includes(action)) {
-      if (!WORKER_SECRET || req.headers.get("x-worker-secret") !== WORKER_SECRET) {
-        return json({ error: "Worker secret required" }, 401);
-      }
+    const workerActions = ["claim", "submit", "retry", "bounce", "heartbeat", "dead-letter", "quota", "fail"];
+    if (workerActions.includes(action)) {
+      if (!workerOk(req)) return json({ error: "Worker secret required" }, 401);
       const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
 
       if (action === "claim") {
         const limit = Math.min(Number(body.limit ?? 50), 200);
-        const { data, error } = await admin.rpc("claim_verification_batch", {
-          _limit: limit,
-        });
+        const { data, error } = await admin.rpc("claim_verification_batch", { _limit: limit });
         if (error) throw error;
         return json({ batch: data ?? [] });
       }
@@ -96,19 +94,92 @@ Deno.serve(async (req) => {
         if (error) throw error;
         return json({ ok: true });
       }
+
+      if (action === "heartbeat") {
+        if (!body.worker_id) return json({ error: "worker_id required" }, 400);
+        const { error } = await admin.rpc("worker_heartbeat", {
+          _worker_id: body.worker_id,
+          _status: body.status ?? "online",
+          _in_flight: body.in_flight ?? 0,
+          _batch_size: body.batch_size ?? 0,
+          _avg_latency: body.avg_latency ?? null,
+          _version: body.version ?? null,
+          _host: body.host ?? null,
+          _last_error: body.last_error ?? null,
+          _metadata: body.metadata ?? {},
+        });
+        if (error) throw error;
+        return json({ ok: true });
+      }
+
+      if (action === "dead-letter") {
+        // Report a permanently failed verification → push to DLQ
+        if (!body.workspace_id || !body.email) return json({ error: "workspace_id + email required" }, 400);
+        const { error } = await admin.from("verification_dead_letter").insert({
+          workspace_id: body.workspace_id,
+          result_id: body.result_id ?? null,
+          job_id: body.job_id ?? null,
+          email: body.email,
+          reason: body.reason ?? "max_retries_exceeded",
+          attempt_count: body.attempt_count ?? 0,
+          last_error: body.last_error ?? null,
+          payload: body.payload ?? {},
+        });
+        if (error) throw error;
+        if (body.result_id) {
+          await admin.from("verification_results").update({ dead_letter: true }).eq("id", body.result_id);
+        }
+        return json({ ok: true });
+      }
+
+      if (action === "fail") {
+        // Report failed job state without DLQ escalation (transient worker errors)
+        if (!body.result_id) return json({ error: "result_id required" }, 400);
+        const { error } = await admin.from("verification_results").update({
+          processing_started_at: null,
+          last_attempt_at: new Date().toISOString(),
+          error_message: body.error ?? "worker_failure",
+        }).eq("id", body.result_id);
+        if (error) throw error;
+        return json({ ok: true });
+      }
+
+      if (action === "quota") {
+        if (!body.workspace_id) return json({ error: "workspace_id required" }, 400);
+        if (body.consume) {
+          const { data, error } = await admin.rpc("consume_verification_quota", {
+            _workspace_id: body.workspace_id,
+            _count: body.count ?? 1,
+          });
+          if (error) throw error;
+          return json({ ok: true, allowed: data });
+        }
+        const { data, error } = await admin.from("verification_quotas").select("*").eq("workspace_id", body.workspace_id).maybeSingle();
+        if (error) throw error;
+        return json({ quota: data });
+      }
     }
 
-    // Health for the dashboard
+    // Public health endpoint for dashboard
     if (action === "health") {
-      const { data: pending } = await admin
+      const { count: pending } = await admin
         .from("verification_results")
         .select("id", { count: "exact", head: true })
         .is("verified_at", null)
         .eq("from_cache", false);
-      const adapterConfigured = WORKER_SECRET.length > 0;
+      const { count: dlq } = await admin
+        .from("verification_dead_letter")
+        .select("id", { count: "exact", head: true })
+        .is("recovered_at", null);
+      const { count: workers } = await admin
+        .from("verification_workers")
+        .select("id", { count: "exact", head: true })
+        .in("status", ["online", "idle"]);
       return json({
-        adapter_configured: adapterConfigured,
+        adapter_configured: WORKER_SECRET.length > 0,
         pending_results: pending ?? 0,
+        dead_letter_open: dlq ?? 0,
+        workers_online: workers ?? 0,
       });
     }
 
