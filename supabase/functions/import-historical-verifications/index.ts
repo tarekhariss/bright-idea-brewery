@@ -770,24 +770,144 @@ Deno.serve(async (req) => {
       }, { onConflict: "provider_type" });
     }
 
-    // Domain intelligence: read-modify-write
+    // Domain intelligence: nuanced learning.
+    // Distinguishes mailbox_risk (individual failures) from domain_risk (sustained
+    // pattern across many unique employees) and provider_risk (upstream provider
+    // behavior). Isolated employee invalids do NOT meaningfully reduce a domain's
+    // reputation; sustained signals across a large unique-employee pool do.
     for (const [domain, a] of domainAgg) {
       const { data: existing } = await supa.from("domain_intelligence").select("*").eq("domain", domain).maybeSingle();
+      const prevSignals: any = (existing?.learning_signals ?? {}) ?? {};
+
       const total = (existing?.total_emails_seen ?? 0) + a.seen;
       const bounces = (existing?.total_bounces ?? 0) + a.bounces;
       const valid = (existing?.total_valid ?? 0) + a.valid;
       const catch_all = (existing?.total_catch_all ?? 0) + a.catch_all;
       const unknown = (existing?.total_unknown ?? 0) + a.unknown;
-      const bounce_rate = total ? bounces / total : null;
-      const catch_all_rate = total ? catch_all / total : null;
-      const reputation_score = total ? Math.max(0, Math.min(100,
-        Math.round((100 * (valid / total) - 50 * (bounces / total) - 20 * (catch_all / total)) * 100) / 100
-      )) : null;
+      const invalid = (prevSignals.total_invalid ?? 0) + a.invalid;
+
+      // Merge unique-mailbox sets across runs, capped to avoid unbounded jsonb growth.
+      const cap = <T,>(it: Iterable<T>): T[] => Array.from(new Set(it)).slice(-5000);
+      const uniqueMailboxes = cap([...(prevSignals.unique_mailboxes ?? []), ...a.uniqueMailboxes]);
+      const roleMailboxes = cap([...(prevSignals.role_mailboxes ?? []), ...a.roleMailboxes]);
+      const employeeMailboxes = cap([...(prevSignals.employee_mailboxes ?? []), ...a.employeeMailboxes]);
+      const invalidEmployees = cap([...(prevSignals.invalid_employees ?? []), ...a.invalidEmployees]);
+      const invalidRoles = cap([...(prevSignals.invalid_roles ?? []), ...a.invalidRoles]);
+
+      const uniqueCount = uniqueMailboxes.length;
+      const employeeCount = employeeMailboxes.length;
+      const roleCount = roleMailboxes.length;
+      const invalidEmployeeCount = invalidEmployees.length;
+      const invalidRoleCount = invalidRoles.length;
+
+      // Bayesian-smoothed valid rate with a "healthy domain" prior (5 valid / 2 invalid)
+      // — prevents one or two invalids from collapsing the rate on small samples.
+      const PRIOR_VALID = 5, PRIOR_INVALID = 2;
+      const smoothedValidRate = (valid + PRIOR_VALID) / (total + PRIOR_VALID + PRIOR_INVALID);
+      const smoothedBounceRate = (bounces + 1) / (total + 5);
+      const catchAllRate = total ? catch_all / total : 0;
+
+      // Company-size tolerance — bigger orgs absorb more employee churn before
+      // the domain reputation is dragged down. Tiny orgs (≤3 unique employees)
+      // never have a stable enough signal to call the *domain* bad.
+      const sizeTier =
+        employeeCount <= 3 ? "tiny" :
+        employeeCount <= 25 ? "small" :
+        employeeCount <= 200 ? "medium" : "enterprise";
+      const sizeTolerance = ({ tiny: 0.05, small: 0.35, medium: 0.7, enterprise: 1.0 } as const)[sizeTier];
+
+      // Employee-level invalid ratio — only meaningful with enough unique employees.
+      const employeeInvalidRatio = employeeCount > 0 ? invalidEmployeeCount / employeeCount : 0;
+      const sustainedEmployeeProblem = employeeCount >= 5 && employeeInvalidRatio >= 0.30;
+
+      // ---- Three distinct risk dimensions ----
+      // mailbox_risk: isolated mailbox failures. Informs which leads to drop, NOT
+      // whether the domain is bad. Capped so a handful of dead inboxes never imply
+      // a "high risk" domain.
+      const mailboxRisk = Math.round(Math.min(100,
+        (invalidEmployeeCount * 4) + (invalidRoleCount * 1.5)
+      ) * 100) / 100;
+
+      // domain_risk: only emerges when a sustained share of *unique* employees fail,
+      // and only with enough sample to trust. Gated by company-size tolerance.
+      let domainRisk = 0;
+      if (sustainedEmployeeProblem) {
+        domainRisk = Math.min(100, employeeInvalidRatio * 100 * sizeTolerance);
+      } else if (employeeCount >= 25 && employeeInvalidRatio >= 0.15) {
+        domainRisk = employeeInvalidRatio * 60 * sizeTolerance;
+      }
+      if (catchAllRate >= 0.6 && employeeCount >= 10) {
+        // pure catch-all behavior with no signal — mild reputational drag, not a kill
+        domainRisk = Math.min(100, domainRisk + 10);
+      }
+      domainRisk = Math.round(domainRisk * 100) / 100;
+
+      // provider_risk: derived from in-run provider behavior. Catches upstream
+      // provider issues (e.g. Mimecast rejecting wide swaths) without blaming the
+      // individual domain. Persisted on the domain row for query convenience.
+      const pa = providerAgg.get(a.provider);
+      const providerSampleOK = pa && pa.total >= 5;
+      const providerRisk = providerSampleOK
+        ? Math.round(Math.min(100, (pa!.bounces / pa!.total) * 100) * 100) / 100
+        : (prevSignals.provider_risk ?? 0);
+
+      // Workforce-churn signal: old invalids vs total unique mailboxes. High churn
+      // means staff rotation, not necessarily an unhealthy domain.
+      const oldInvalidTotal = (prevSignals.old_invalid_count ?? 0) + a.oldInvalid;
+      const recentInvalidTotal = (prevSignals.recent_invalid_count ?? 0) + a.recentInvalid;
+      const churn = uniqueCount > 0
+        ? Math.min(1, oldInvalidTotal / Math.max(uniqueCount, 1))
+        : 0;
+
+      // ---- Final reputation ----
+      // Base from smoothed valid rate; penalties are intentionally light and
+      // exclude mailbox_risk so isolated failures never tank a domain.
+      let reputation = 100 * smoothedValidRate;
+      reputation -= domainRisk * 0.5;            // only sustained domain signal hits
+      reputation -= catchAllRate * 20;
+      reputation -= providerRisk * 0.1;          // provider blame separated
+      if (employeeCount >= 10 && smoothedValidRate >= 0.7) reputation += 5;
+      if (churn > 0.5 && employeeCount >= 10) reputation += 3; // staff rotation, not health
+      reputation = Math.max(0, Math.min(100, Math.round(reputation * 100) / 100));
+
+      const signals = {
+        ...prevSignals,
+        total_invalid: invalid,
+        unique_mailboxes: uniqueMailboxes,
+        unique_mailbox_count: uniqueCount,
+        role_mailboxes: roleMailboxes,
+        role_mailbox_count: roleCount,
+        employee_mailboxes: employeeMailboxes,
+        employee_mailbox_count: employeeCount,
+        invalid_employees: invalidEmployees,
+        invalid_employee_count: invalidEmployeeCount,
+        invalid_roles: invalidRoles,
+        invalid_role_count: invalidRoleCount,
+        employee_invalid_ratio_pct: Math.round(employeeInvalidRatio * 10000) / 100,
+        smoothed_valid_rate_pct: Math.round(smoothedValidRate * 10000) / 100,
+        smoothed_bounce_rate_pct: Math.round(smoothedBounceRate * 10000) / 100,
+        catch_all_rate_pct: Math.round(catchAllRate * 10000) / 100,
+        size_tier: sizeTier,
+        size_tolerance: sizeTolerance,
+        sustained_employee_problem: sustainedEmployeeProblem,
+        mailbox_risk: mailboxRisk,
+        domain_risk: domainRisk,
+        provider_risk: providerRisk,
+        workforce_churn_probability: Math.round(churn * 10000) / 10000,
+        old_invalid_count: oldInvalidTotal,
+        recent_invalid_count: recentInvalidTotal,
+        scoring_version: 2,
+        last_computed_at: new Date().toISOString(),
+      };
+
       await supa.from("domain_intelligence").upsert({
         domain, provider_type: a.provider,
         total_emails_seen: total, total_bounces: bounces, total_valid: valid,
         total_catch_all: catch_all, total_unknown: unknown,
-        bounce_rate, catch_all_rate, reputation_score,
+        bounce_rate: total ? bounces / total : null,
+        catch_all_rate: total ? catch_all / total : null,
+        reputation_score: reputation,
+        learning_signals: signals,
         last_seen_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       }, { onConflict: "domain" });
     }
