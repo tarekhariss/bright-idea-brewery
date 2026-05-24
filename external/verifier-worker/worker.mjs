@@ -40,8 +40,9 @@ function requireEnv(k) {
   return v;
 }
 
-const stats = { processed: 0, inFlight: 0, latencies: [], lastError: null };
+const stats = { processed: 0, inFlight: 0, recoveryInFlight: 0, recoveryProcessed: 0, latencies: [], lastError: null };
 const lastDomainHitAt = new Map();
+const mxPool = new Map(); // per-MX serial queue { last: ts, queue: Promise }
 
 async function api(path, body) {
   const res = await request(`${cfg.base}${path}`, {
