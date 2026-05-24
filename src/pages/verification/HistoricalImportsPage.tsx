@@ -461,16 +461,62 @@ export default function HistoricalImportsPage() {
             </div>
           )}
 
-          {step === 4 && (
-            <div className="space-y-3 py-6 text-center">
-              <Brain className="mx-auto h-10 w-10 text-primary animate-pulse" />
-              <div className="text-sm">Importing chunk {progress.done} of {progress.total}…</div>
-              <div className="mx-auto h-2 w-3/4 overflow-hidden rounded-full bg-muted">
-                <div className="h-full bg-primary transition-all" style={{ width: `${progress.total ? (progress.done / progress.total) * 100 : 0}%` }} />
+          {step === 5 && (() => {
+            const s: any = completedDataset?.stats ?? {};
+            const items: { label: string; value: any; tone?: string }[] = [
+              { label: "Total rows imported", value: completedDataset?.processed_count ?? 0 },
+              { label: "Prospects added", value: s.prospects_created ?? 0, tone: "text-emerald-600" },
+              { label: "Duplicates merged", value: s.prospects_merged ?? 0, tone: "text-sky-600" },
+              { label: "Skipped duplicates", value: s.skipped_duplicates ?? 0, tone: "text-amber-600" },
+              { label: "Safe to send", value: s.safe_to_send ?? 0, tone: "text-emerald-600" },
+              { label: "Risky", value: s.risky_total ?? s.risky ?? 0, tone: "text-rose-600" },
+              { label: "Catch-all", value: s.catch_all ?? 0 },
+              { label: "Unknown", value: s.unknown ?? 0 },
+              { label: "Disposable", value: s.disposable ?? s.subtypes?.disposable ?? 0 },
+              { label: "Spamtrap", value: s.subtypes?.spamtrap ?? 0 },
+              { label: "Dead server", value: s.subtypes?.dead_server ?? 0 },
+              { label: "Invalid MX", value: s.subtypes?.invalid_mx ?? 0 },
+              { label: "Email disabled", value: s.subtypes?.email_disabled ?? 0 },
+              { label: "Provider blocked", value: s.subtypes?.provider_blocked ?? 0 },
+              { label: "Greylisted patterns", value: s.greylisted_patterns ?? s.subtypes?.greylisted ?? 0 },
+              { label: "Domains learned", value: s.domains_learned ?? 0, tone: "text-violet-600" },
+              { label: "Providers learned", value: s.providers_learned ?? 0, tone: "text-violet-600" },
+              { label: "Avg confidence", value: s.avg_confidence != null ? Math.round(s.avg_confidence) : "—" },
+              { label: "Avg bounce prob", value: s.avg_bounce_probability != null ? `${(s.avg_bounce_probability * 100).toFixed(1)}%` : "—" },
+              { label: "Avg safe-to-send", value: s.avg_safe_to_send_score != null ? Math.round(s.avg_safe_to_send_score) : "—" },
+            ];
+            return (
+              <div className="space-y-4">
+                <div className="rounded-md border bg-primary/5 px-4 py-3 text-sm">
+                  <Sparkles className="mr-2 inline h-4 w-4 text-primary" />
+                  Improved intelligence for <b>{(s.domains_learned ?? 0).toLocaleString()}</b> domains,{" "}
+                  <b>{(s.providers_learned ?? 0).toLocaleString()}</b> providers, and{" "}
+                  <b>{((s.prospects_created ?? 0) + (s.prospects_merged ?? 0)).toLocaleString()}</b> prospects.
+                </div>
+                <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+                  {items.map((it) => (
+                    <div key={it.label} className="rounded-md border bg-card p-3">
+                      <div className="text-[11px] uppercase tracking-wider text-muted-foreground">{it.label}</div>
+                      <div className={`mt-1 text-xl font-semibold tabular-nums ${it.tone ?? ""}`}>
+                        {typeof it.value === "number" ? it.value.toLocaleString() : it.value}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="rounded-md border p-3">
+                  <div className="mb-2 text-xs font-medium text-foreground">Freshness breakdown</div>
+                  <div className="grid grid-cols-4 gap-2 text-xs">
+                    {(["fresh","aging","stale","expired"] as const).map((k) => (
+                      <div key={k} className="rounded bg-muted/40 p-2 text-center">
+                        <div className="text-muted-foreground capitalize">{k}</div>
+                        <div className="text-base font-semibold tabular-nums">{(s.freshness?.[k] ?? 0).toLocaleString()}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
-              <p className="text-xs text-muted-foreground">Updating intelligence and learning tables.</p>
-            </div>
-          )}
+            );
+          })()}
 
           <DialogFooter className="gap-2">
             {step > 1 && step < 4 && (
@@ -491,6 +537,16 @@ export default function HistoricalImportsPage() {
               >
                 Start import
               </Button>
+            )}
+            {step === 5 && (
+              <>
+                <Button variant="ghost" onClick={() => { setOpen(false); reset(); }}>Close</Button>
+                {completedDatasetId && (
+                  <Button onClick={() => { const id = completedDatasetId; setOpen(false); reset(); navigate(`/verification/historical-imports/${id}`); }}>
+                    Open dataset detail
+                  </Button>
+                )}
+              </>
             )}
           </DialogFooter>
         </DialogContent>
