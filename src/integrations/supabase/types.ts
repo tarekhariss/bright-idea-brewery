@@ -8854,6 +8854,7 @@ export type Database = {
           dead_letter: boolean
           deliverability_score: number | null
           did_you_mean: string | null
+          disconnect_reason: string | null
           domain: string | null
           domain_reputation_score: number | null
           email: string
@@ -8895,6 +8896,7 @@ export type Database = {
           next_retry_at: string | null
           primary_engine: string | null
           priority: number
+          probe_metadata: Json
           processing_started_at: string | null
           provider_key: string | null
           provider_reputation_score: number | null
@@ -8908,12 +8910,14 @@ export type Database = {
             | Database["public"]["Enums"]["verification_risk_tier"]
             | null
           risk_reasons: string[]
+          smtp_banner: string | null
           smtp_code: number | null
           smtp_response: string | null
           smtp_result: string | null
           source_engine: string | null
           status: Database["public"]["Enums"]["verification_status"]
           status_changed_at: string | null
+          tls_supported: boolean | null
           unknown_confidence: string | null
           unknown_reason: string | null
           verification_mode: string | null
@@ -8946,6 +8950,7 @@ export type Database = {
           dead_letter?: boolean
           deliverability_score?: number | null
           did_you_mean?: string | null
+          disconnect_reason?: string | null
           domain?: string | null
           domain_reputation_score?: number | null
           email: string
@@ -8987,6 +8992,7 @@ export type Database = {
           next_retry_at?: string | null
           primary_engine?: string | null
           priority?: number
+          probe_metadata?: Json
           processing_started_at?: string | null
           provider_key?: string | null
           provider_reputation_score?: number | null
@@ -9000,12 +9006,14 @@ export type Database = {
             | Database["public"]["Enums"]["verification_risk_tier"]
             | null
           risk_reasons?: string[]
+          smtp_banner?: string | null
           smtp_code?: number | null
           smtp_response?: string | null
           smtp_result?: string | null
           source_engine?: string | null
           status?: Database["public"]["Enums"]["verification_status"]
           status_changed_at?: string | null
+          tls_supported?: boolean | null
           unknown_confidence?: string | null
           unknown_reason?: string | null
           verification_mode?: string | null
@@ -9038,6 +9046,7 @@ export type Database = {
           dead_letter?: boolean
           deliverability_score?: number | null
           did_you_mean?: string | null
+          disconnect_reason?: string | null
           domain?: string | null
           domain_reputation_score?: number | null
           email?: string
@@ -9079,6 +9088,7 @@ export type Database = {
           next_retry_at?: string | null
           primary_engine?: string | null
           priority?: number
+          probe_metadata?: Json
           processing_started_at?: string | null
           provider_key?: string | null
           provider_reputation_score?: number | null
@@ -9092,12 +9102,14 @@ export type Database = {
             | Database["public"]["Enums"]["verification_risk_tier"]
             | null
           risk_reasons?: string[]
+          smtp_banner?: string | null
           smtp_code?: number | null
           smtp_response?: string | null
           smtp_result?: string | null
           source_engine?: string | null
           status?: Database["public"]["Enums"]["verification_status"]
           status_changed_at?: string | null
+          tls_supported?: boolean | null
           unknown_confidence?: string | null
           unknown_reason?: string | null
           verification_mode?: string | null
@@ -10111,7 +10123,12 @@ export type Database = {
         | "completed"
         | "failed"
         | "cancelled"
-      verification_quality_mode: "standard" | "high"
+      verification_quality_mode:
+        | "standard"
+        | "high"
+        | "fast"
+        | "balanced"
+        | "high_accuracy"
       verification_risk_tier: "low" | "medium" | "high" | "critical"
       verification_source:
         | "live"
@@ -10571,7 +10588,13 @@ export const Constants = {
         "failed",
         "cancelled",
       ],
-      verification_quality_mode: ["standard", "high"],
+      verification_quality_mode: [
+        "standard",
+        "high",
+        "fast",
+        "balanced",
+        "high_accuracy",
+      ],
       verification_risk_tier: ["low", "medium", "high", "critical"],
       verification_source: [
         "live",
