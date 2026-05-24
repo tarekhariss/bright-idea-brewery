@@ -167,8 +167,8 @@ Deno.serve(async (req) => {
       const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
         global: { headers: { Authorization: authHeader } },
       });
-      const { data: claims, error: authErr } = await userClient.auth.getClaims(authHeader.replace("Bearer ", ""));
-      if (authErr || !claims?.claims?.sub) return json({ error: "Unauthorized" }, 401);
+      const { data: userData, error: authErr } = await userClient.auth.getUser(authHeader.replace("Bearer ", ""));
+      if (authErr || !userData?.user?.id) return json({ error: "Unauthorized" }, 401);
 
       const { count: pending } = await admin
         .from("verification_results")
