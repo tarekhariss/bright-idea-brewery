@@ -1,9 +1,10 @@
 import { PageContainer, SectionHeader, EmptyState, KpiCard } from "@/components/verification/kit";
-import { useRetryPipeline, useRetryNow } from "@/hooks/use-verification-platform";
+import { useRetryPipeline, useRetryNow, useRecoveryQueue, useRecoveryMetrics } from "@/hooks/use-verification-platform";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { RotateCw, Play } from "lucide-react";
+import { RotateCw, Play, ShieldAlert, Layers, Clock } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 export default function RetryPipelinePage() {
