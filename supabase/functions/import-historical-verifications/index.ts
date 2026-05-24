@@ -463,6 +463,181 @@ Deno.serve(async (req) => {
       if (error) console.error("verification_events insert", error);
     }
 
+    // ---- Prospect Search seeding (safe verified emails only) ----
+    if (prospectCandidates.length) {
+      const rawKeys = Object.keys(prospectCandidates[0].rawRow ?? {});
+      const resolveCol = (k: string): string | null =>
+        (mapping[k] && rawKeys.includes(mapping[k])) ? mapping[k] : guessProspectColumn(rawKeys, k);
+      const colMap: Record<string, string | null> = {};
+      for (const k of PROSPECT_CANONICAL_KEYS) colMap[k] = resolveCol(k);
+
+      const emails = Array.from(new Set(prospectCandidates.map(p => p.email)));
+      for (const batch of chunk(emails, 200)) {
+        const { data: existing } = await supa.from("contacts")
+          .select("id,email,first_name,last_name,company_name_raw,job_title,phone,linkedin_url,country,city,state,enrichment_data,custom_fields,source,source_file,data_quality_score,import_tag,email_validity_status,last_verified_at")
+          .eq("workspace_id", body.workspace_id)
+          .in("email", batch);
+        const byEmail = new Map<string, any>((existing ?? []).map((c: any) => [String(c.email).toLowerCase(), c]));
+
+        for (const p of prospectCandidates.filter(pc => batch.includes(pc.email))) {
+          // Build raw + canonical attributes from the original CSV row.
+          const raw = p.rawRow ?? {};
+          const get = (k: string) => {
+            const c = colMap[k]; if (!c) return null;
+            const v = raw[c]; return (v === "" || v === undefined) ? null : v;
+          };
+          let first = get("first_name") as string | null;
+          let last = get("last_name") as string | null;
+          const full = get("full_name") as string | null;
+          if ((!first || !last) && full) {
+            const parts = splitFullName(String(full));
+            first = first ?? parts.first;
+            last = last ?? parts.last;
+          }
+          const company = (get("company") ?? null) as string | null;
+          const title = (get("title") ?? get("job_title") ?? null) as string | null;
+          const linkedin = get("linkedin") as string | null;
+          const phone = get("phone") as string | null;
+          const country = get("country") as string | null;
+          const city = get("city") as string | null;
+          const state = get("state") as string | null;
+          const industry = get("industry") as string | null;
+          const website = get("website") as string | null;
+          const companyDomain = (get("company_domain") as string | null) ?? p.domain;
+          const employeeCount = get("employee_count");
+          const revenue = get("revenue");
+          const department = get("department") as string | null;
+          const seniority = get("seniority") as string | null;
+          const headline = get("headline") as string | null;
+
+          // Preserve ALL original CSV columns inside custom_fields under
+          // a dataset-scoped namespace so nothing is ever lost.
+          const usedRawCols = new Set(Object.values(colMap).filter(Boolean) as string[]);
+          // Email column should not also be duplicated as a "custom field".
+          if (mapping.email) usedRawCols.add(mapping.email);
+          const importedColumns: Record<string, any> = {};
+          for (const [k, v] of Object.entries(raw)) {
+            if (v === "" || v === null || v === undefined) continue;
+            importedColumns[k] = v;
+          }
+
+          const intelligence = {
+            status: p.status, trust_score: p.trust, confidence: p.confidence,
+            freshness_state: p.fresh, safe_to_send_score: p.safe,
+            estimated_bounce_probability: p.bounceProb, campaign_safety_tier: p.tier,
+            provider: p.provider, verified_at: p.lastVerifiedAt,
+            dataset_id: datasetId, source: body.source_label ?? "EmailListVerify",
+          };
+
+          const existingContact = byEmail.get(p.email);
+          let contactId: string | null = null;
+
+          if (existingContact) {
+            // Merge — never weaken stronger data.
+            const prevEnrich = (existingContact.enrichment_data as any) ?? {};
+            const prevCustom = (existingContact.custom_fields as any) ?? {};
+            const prevSources: any[] = Array.isArray(prevEnrich.source_history) ? prevEnrich.source_history : [];
+            const prevDatasets: any[] = Array.isArray(prevEnrich.imported_datasets) ? prevEnrich.imported_datasets : [];
+            const prevVerificationHistory: any[] = Array.isArray(prevEnrich.verification_history) ? prevEnrich.verification_history : [];
+
+            const newEnrich = {
+              ...prevEnrich,
+              company_domain: preferStronger(prevEnrich.company_domain, companyDomain),
+              industry: preferStronger(prevEnrich.industry, industry),
+              website: preferStronger(prevEnrich.website, website),
+              employee_count: preferStronger(prevEnrich.employee_count, employeeCount),
+              revenue: preferStronger(prevEnrich.revenue, revenue),
+              headline: preferStronger(prevEnrich.headline, headline),
+              source_history: [...prevSources, { source: body.source_label ?? "EmailListVerify", at: new Date().toISOString(), dataset_id: datasetId }].slice(-50),
+              imported_datasets: Array.from(new Set([...prevDatasets, datasetId].filter(Boolean))),
+              verification_history: [...prevVerificationHistory, intelligence].slice(-50),
+              verification_intelligence: intelligence, // latest snapshot
+            };
+
+            const prevImportedCols = (prevCustom.imported_columns as any) ?? {};
+            const newCustom = {
+              ...prevCustom,
+              imported_columns: { ...importedColumns, ...prevImportedCols }, // existing wins
+              tags: Array.from(new Set([...(prevCustom.tags ?? []), ...datasetTags])),
+            };
+
+            const update: any = {
+              first_name: preferStronger(existingContact.first_name, first),
+              last_name: preferStronger(existingContact.last_name, last),
+              company_name_raw: preferStronger(existingContact.company_name_raw, company),
+              job_title: preferStronger(existingContact.job_title, title),
+              linkedin_url: preferStronger(existingContact.linkedin_url, linkedin),
+              phone: preferStronger(existingContact.phone, phone),
+              country: preferStronger(existingContact.country, country),
+              city: preferStronger(existingContact.city, city),
+              state: preferStronger(existingContact.state, state),
+              department: preferStronger((existingContact as any).department, department),
+              seniority_level: preferStronger((existingContact as any).seniority_level, seniority),
+              enrichment_data: newEnrich,
+              custom_fields: newCustom,
+              source_file: preferStronger(existingContact.source_file, body.source_label ?? "EmailListVerify"),
+              source: preferStronger(existingContact.source, "historical_import"),
+              email_validity_status: "valid",
+              last_verified_at: new Date().toISOString(),
+              data_quality_score: Math.max(existingContact.data_quality_score ?? 0, Math.round(p.safe)),
+              updated_at: new Date().toISOString(),
+            };
+            const { error: updErr } = await supa.from("contacts").update(update).eq("id", existingContact.id);
+            if (updErr) { console.error("contact merge", updErr); continue; }
+            contactId = existingContact.id;
+            prospectsMerged++;
+          } else {
+            const insert: any = {
+              workspace_id: body.workspace_id,
+              email: p.email,
+              first_name: first, last_name: last,
+              company_name_raw: company,
+              job_title: title,
+              linkedin_url: linkedin,
+              phone, country, city, state,
+              department, seniority_level: seniority,
+              email_validity_status: "valid",
+              last_verified_at: new Date().toISOString(),
+              data_quality_score: Math.round(p.safe),
+              source: "historical_import",
+              source_file: body.source_label ?? "EmailListVerify",
+              import_tag: datasetTags[0] ?? null,
+              lifecycle_status: "new",
+              outreach_status: "not_contacted",
+              enrichment_data: {
+                company_domain: companyDomain, industry, website,
+                employee_count: employeeCount, revenue, headline,
+                source_history: [{ source: body.source_label ?? "EmailListVerify", at: new Date().toISOString(), dataset_id: datasetId }],
+                imported_datasets: datasetId ? [datasetId] : [],
+                verification_history: [intelligence],
+                verification_intelligence: intelligence,
+              },
+              custom_fields: {
+                imported_columns: importedColumns,
+                tags: datasetTags,
+              },
+            };
+            const { data: created, error: insErr } = await supa.from("contacts").insert(insert).select("id").single();
+            if (insErr) { console.error("contact insert", insErr); continue; }
+            contactId = created?.id ?? null;
+            prospectsCreated++;
+          }
+
+          // Back-link contact_id on the just-queued history row(s) for this email.
+          for (const h of historyRows) {
+            if (h.email === p.email && !h.contact_id) h.contact_id = contactId;
+          }
+        }
+      }
+    }
+
+    // Insert prospect verification history (with contact_id where resolved).
+    for (const c of chunk(historyRows, 500)) {
+      const { error } = await supa.from("prospect_verification_history").insert(c);
+      if (error) console.error("pvh insert", error);
+    }
+
+
     // Provider behavior: read-modify-write with running totals
     for (const [provider, a] of providerAgg) {
       const { data: existing } = await supa.from("provider_behavior").select("*").eq("provider_type", provider).maybeSingle();
