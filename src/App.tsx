@@ -76,6 +76,8 @@ import AnalyticsPage from "./pages/tools/AnalyticsPage";
 import ExportHistoryPage from "./pages/tools/ExportHistoryPage";
 import BulkUpdatePage from "./pages/tools/BulkUpdatePage";
 import DuplicateReviewPage from "./pages/tools/DuplicateReviewPage";
+import VerificationPage from "./pages/tools/VerificationPage";
+import VerificationJobDetailPage from "./pages/tools/VerificationJobDetailPage";
 
 // Deliverability pages
 import DeliverabilityOverview from "./pages/settings/deliverability/DeliverabilityOverview";
@@ -206,6 +208,9 @@ const App = () => (
             <Route path="/tools/exports" element={<PL><ExportHistoryPage /></PL>} />
             <Route path="/tools/duplicates" element={<PL><DuplicateReviewPage /></PL>} />
             <Route path="/tools/bulk-update" element={<PL><BulkUpdatePage /></PL>} />
+            <Route path="/tools/verification" element={<PL><VerificationPage /></PL>} />
+            <Route path="/tools/verification/:id" element={<PL><VerificationJobDetailPage /></PL>} />
+
 
             {/* Records (reuse existing) */}
             <Route path="/records" element={<PL><ContactsPage /></PL>} />

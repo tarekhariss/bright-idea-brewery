@@ -77,6 +77,7 @@ const navGroups: NavGroup[] = [
       { title: "Export History", url: "/tools/exports", icon: Download },
       { title: "Duplicate Review", url: "/tools/duplicates", icon: GitMerge },
       { title: "Bulk Update", url: "/tools/bulk-update", icon: Pencil },
+      { title: "Email Verification", url: "/tools/verification", icon: ShieldCheck },
     ],
   },
   {
