@@ -349,23 +349,62 @@ export function useRetryNow() {
 }
 
 // ----- Unknown Recovery Optimization -----
+const EMPTY_RECOVERY_METRICS = {
+  greylisting: { total: 0, recovered: 0, success_rate: 0 },
+  queue_state: {},
+  pass_breakdown: [],
+  top_smtp_codes: [],
+  reason_breakdown: [],
+  provider_breakdown: [],
+  unknown_confidence: {},
+};
+
+function normalizeRecoveryMetrics(metrics: any) {
+  return {
+    ...EMPTY_RECOVERY_METRICS,
+    ...(metrics ?? {}),
+    greylisting: { ...EMPTY_RECOVERY_METRICS.greylisting, ...(metrics?.greylisting ?? {}) },
+    queue_state: metrics?.queue_state ?? {},
+    pass_breakdown: metrics?.pass_breakdown ?? [],
+    top_smtp_codes: metrics?.top_smtp_codes ?? [],
+    reason_breakdown: metrics?.reason_breakdown ?? [],
+    provider_breakdown: metrics?.provider_breakdown ?? [],
+    unknown_confidence: metrics?.unknown_confidence ?? {},
+  };
+}
+
 export function useRecoveryMetrics() {
+  const { user } = useAuth();
   return useQuery({
-    queryKey: ["recovery_metrics"],
+    queryKey: ["recovery_metrics", user?.id],
+    enabled: !!user?.id,
     refetchInterval: 15_000,
     queryFn: async () => {
       const { data: session } = await sb.auth.getSession();
       const token = session?.session?.access_token;
       const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verification-worker-api/recovery-metrics`;
-      const res = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-        },
-      });
-      if (!res.ok) throw new Error(`recovery-metrics ${res.status}`);
-      const data = await res.json();
-      return (data?.metrics ?? {}) as any;
+      try {
+        if (token) {
+          const res = await fetch(url, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            return normalizeRecoveryMetrics(data?.metrics);
+          }
+          console.warn(`Recovery metrics edge endpoint returned ${res.status}; falling back to database RPC.`);
+        }
+
+        const { data, error } = await sb.rpc("recovery_metrics");
+        if (!error) return normalizeRecoveryMetrics(data);
+        console.warn("Recovery metrics RPC fallback failed", error);
+      } catch (error) {
+        console.warn("Recovery metrics unavailable", error);
+      }
+      return normalizeRecoveryMetrics(null);
     },
   });
 }
