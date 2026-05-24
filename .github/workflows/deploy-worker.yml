@@ -37,18 +37,16 @@ jobs:
 
             # Cleanup to avoid legacy docker-compose 'ContainerConfig' KeyError on Ubuntu 24
             docker-compose down --remove-orphans || true
-            docker rm -f tlbg-email-verifier tlbg-verifier-worker || true
+            docker ps -a --format '{{.ID}} {{.Names}}' | grep -E 'tlbg-email-verifier|tlbg-verifier-worker|email-verifier|verifier-worker' | awk '{print $1}' | xargs -r docker rm -f || true
             docker container prune -f || true
 
-            docker-compose pull || true
-
             # Primary deploy; self-heal with one retry if legacy compose metadata bug strikes
-            if ! docker-compose up -d --build --force-recreate; then
+            if ! docker-compose up -d --build --force-recreate --remove-orphans; then
               echo "[deploy] First 'up' failed — cleaning containers and retrying once..."
               docker-compose down --remove-orphans || true
-              docker rm -f tlbg-email-verifier tlbg-verifier-worker || true
+              docker ps -a --format '{{.ID}} {{.Names}}' | grep -E 'tlbg-email-verifier|tlbg-verifier-worker|email-verifier|verifier-worker' | awk '{print $1}' | xargs -r docker rm -f || true
               docker container prune -f || true
-              docker-compose up -d --build --force-recreate
+              docker-compose up -d --build --force-recreate --remove-orphans
             fi
 
             docker image prune -f
