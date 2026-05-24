@@ -3,7 +3,7 @@ import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import {
   ShieldCheck, LayoutDashboard, Activity, ServerCog, Cpu, ListChecks, Skull, RotateCw,
   Globe, Boxes, AlertOctagon, BadgeAlert, Upload, History, Gauge, KeyRound, Settings2,
-  ScrollText, Sparkles, ArrowLeft, LogOut, Inbox, ShieldAlert, BarChart3,
+  ScrollText, Sparkles, ArrowLeft, LogOut, Inbox, ShieldAlert, BarChart3, Database,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -53,6 +53,7 @@ const sections: NavSection[] = [
     label: "Lists",
     items: [
       { title: "Imports", url: "/verification/imports", icon: Upload },
+      { title: "Historical Datasets", url: "/verification/historical-imports", icon: Database },
       { title: "History", url: "/verification/history", icon: History },
       { title: "Suppression", url: "/verification/suppression", icon: ShieldCheck },
     ],
