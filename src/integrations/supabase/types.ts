@@ -3743,6 +3743,47 @@ export type Database = {
           },
         ]
       }
+      greylisting_events: {
+        Row: {
+          attempts: number
+          detected_at: string
+          domain: string
+          id: string
+          provider_key: string | null
+          recovered_at: string | null
+          result_id: string | null
+          success: boolean | null
+        }
+        Insert: {
+          attempts?: number
+          detected_at?: string
+          domain: string
+          id?: string
+          provider_key?: string | null
+          recovered_at?: string | null
+          result_id?: string | null
+          success?: boolean | null
+        }
+        Update: {
+          attempts?: number
+          detected_at?: string
+          domain?: string
+          id?: string
+          provider_key?: string | null
+          recovered_at?: string | null
+          result_id?: string | null
+          success?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "greylisting_events_result_id_fkey"
+            columns: ["result_id"]
+            isOneToOne: false
+            referencedRelation: "verification_results"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       historical_imports: {
         Row: {
           column_mapping: Json
@@ -7110,6 +7151,66 @@ export type Database = {
           },
         ]
       }
+      provider_profiles: {
+        Row: {
+          banner_patterns: string[]
+          connect_timeout_ms: number
+          created_at: string
+          display_name: string
+          extended_timeout_ms: number
+          greylisting_strategy: string
+          helo_rotation: boolean
+          id: string
+          max_concurrency: number
+          mx_patterns: string[]
+          notes: string | null
+          per_domain_delay_ms: number
+          provider_key: string
+          retry_base_seconds: number
+          retry_multiplier: number
+          smtp_timeout_ms: number
+          updated_at: string
+        }
+        Insert: {
+          banner_patterns?: string[]
+          connect_timeout_ms?: number
+          created_at?: string
+          display_name: string
+          extended_timeout_ms?: number
+          greylisting_strategy?: string
+          helo_rotation?: boolean
+          id?: string
+          max_concurrency?: number
+          mx_patterns?: string[]
+          notes?: string | null
+          per_domain_delay_ms?: number
+          provider_key: string
+          retry_base_seconds?: number
+          retry_multiplier?: number
+          smtp_timeout_ms?: number
+          updated_at?: string
+        }
+        Update: {
+          banner_patterns?: string[]
+          connect_timeout_ms?: number
+          created_at?: string
+          display_name?: string
+          extended_timeout_ms?: number
+          greylisting_strategy?: string
+          helo_rotation?: boolean
+          id?: string
+          max_concurrency?: number
+          mx_patterns?: string[]
+          notes?: string | null
+          per_domain_delay_ms?: number
+          provider_key?: string
+          retry_base_seconds?: number
+          retry_multiplier?: number
+          smtp_timeout_ms?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       provider_validation_results: {
         Row: {
           connection_id: string
@@ -7700,6 +7801,71 @@ export type Database = {
         }
         Relationships: []
       }
+      smtp_session_log: {
+        Row: {
+          banner: string | null
+          captured_at: string
+          disconnect_reason: string | null
+          domain: string | null
+          email: string
+          helo_used: string | null
+          id: string
+          latency_ms: number | null
+          mx_host: string | null
+          pass_number: number | null
+          provider_key: string | null
+          response_code: number | null
+          response_text: string | null
+          result_id: string | null
+          tls_used: boolean | null
+          workspace_id: string | null
+        }
+        Insert: {
+          banner?: string | null
+          captured_at?: string
+          disconnect_reason?: string | null
+          domain?: string | null
+          email: string
+          helo_used?: string | null
+          id?: string
+          latency_ms?: number | null
+          mx_host?: string | null
+          pass_number?: number | null
+          provider_key?: string | null
+          response_code?: number | null
+          response_text?: string | null
+          result_id?: string | null
+          tls_used?: boolean | null
+          workspace_id?: string | null
+        }
+        Update: {
+          banner?: string | null
+          captured_at?: string
+          disconnect_reason?: string | null
+          domain?: string | null
+          email?: string
+          helo_used?: string | null
+          id?: string
+          latency_ms?: number | null
+          mx_host?: string | null
+          pass_number?: number | null
+          provider_key?: string | null
+          response_code?: number | null
+          response_text?: string | null
+          result_id?: string | null
+          tls_used?: boolean | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "smtp_session_log_result_id_fkey"
+            columns: ["result_id"]
+            isOneToOne: false
+            referencedRelation: "verification_results"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppression_list: {
         Row: {
           added_by: string | null
@@ -7930,6 +8096,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      unknown_reason_stats: {
+        Row: {
+          day: string
+          id: string
+          provider_key: string
+          reason_code: string
+          recovered: number
+          recovery_rate: number | null
+          total: number
+          updated_at: string
+        }
+        Insert: {
+          day: string
+          id?: string
+          provider_key: string
+          reason_code: string
+          recovered?: number
+          recovery_rate?: number | null
+          total?: number
+          updated_at?: string
+        }
+        Update: {
+          day?: string
+          id?: string
+          provider_key?: string
+          reason_code?: string
+          recovered?: number
+          recovery_rate?: number | null
+          total?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
@@ -8562,6 +8761,80 @@ export type Database = {
           },
         ]
       }
+      verification_recovery_queue: {
+        Row: {
+          attempt_count: number
+          claimed_at: string | null
+          claimed_by: string | null
+          created_at: string
+          domain: string | null
+          email: string
+          id: string
+          job_id: string | null
+          last_error: string | null
+          last_smtp_code: number | null
+          last_smtp_message: string | null
+          next_attempt_at: string
+          pass_number: number
+          provider_key: string
+          reason_code: string
+          result_id: string
+          state: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          attempt_count?: number
+          claimed_at?: string | null
+          claimed_by?: string | null
+          created_at?: string
+          domain?: string | null
+          email: string
+          id?: string
+          job_id?: string | null
+          last_error?: string | null
+          last_smtp_code?: number | null
+          last_smtp_message?: string | null
+          next_attempt_at?: string
+          pass_number: number
+          provider_key?: string
+          reason_code: string
+          result_id: string
+          state?: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          attempt_count?: number
+          claimed_at?: string | null
+          claimed_by?: string | null
+          created_at?: string
+          domain?: string | null
+          email?: string
+          id?: string
+          job_id?: string | null
+          last_error?: string | null
+          last_smtp_code?: number | null
+          last_smtp_message?: string | null
+          next_attempt_at?: string
+          pass_number?: number
+          provider_key?: string
+          reason_code?: string
+          result_id?: string
+          state?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "verification_recovery_queue_result_id_fkey"
+            columns: ["result_id"]
+            isOneToOne: false
+            referencedRelation: "verification_results"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       verification_results: {
         Row: {
           ai_confidence: number | null
@@ -8611,6 +8884,7 @@ export type Database = {
           last_bounce_at: string | null
           last_campaign_sent_at: string | null
           last_open_at: string | null
+          last_recovery_at: string | null
           last_reply_at: string | null
           last_seen_valid_at: string | null
           last_verified_at: string | null
@@ -8622,11 +8896,13 @@ export type Database = {
           primary_engine: string | null
           priority: number
           processing_started_at: string | null
+          provider_key: string | null
           provider_reputation_score: number | null
           provider_type: string | null
           raw_response: Json | null
           recheck_attempts: number | null
           recheck_required: boolean | null
+          recovery_passes: number
           retry_count: number
           risk_level:
             | Database["public"]["Enums"]["verification_risk_tier"]
@@ -8638,6 +8914,8 @@ export type Database = {
           source_engine: string | null
           status: Database["public"]["Enums"]["verification_status"]
           status_changed_at: string | null
+          unknown_confidence: string | null
+          unknown_reason: string | null
           verification_quality:
             | Database["public"]["Enums"]["verification_quality_mode"]
             | null
@@ -8697,6 +8975,7 @@ export type Database = {
           last_bounce_at?: string | null
           last_campaign_sent_at?: string | null
           last_open_at?: string | null
+          last_recovery_at?: string | null
           last_reply_at?: string | null
           last_seen_valid_at?: string | null
           last_verified_at?: string | null
@@ -8708,11 +8987,13 @@ export type Database = {
           primary_engine?: string | null
           priority?: number
           processing_started_at?: string | null
+          provider_key?: string | null
           provider_reputation_score?: number | null
           provider_type?: string | null
           raw_response?: Json | null
           recheck_attempts?: number | null
           recheck_required?: boolean | null
+          recovery_passes?: number
           retry_count?: number
           risk_level?:
             | Database["public"]["Enums"]["verification_risk_tier"]
@@ -8724,6 +9005,8 @@ export type Database = {
           source_engine?: string | null
           status?: Database["public"]["Enums"]["verification_status"]
           status_changed_at?: string | null
+          unknown_confidence?: string | null
+          unknown_reason?: string | null
           verification_quality?:
             | Database["public"]["Enums"]["verification_quality_mode"]
             | null
@@ -8783,6 +9066,7 @@ export type Database = {
           last_bounce_at?: string | null
           last_campaign_sent_at?: string | null
           last_open_at?: string | null
+          last_recovery_at?: string | null
           last_reply_at?: string | null
           last_seen_valid_at?: string | null
           last_verified_at?: string | null
@@ -8794,11 +9078,13 @@ export type Database = {
           primary_engine?: string | null
           priority?: number
           processing_started_at?: string | null
+          provider_key?: string | null
           provider_reputation_score?: number | null
           provider_type?: string | null
           raw_response?: Json | null
           recheck_attempts?: number | null
           recheck_required?: boolean | null
+          recovery_passes?: number
           retry_count?: number
           risk_level?:
             | Database["public"]["Enums"]["verification_risk_tier"]
@@ -8810,6 +9096,8 @@ export type Database = {
           source_engine?: string | null
           status?: Database["public"]["Enums"]["verification_status"]
           status_changed_at?: string | null
+          unknown_confidence?: string | null
+          unknown_reason?: string | null
           verification_quality?:
             | Database["public"]["Enums"]["verification_quality_mode"]
             | null
@@ -9144,6 +9432,27 @@ export type Database = {
         Returns: Json
       }
       check_mailbox_readiness: { Args: { p_mailbox_id: string }; Returns: Json }
+      claim_recovery_batch: {
+        Args: { _limit?: number; _worker_id: string }
+        Returns: {
+          attempt_count: number
+          connect_timeout_ms: number
+          domain: string
+          email: string
+          extended_timeout_ms: number
+          greylisting_strategy: string
+          helo_rotation: boolean
+          id: string
+          job_id: string
+          pass_number: number
+          per_domain_delay_ms: number
+          provider_key: string
+          reason_code: string
+          result_id: string
+          smtp_timeout_ms: number
+          workspace_id: string
+        }[]
+      }
       claim_verification_batch: {
         Args: { _limit?: number }
         Returns: {
@@ -9161,6 +9470,29 @@ export type Database = {
       classify_inbound_message: {
         Args: { p_body: string; p_subject: string }
         Returns: Database["public"]["Enums"]["reply_category"]
+      }
+      classify_unknown_confidence: {
+        Args: { _pass: number; _provider: string; _reason: string }
+        Returns: string
+      }
+      classify_unknown_reason: {
+        Args: { _err: string; _smtp_code: number; _smtp_text: string }
+        Returns: string
+      }
+      complete_recovery: {
+        Args: {
+          _banner?: string
+          _disconnect_reason?: string
+          _helo_used?: string
+          _id: string
+          _latency: number
+          _mx_host?: string
+          _smtp_code: number
+          _smtp_text: string
+          _status: string
+          _tls_used?: boolean
+        }
+        Returns: Json
       }
       compute_catch_all_probability: {
         Args: { _domain: string }
@@ -9208,6 +9540,19 @@ export type Database = {
       decide_verification_strategy: {
         Args: { _email: string; _workspace_id: string }
         Returns: Json
+      }
+      detect_provider: {
+        Args: { _banner: string; _mx: string }
+        Returns: string
+      }
+      enqueue_recovery: {
+        Args: {
+          _reason: string
+          _result_id: string
+          _smtp_code: number
+          _smtp_text: string
+        }
+        Returns: undefined
       }
       enqueue_verification_job: {
         Args: {
@@ -9453,6 +9798,8 @@ export type Database = {
         Returns: Json
       }
       recover_stuck_verification_jobs: { Args: never; Returns: Json }
+      recovery_metrics: { Args: never; Returns: Json }
+      recovery_rollup_tick: { Args: never; Returns: undefined }
       refresh_email_freshness_batch: {
         Args: { _limit?: number }
         Returns: number
