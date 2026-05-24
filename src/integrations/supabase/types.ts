@@ -4026,6 +4026,7 @@ export type Database = {
       }
       imported_datasets: {
         Row: {
+          auto_seed_prospects: boolean
           failed_count: number
           file_type: string | null
           filename: string | null
@@ -4043,6 +4044,7 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          auto_seed_prospects?: boolean
           failed_count?: number
           file_type?: string | null
           filename?: string | null
@@ -4060,6 +4062,7 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          auto_seed_prospects?: boolean
           failed_count?: number
           file_type?: string | null
           filename?: string | null
@@ -6995,6 +6998,91 @@ export type Database = {
             columns: ["research_profile_id"]
             isOneToOne: false
             referencedRelation: "prospect_research_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prospect_verification_history: {
+        Row: {
+          campaign_safety_tier: string | null
+          confidence: number | null
+          contact_id: string | null
+          created_at: string
+          dataset_id: string | null
+          domain: string | null
+          email: string
+          estimated_bounce_probability: number | null
+          freshness_state: string | null
+          id: string
+          provider: string | null
+          raw: Json | null
+          safe_to_send_score: number | null
+          source: string | null
+          status: string
+          trust_score: number | null
+          verified_at: string | null
+          workspace_id: string
+        }
+        Insert: {
+          campaign_safety_tier?: string | null
+          confidence?: number | null
+          contact_id?: string | null
+          created_at?: string
+          dataset_id?: string | null
+          domain?: string | null
+          email: string
+          estimated_bounce_probability?: number | null
+          freshness_state?: string | null
+          id?: string
+          provider?: string | null
+          raw?: Json | null
+          safe_to_send_score?: number | null
+          source?: string | null
+          status: string
+          trust_score?: number | null
+          verified_at?: string | null
+          workspace_id: string
+        }
+        Update: {
+          campaign_safety_tier?: string | null
+          confidence?: number | null
+          contact_id?: string | null
+          created_at?: string
+          dataset_id?: string | null
+          domain?: string | null
+          email?: string
+          estimated_bounce_probability?: number | null
+          freshness_state?: string | null
+          id?: string
+          provider?: string | null
+          raw?: Json | null
+          safe_to_send_score?: number | null
+          source?: string | null
+          status?: string
+          trust_score?: number | null
+          verified_at?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospect_verification_history_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospect_verification_history_dataset_id_fkey"
+            columns: ["dataset_id"]
+            isOneToOne: false
+            referencedRelation: "imported_datasets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospect_verification_history_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
         ]
