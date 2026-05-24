@@ -561,6 +561,25 @@ async function processOne(job) {
       noteTransient(mxHost);
     }
 
+    // ---- Weighted scoring + unknown sub-classification --------------------
+    const scores = computeScores({ mapped, probe, providerKey, mxHost, attempts: attempt, mode });
+    const finalStatus = mapped.status;
+    const subclass = finalStatus === "unknown"
+      ? classifyUnknown({
+          mapped, probe, providerKey, mxHost, attempts: attempt,
+          smtpCode: mapped.smtp_code, smtpText: mapped.smtp_response,
+          disconnectReason: probe?.disconnect_reason,
+        })
+      : null;
+    const unknownConfidence = finalStatus === "unknown"
+      ? (subclass === "likely_valid" ? 0.65
+        : subclass === "likely_invalid" ? 0.35
+        : subclass === "greylisted" || subclass === "temporary_failure" ? 0.50
+        : subclass === "high_risk_unknown" ? 0.25
+        : 0.40)
+      : null;
+    const riskLevel = deriveRiskLevel(scores, finalStatus);
+
     await api("/submit", {
       result_id: job.result_id ?? job.id,
       email: job.email,
@@ -569,6 +588,15 @@ async function processOne(job) {
       provider_type: providerKey,
       mx_host: mxHost,
       ...mapped,
+      // Override engine's coarse confidence/risk with the weighted versions.
+      confidence: Math.round(scores.confidence_score * 100),
+      confidence_score: scores.confidence_score,
+      deliverability_score: scores.deliverability_score,
+      bounce_risk_score: scores.bounce_risk_score,
+      risk_level: riskLevel,
+      unknown_subclass: subclass,
+      unknown_confidence: unknownConfidence,
+      confidence_breakdown: scores.confidence_breakdown,
       // SMTP intelligence (consumed by edge function PATCH below)
       smtp_banner: probe?.smtp_banner ?? null,
       tls_supported: probe?.tls_supported ?? null,
@@ -581,7 +609,8 @@ async function processOne(job) {
         mx_host: mxHost,
         provider: providerKey,
         mode,
-      } : { mode, provider: providerKey, mx_host: mxHost, probed: false },
+        unknown_subclass: subclass,
+      } : { mode, provider: providerKey, mx_host: mxHost, probed: false, unknown_subclass: subclass },
     });
 
     stats.latencies.push(mapped.engine_latency_ms);
