@@ -146,6 +146,7 @@ export default function HistoricalImportsPage() {
   const reset = () => {
     setStep(1); setFile(null); setHeaders([]); setRows([]); setMapping({});
     setDatasetName(""); setTags(""); setAutoSeedProspects(true); setProgress({ done: 0, total: 0 });
+    setCompletedDatasetId(null);
   };
 
   const onPickFile = async (f: File) => {
