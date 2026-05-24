@@ -22,7 +22,7 @@ const cfg = {
   base: `${requireEnv("SUPABASE_URL")}/functions/v1/verification-worker-api`,
   secret: requireEnv("VERIFICATION_WORKER_SECRET"),
   workerId: process.env.WORKER_ID ?? `worker-${process.pid}`,
-  workerVersion: process.env.WORKER_VERSION ?? "1.1.0",
+  workerVersion: process.env.WORKER_VERSION ?? "1.2.0",
   host: process.env.WORKER_HOST ?? "unknown",
   verifierUrl: process.env.VERIFIER_URL ?? "http://email-verifier:8080",
   engine: process.env.VERIFIER_ENGINE ?? "aftership-email-verifier",
@@ -220,6 +220,118 @@ function mapEngineResult({ body, latency }, email, providerKey) {
     engine_latency_ms: latency,
     raw: body,
   };
+}
+
+// ---- Weighted confidence scoring + unknown sub-classification --------------
+// Computes:
+//   confidence_score      (0..1)  — overall trust in the verdict
+//   deliverability_score  (0..1)  — likelihood the email lands in inbox
+//   bounce_risk_score     (0..1)  — likelihood it will hard bounce
+//   unknown_confidence    (0..1)  — for unknowns, lean toward valid/invalid
+//   unknown_subclass      (text)  — fine-grained reason for unknown
+//   confidence_breakdown  (jsonb) — human-readable factor list for the UI
+
+const UNKNOWN_SUBCLASSES = [
+  "likely_valid", "likely_invalid", "temporary_failure",
+  "greylisted", "provider_blocked", "rate_limited",
+  "tls_failure", "smtp_disconnect", "timeout",
+  "temporary_dns_issue", "high_risk_unknown",
+];
+
+function classifyUnknown({ mapped, probe, providerKey, mxHost, attempts, smtpCode, smtpText, disconnectReason }) {
+  const text = `${smtpText ?? ""} ${probe?.smtp_banner ?? ""} ${probe?.ehlo_response ?? ""}`.toLowerCase();
+  const code = Number(smtpCode ?? probe?.smtp_code ?? 0);
+
+  if (!mxHost) return "temporary_dns_issue";
+  if (disconnectReason?.startsWith("tls_failure")) return "tls_failure";
+  if (disconnectReason === "connect_timeout" || disconnectReason?.includes("timeout")) return "timeout";
+  if (disconnectReason?.startsWith("probe_error") || disconnectReason?.startsWith("probe_threw")) return "smtp_disconnect";
+
+  if (code === 421 || /greylist|try again later|deferred|temporarily/i.test(text)) return "greylisted";
+  if (code === 451 || code === 452) return "temporary_failure";
+  if (code === 450 || /rate limit|too many|throttl|slow down|4\.7\.1/i.test(text)) return "rate_limited";
+  if (/blocked|denied|reject|blacklist|spamhaus|barracuda|abuse|reputation/i.test(text)) return "provider_blocked";
+  if (code >= 400 && code < 500) return "temporary_failure";
+
+  // Bias toward likely_valid/invalid based on what little we have.
+  const positive = probe?.tls_supported === true && probe?.ok && code === 220;
+  const providerStrict = ["proofpoint", "mimecast", "barracuda", "cisco_ironport", "spamtitan"].includes(providerKey);
+  if (positive && !providerStrict) return "likely_valid";
+  if (mapped?.is_disposable || mapped?.is_role_based) return "high_risk_unknown";
+  if (attempts >= 2) return "high_risk_unknown";
+  return "likely_invalid";
+}
+
+function computeScores({ mapped, probe, providerKey, mxHost, attempts, mode }) {
+  const factors = [];
+  let trust = 0.5;   // confidence in verdict
+  let deliver = 0.5; // inbox-likelihood
+  let bounce = 0.5;  // bounce likelihood
+
+  // Engine verdict anchor
+  switch (mapped.status) {
+    case "valid":      trust = 0.85; deliver = 0.80; bounce = 0.10; factors.push({ k: "engine", w: +0.35, why: "Engine: valid + reachable" }); break;
+    case "invalid":    trust = 0.95; deliver = 0.02; bounce = 0.95; factors.push({ k: "engine", w: +0.45, why: "Engine: invalid / unreachable" }); break;
+    case "catch_all":  trust = 0.55; deliver = 0.45; bounce = 0.35; factors.push({ k: "engine", w: +0.05, why: "Catch-all domain — cannot confirm mailbox" }); break;
+    case "disposable": trust = 0.95; deliver = 0.05; bounce = 0.80; factors.push({ k: "engine", w: +0.40, why: "Disposable provider" }); break;
+    default:           trust = 0.35; deliver = 0.35; bounce = 0.50; factors.push({ k: "engine", w: 0, why: "Engine could not determine status" });
+  }
+
+  // MX present
+  if (mxHost) { trust += 0.05; deliver += 0.05; bounce -= 0.05; factors.push({ k: "mx", w: +0.05, why: `MX resolved (${mxHost})` }); }
+  else { trust -= 0.15; deliver -= 0.25; bounce += 0.20; factors.push({ k: "mx", w: -0.15, why: "No MX records" }); }
+
+  // Provider reputation
+  const strict = ["proofpoint", "mimecast", "barracuda", "cisco_ironport", "spamtitan"];
+  const friendly = ["google_workspace", "microsoft365", "zoho"];
+  if (strict.includes(providerKey)) {
+    trust -= 0.05; deliver -= 0.10; bounce += 0.05;
+    factors.push({ k: "provider", w: -0.10, why: `Strict provider (${providerKey}) — silent rejects common` });
+  } else if (friendly.includes(providerKey)) {
+    trust += 0.05; deliver += 0.05;
+    factors.push({ k: "provider", w: +0.05, why: `Mainstream provider (${providerKey})` });
+  }
+
+  // SMTP probe signals
+  if (probe) {
+    if (probe.ok && probe.smtp_code === 220) { trust += 0.05; deliver += 0.05; factors.push({ k: "probe", w: +0.05, why: "Clean SMTP banner (220)" }); }
+    if (probe.tls_supported === true) { trust += 0.05; deliver += 0.05; factors.push({ k: "tls", w: +0.05, why: "STARTTLS supported" }); }
+    if (probe.tls_supported === false) { trust -= 0.05; deliver -= 0.05; bounce += 0.05; factors.push({ k: "tls", w: -0.05, why: "TLS handshake failed" }); }
+    if (probe.disconnect_reason && !["graceful_quit"].includes(probe.disconnect_reason)) {
+      trust -= 0.05; factors.push({ k: "disconnect", w: -0.05, why: `Abnormal disconnect: ${probe.disconnect_reason}` });
+    }
+  } else if (mode === "fast") {
+    factors.push({ k: "probe", w: 0, why: "SMTP probe skipped (fast mode)" });
+  }
+
+  // Risk flags
+  if (mapped.is_role_based)   { deliver -= 0.10; bounce += 0.05; factors.push({ k: "risk", w: -0.10, why: "Role-based address (info@, sales@)" }); }
+  if (mapped.is_catch_all)    { trust -= 0.10; deliver -= 0.10; bounce += 0.10; factors.push({ k: "risk", w: -0.10, why: "Catch-all accepts everything" }); }
+  if (mapped.is_free_provider){ deliver -= 0.02; factors.push({ k: "risk", w: -0.02, why: "Free email provider" }); }
+  if (mapped.is_disposable)   { deliver -= 0.40; bounce += 0.30; factors.push({ k: "risk", w: -0.40, why: "Disposable mailbox" }); }
+
+  // Retry penalty
+  if (attempts > 0) { trust -= 0.05 * attempts; factors.push({ k: "retry", w: -(0.05 * attempts), why: `${attempts} retry attempt(s)` }); }
+
+  // Mode bonus (high_accuracy is more trustworthy than fast)
+  if (mode === "high_accuracy") { trust += 0.05; factors.push({ k: "mode", w: +0.05, why: "High-accuracy mode" }); }
+  if (mode === "fast")          { trust -= 0.05; factors.push({ k: "mode", w: -0.05, why: "Fast mode (less verification depth)" }); }
+
+  const clamp = (n) => Math.max(0, Math.min(1, n));
+  return {
+    confidence_score: Number(clamp(trust).toFixed(3)),
+    deliverability_score: Number(clamp(deliver).toFixed(3)),
+    bounce_risk_score: Number(clamp(bounce).toFixed(3)),
+    confidence_breakdown: { factors, mode, provider: providerKey, mx_host: mxHost, attempts },
+  };
+}
+
+function deriveRiskLevel(scores, status) {
+  if (status === "invalid" || status === "disposable") return "high";
+  if (scores.bounce_risk_score >= 0.5) return "high";
+  if (scores.confidence_score >= 0.8 && scores.deliverability_score >= 0.7) return "low";
+  if (scores.confidence_score >= 0.6) return "medium";
+  return "high";
 }
 
 // ---- Conservative Node-side SMTP probe -------------------------------------
@@ -449,6 +561,25 @@ async function processOne(job) {
       noteTransient(mxHost);
     }
 
+    // ---- Weighted scoring + unknown sub-classification --------------------
+    const scores = computeScores({ mapped, probe, providerKey, mxHost, attempts: attempt, mode });
+    const finalStatus = mapped.status;
+    const subclass = finalStatus === "unknown"
+      ? classifyUnknown({
+          mapped, probe, providerKey, mxHost, attempts: attempt,
+          smtpCode: mapped.smtp_code, smtpText: mapped.smtp_response,
+          disconnectReason: probe?.disconnect_reason,
+        })
+      : null;
+    const unknownConfidence = finalStatus === "unknown"
+      ? (subclass === "likely_valid" ? 0.65
+        : subclass === "likely_invalid" ? 0.35
+        : subclass === "greylisted" || subclass === "temporary_failure" ? 0.50
+        : subclass === "high_risk_unknown" ? 0.25
+        : 0.40)
+      : null;
+    const riskLevel = deriveRiskLevel(scores, finalStatus);
+
     await api("/submit", {
       result_id: job.result_id ?? job.id,
       email: job.email,
@@ -457,6 +588,15 @@ async function processOne(job) {
       provider_type: providerKey,
       mx_host: mxHost,
       ...mapped,
+      // Override engine's coarse confidence/risk with the weighted versions.
+      confidence: Math.round(scores.confidence_score * 100),
+      confidence_score: scores.confidence_score,
+      deliverability_score: scores.deliverability_score,
+      bounce_risk_score: scores.bounce_risk_score,
+      risk_level: riskLevel,
+      unknown_subclass: subclass,
+      unknown_confidence: unknownConfidence,
+      confidence_breakdown: scores.confidence_breakdown,
       // SMTP intelligence (consumed by edge function PATCH below)
       smtp_banner: probe?.smtp_banner ?? null,
       tls_supported: probe?.tls_supported ?? null,
@@ -469,7 +609,8 @@ async function processOne(job) {
         mx_host: mxHost,
         provider: providerKey,
         mode,
-      } : { mode, provider: providerKey, mx_host: mxHost, probed: false },
+        unknown_subclass: subclass,
+      } : { mode, provider: providerKey, mx_host: mxHost, probed: false, unknown_subclass: subclass },
     });
 
     stats.latencies.push(mapped.engine_latency_ms);
