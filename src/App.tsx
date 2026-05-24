@@ -252,6 +252,7 @@ const App = () => (
             {/* Verification — standalone platform */}
             <Route path="/verification" element={<VL><VfDashboardPage /></VL>} />
             <Route path="/verification/jobs" element={<VL><VfJobsPage /></VL>} />
+            <Route path="/verification/jobs/:id" element={<VL><VfJobDetailPage /></VL>} />
             <Route path="/verification/queue" element={<VL><VfQueuePage /></VL>} />
             <Route path="/verification/workers" element={<VL><VfWorkersPage /></VL>} />
             <Route path="/verification/retries" element={<VL><VfRetryPage /></VL>} />
