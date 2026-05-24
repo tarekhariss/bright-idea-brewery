@@ -8916,6 +8916,7 @@ export type Database = {
           status_changed_at: string | null
           unknown_confidence: string | null
           unknown_reason: string | null
+          verification_mode: string | null
           verification_quality:
             | Database["public"]["Enums"]["verification_quality_mode"]
             | null
@@ -9007,6 +9008,7 @@ export type Database = {
           status_changed_at?: string | null
           unknown_confidence?: string | null
           unknown_reason?: string | null
+          verification_mode?: string | null
           verification_quality?:
             | Database["public"]["Enums"]["verification_quality_mode"]
             | null
@@ -9098,6 +9100,7 @@ export type Database = {
           status_changed_at?: string | null
           unknown_confidence?: string | null
           unknown_reason?: string | null
+          verification_mode?: string | null
           verification_quality?:
             | Database["public"]["Enums"]["verification_quality_mode"]
             | null
