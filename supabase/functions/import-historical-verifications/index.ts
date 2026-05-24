@@ -304,6 +304,22 @@ Deno.serve(async (req) => {
     const bounceAgg = new Map<string, { domain: string; provider: string; code: number | null; category: string }>();
 
     const stats = { valid: 0, invalid: 0, catch_all: 0, unknown: 0, risky: 0, role_based: 0, disposable: 0, suppressed: 0, failed: 0 };
+    const subtypeStats: Record<string, number> = {
+      spamtrap: 0, dead_server: 0, invalid_mx: 0, email_disabled: 0,
+      provider_blocked: 0, greylisted: 0,
+    };
+    const tierStats = { safe: 0, recommended: 0, risky: 0, unsafe: 0 };
+    const freshStats = { fresh: 0, aging: 0, stale: 0, expired: 0 };
+    let safeToSendCount = 0, riskyCount = 0;
+    let confSum = 0, confN = 0, bounceSum = 0, bounceN = 0, safeSum = 0, safeN = 0;
+    const seenEmailsChunk = new Set<string>();
+    let skippedDuplicates = 0;
+    const industryTop = new Map<string, number>();
+    const countryTop = new Map<string, number>();
+    const providerTop = new Map<string, number>();
+    const companyTop = new Map<string, number>();
+    const riskyDomainTop = new Map<string, number>();
+    const safeDomainTop = new Map<string, number>();
 
     for (const row of body.rows) {
       try {
