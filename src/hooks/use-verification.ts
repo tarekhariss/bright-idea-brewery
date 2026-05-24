@@ -71,6 +71,8 @@ export function useVerificationResults(jobId: string | null) {
   });
 }
 
+export type CachePolicy = "default" | "trusted_cache" | "recheck_weak" | "force_live";
+
 export function useEnqueueVerification() {
   const qc = useQueryClient();
   const { workspaceId } = useAuth();
@@ -81,6 +83,7 @@ export function useEnqueueVerification() {
       source?: string;
       campaign_id?: string | null;
       quality?: "fast" | "balanced" | "high_accuracy";
+      cache_policy?: CachePolicy;
     }) => {
       if (!workspaceId) throw new Error("No workspace");
       const { data, error } = await sb.rpc("enqueue_verification_job", {
@@ -91,6 +94,7 @@ export function useEnqueueVerification() {
         _campaign_id: vars.campaign_id ?? null,
         _list_id: null,
         _quality: vars.quality ?? "balanced",
+        _cache_policy: vars.cache_policy ?? null,
       } as any);
       if (error) throw error;
       return data as string;
@@ -103,6 +107,7 @@ export function useEnqueueVerification() {
     onError: (e: any) => toast.error(e.message),
   });
 }
+
 
 export function useSuppressionList() {
   const { workspaceId } = useAuth();
