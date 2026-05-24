@@ -354,7 +354,7 @@ export default function HistoricalImportsPage() {
                 return (
                   <div className="rounded-md border bg-muted/30 p-3 text-xs">
                     <div className="mb-1 font-medium text-foreground">
-                      {unmapped.length} unmapped column{unmapped.length === 1 ? "" : "s"} — preserved as custom fields
+                      {unmapped.length} column{unmapped.length === 1 ? "" : "s"} will be preserved as custom fields
                     </div>
                     <div className="mb-2 text-muted-foreground">
                       These are kept verbatim on every imported row and on seeded prospects (under <code>custom_fields.imported_columns</code>) so they remain available for exports, filtering, and CRM enrichment.
