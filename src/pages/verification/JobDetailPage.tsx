@@ -584,6 +584,7 @@ export default function VfJobDetailPage() {
                     <TableRow>
                       <TableHead>Email</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead>Source</TableHead>
                       <TableHead>Sub-class</TableHead>
                       <TableHead className="text-right">Conf</TableHead>
                       <TableHead className="text-right">Deliver</TableHead>
@@ -592,9 +593,11 @@ export default function VfJobDetailPage() {
                       <TableHead>Freshness</TableHead>
                       <TableHead>Provider</TableHead>
                       <TableHead>SMTP</TableHead>
+                      <TableHead>Worker</TableHead>
                       <TableHead>Recheck</TableHead>
                     </TableRow>
                   </TableHeader>
+
                   <TableBody>
                     {filteredRows.map((r: any) => {
                       const k = bucketResult(r);
