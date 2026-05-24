@@ -19,22 +19,42 @@ import * as XLSX from "xlsx";
 
 const sb = supabase as any;
 
-const CANONICAL: { key: string; label: string; required?: boolean; hints: string[] }[] = [
-  { key: "email", label: "Email", required: true, hints: ["email", "email_address", "address", "mail"] },
-  { key: "status", label: "Verification status", hints: ["status", "result", "verification_status", "state"] },
-  { key: "result", label: "Result (alt)", hints: ["result", "verdict"] },
-  { key: "confidence", label: "Confidence / score", hints: ["confidence", "score", "deliverability_score"] },
-  { key: "reason", label: "Reason", hints: ["reason", "sub_status", "details", "message"] },
-  { key: "date", label: "Date verified", hints: ["date", "verified_at", "verification_date", "checked_at", "last_verified"] },
-  { key: "provider", label: "Provider / MX provider", hints: ["provider", "mx_provider", "mailbox_provider", "esp"] },
-  { key: "mx", label: "MX record", hints: ["mx", "mx_record"] },
-  { key: "domain", label: "Domain", hints: ["domain", "host"] },
-  { key: "disposable", label: "Is disposable", hints: ["disposable", "is_disposable"] },
-  { key: "role_based", label: "Is role-based", hints: ["role_based", "is_role", "role"] },
-  { key: "catch_all", label: "Is catch-all", hints: ["catch_all", "catchall", "accept_all"] },
-  { key: "bounce", label: "Bounced", hints: ["bounce", "bounced", "hard_bounce"] },
-  { key: "smtp_response", label: "SMTP response", hints: ["smtp_response", "smtp", "response"] },
+const CANONICAL: { key: string; label: string; required?: boolean; hints: string[]; group?: "verification" | "prospect" }[] = [
+  { key: "email", label: "Email", required: true, hints: ["email", "email_address", "address", "mail"], group: "verification" },
+  { key: "status", label: "Verification status", hints: ["status", "result", "verification_status", "state"], group: "verification" },
+  { key: "result", label: "Result (alt)", hints: ["result", "verdict"], group: "verification" },
+  { key: "confidence", label: "Confidence / score", hints: ["confidence", "score", "deliverability_score"], group: "verification" },
+  { key: "reason", label: "Reason", hints: ["reason", "sub_status", "details", "message"], group: "verification" },
+  { key: "date", label: "Date verified", hints: ["date", "verified_at", "verification_date", "checked_at", "last_verified"], group: "verification" },
+  { key: "provider", label: "Provider / MX provider", hints: ["provider", "mx_provider", "mailbox_provider", "esp"], group: "verification" },
+  { key: "mx", label: "MX record", hints: ["mx", "mx_record"], group: "verification" },
+  { key: "domain", label: "Domain", hints: ["domain", "host"], group: "verification" },
+  { key: "disposable", label: "Is disposable", hints: ["disposable", "is_disposable"], group: "verification" },
+  { key: "role_based", label: "Is role-based", hints: ["role_based", "is_role", "role"], group: "verification" },
+  { key: "catch_all", label: "Is catch-all", hints: ["catch_all", "catchall", "accept_all"], group: "verification" },
+  { key: "bounce", label: "Bounced", hints: ["bounce", "bounced", "hard_bounce"], group: "verification" },
+  { key: "smtp_response", label: "SMTP response", hints: ["smtp_response", "smtp", "response"], group: "verification" },
+  // Prospect fields — used to enrich Prospect Search when verification is safe.
+  { key: "first_name", label: "First name", hints: ["first_name", "firstname", "fname", "given_name"], group: "prospect" },
+  { key: "last_name", label: "Last name", hints: ["last_name", "lastname", "lname", "surname", "family_name"], group: "prospect" },
+  { key: "full_name", label: "Full name", hints: ["full_name", "fullname", "name", "contact_name"], group: "prospect" },
+  { key: "company", label: "Company", hints: ["company", "company_name", "organization", "organisation", "account", "employer"], group: "prospect" },
+  { key: "company_domain", label: "Company domain", hints: ["company_domain", "company_website", "corporate_domain"], group: "prospect" },
+  { key: "title", label: "Job title", hints: ["title", "job_title", "position", "role"], group: "prospect" },
+  { key: "linkedin", label: "LinkedIn URL", hints: ["linkedin", "linkedin_url", "linkedin_profile", "li"], group: "prospect" },
+  { key: "phone", label: "Phone", hints: ["phone", "phone_number", "mobile", "tel", "telephone"], group: "prospect" },
+  { key: "country", label: "Country", hints: ["country", "country_code"], group: "prospect" },
+  { key: "city", label: "City", hints: ["city", "town"], group: "prospect" },
+  { key: "state", label: "State / region", hints: ["state", "region", "province"], group: "prospect" },
+  { key: "industry", label: "Industry", hints: ["industry", "vertical", "sector"], group: "prospect" },
+  { key: "website", label: "Website", hints: ["website", "site", "url", "homepage"], group: "prospect" },
+  { key: "employee_count", label: "Employee count", hints: ["employee_count", "employees", "company_size", "headcount"], group: "prospect" },
+  { key: "revenue", label: "Revenue", hints: ["revenue", "annual_revenue", "company_revenue"], group: "prospect" },
+  { key: "department", label: "Department", hints: ["department", "dept"], group: "prospect" },
+  { key: "seniority", label: "Seniority", hints: ["seniority", "seniority_level"], group: "prospect" },
+  { key: "headline", label: "Headline", hints: ["headline", "tagline"], group: "prospect" },
 ];
+
 
 const SOURCE_OPTIONS = [
   { value: "EmailListVerify", label: "EmailListVerify" },
