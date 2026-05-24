@@ -325,9 +325,12 @@ Deno.serve(async (req) => {
       try {
         const email = String(pick(row, mapping, "email") ?? "").toLowerCase().trim();
         if (!email || !email.includes("@")) { failed++; continue; }
+        if (seenEmailsChunk.has(email)) { skippedDuplicates++; continue; }
+        seenEmailsChunk.add(email);
         const domain = email.split("@")[1] ?? null;
 
-        const status = normStatus(pick(row, mapping, "status") ?? pick(row, mapping, "result"));
+        const rawStatus = pick(row, mapping, "status") ?? pick(row, mapping, "result");
+        const status = normStatus(rawStatus);
         (stats as any)[status] = ((stats as any)[status] ?? 0) + 1;
 
         const confidenceRaw = pick(row, mapping, "confidence");
