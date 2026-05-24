@@ -347,3 +347,38 @@ export function useRetryNow() {
     onError: (e: any) => toast.error(e.message),
   });
 }
+
+// ----- Unknown Recovery Optimization -----
+export function useRecoveryMetrics() {
+  return useQuery({
+    queryKey: ["recovery_metrics"],
+    refetchInterval: 15_000,
+    queryFn: async () => {
+      const { data, error } = await sb.functions.invoke("verification-worker-api/recovery-metrics");
+      if (error) throw error;
+      return (data?.metrics ?? {}) as any;
+    },
+  });
+}
+
+export function useRecoveryQueue(filters: { state?: string; provider?: string; reason?: string; limit?: number } = {}) {
+  const { workspaceId } = useAuth();
+  return useQuery({
+    queryKey: ["recovery_queue", workspaceId, filters],
+    enabled: !!workspaceId,
+    refetchInterval: 10_000,
+    queryFn: async () => {
+      let q = sb.from("verification_recovery_queue")
+        .select("id, email, domain, provider_key, pass_number, reason_code, state, attempt_count, next_attempt_at, last_smtp_code, last_smtp_message, created_at")
+        .eq("workspace_id", workspaceId)
+        .order("next_attempt_at", { ascending: true })
+        .limit(filters.limit ?? 500);
+      if (filters.state) q = q.eq("state", filters.state);
+      if (filters.provider) q = q.eq("provider_key", filters.provider);
+      if (filters.reason) q = q.eq("reason_code", filters.reason);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
+}

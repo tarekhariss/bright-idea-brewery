@@ -45,6 +45,7 @@ Deno.serve(async (req) => {
     const workerActions = [
       "claim", "submit", "retry", "bounce", "heartbeat",
       "dead-letter", "quota", "fail", "recheck", "intelligence", "decide",
+      "recovery-claim", "recovery-submit",
     ];
     if (workerActions.includes(action)) {
       if (!workerOk(req)) {
@@ -311,9 +312,56 @@ Deno.serve(async (req) => {
         logWorkerEvent("quota:done", { workspace_id: body.workspace_id, has_quota: !!data });
         return json({ quota: data });
       }
+
+      if (action === "recovery-claim") {
+        const limit = Math.min(Number(body.limit ?? 25), 100);
+        const workerId = body.worker_id ?? "unknown-worker";
+        logWorkerEvent("recovery-claim:start", { worker_id: workerId, limit });
+        const { data, error } = await admin.rpc("claim_recovery_batch", {
+          _worker_id: workerId, _limit: limit,
+        });
+        if (error) throw error;
+        logWorkerEvent("recovery-claim:done", { worker_id: workerId, claimed: data?.length ?? 0 });
+        return json({ batch: data ?? [] });
+      }
+
+      if (action === "recovery-submit") {
+        const r = body || {};
+        if (!r.recovery_id) return json({ error: "recovery_id required" }, 400);
+        logWorkerEvent("recovery-submit:start", {
+          recovery_id: r.recovery_id, status: r.status, smtp_code: r.smtp_code ?? null,
+        });
+        const { data, error } = await admin.rpc("complete_recovery", {
+          _id: r.recovery_id,
+          _status: r.status ?? "unknown",
+          _smtp_code: r.smtp_code ?? null,
+          _smtp_text: r.smtp_text ?? r.smtp_response ?? null,
+          _latency: r.latency_ms ?? null,
+          _banner: r.banner ?? null,
+          _mx_host: r.mx_host ?? null,
+          _helo_used: r.helo_used ?? null,
+          _tls_used: r.tls_used ?? null,
+          _disconnect_reason: r.disconnect_reason ?? null,
+        });
+        if (error) throw error;
+        logWorkerEvent("recovery-submit:done", { recovery_id: r.recovery_id, plan: data });
+        return json({ ok: true, plan: data });
+      }
     }
 
-    // Health endpoint for dashboard — requires authenticated user (any workspace member)
+    // Public-ish metrics for ops dashboard (auth user)
+    if (action === "recovery-metrics") {
+      const authHeader = req.headers.get("Authorization") ?? "";
+      if (!authHeader.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
+      const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: userData, error: authErr } = await userClient.auth.getUser(authHeader.replace("Bearer ", ""));
+      if (authErr || !userData?.user?.id) return json({ error: "Unauthorized" }, 401);
+      const { data, error } = await admin.rpc("recovery_metrics");
+      if (error) throw error;
+      return json({ metrics: data ?? {} });
+    }
     if (action === "health") {
       const authHeader = req.headers.get("Authorization") ?? "";
       if (!authHeader.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
