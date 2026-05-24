@@ -187,16 +187,23 @@ Deno.serve(async (req) => {
 
       if (action === "quota") {
         if (!body.workspace_id) return json({ error: "workspace_id required" }, 400);
+        logWorkerEvent("quota:start", {
+          workspace_id: body.workspace_id,
+          consume: !!body.consume,
+          count: body.count ?? 1,
+        });
         if (body.consume) {
           const { data, error } = await admin.rpc("consume_verification_quota", {
             _workspace_id: body.workspace_id,
             _count: body.count ?? 1,
           });
           if (error) throw error;
+          logWorkerEvent("quota:done", { workspace_id: body.workspace_id, allowed: data });
           return json({ ok: true, allowed: data });
         }
         const { data, error } = await admin.from("verification_quotas").select("*").eq("workspace_id", body.workspace_id).maybeSingle();
         if (error) throw error;
+        logWorkerEvent("quota:done", { workspace_id: body.workspace_id, has_quota: !!data });
         return json({ quota: data });
       }
     }
