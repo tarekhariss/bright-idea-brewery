@@ -354,8 +354,17 @@ export function useRecoveryMetrics() {
     queryKey: ["recovery_metrics"],
     refetchInterval: 15_000,
     queryFn: async () => {
-      const { data, error } = await sb.functions.invoke("verification-worker-api/recovery-metrics");
-      if (error) throw error;
+      const { data: session } = await sb.auth.getSession();
+      const token = session?.session?.access_token;
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verification-worker-api/recovery-metrics`;
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+      });
+      if (!res.ok) throw new Error(`recovery-metrics ${res.status}`);
+      const data = await res.json();
       return (data?.metrics ?? {}) as any;
     },
   });
