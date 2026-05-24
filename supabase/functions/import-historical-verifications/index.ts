@@ -729,6 +729,8 @@ Deno.serve(async (req) => {
       const { data: ds } = await supa.from("imported_datasets").select("processed_count,failed_count,stats").eq("id", datasetId).maybeSingle();
       const newStats = { ...(ds?.stats ?? {}) };
       for (const k of Object.keys(stats)) newStats[k] = (newStats[k] ?? 0) + (stats as any)[k];
+      newStats.prospects_created = (newStats.prospects_created ?? 0) + prospectsCreated;
+      newStats.prospects_merged = (newStats.prospects_merged ?? 0) + prospectsMerged;
       await supa.from("imported_datasets").update({
         processed_count: (ds?.processed_count ?? 0) + processed,
         failed_count: (ds?.failed_count ?? 0) + failed,
@@ -737,6 +739,7 @@ Deno.serve(async (req) => {
         finished_at: body.is_final_chunk ? new Date().toISOString() : null,
       }).eq("id", datasetId);
     }
+
     if (importId) {
       await supa.from("historical_imports").update({
         status: body.is_final_chunk ? (failed === 0 ? "completed" : processed > 0 ? "partial" : "failed") : "processing",
