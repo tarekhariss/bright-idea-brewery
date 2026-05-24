@@ -792,10 +792,51 @@ Deno.serve(async (req) => {
     // Update dataset / legacy import progress
     if (datasetId) {
       const { data: ds } = await supa.from("imported_datasets").select("processed_count,failed_count,stats").eq("id", datasetId).maybeSingle();
-      const newStats = { ...(ds?.stats ?? {}) };
+      const newStats: any = { ...(ds?.stats ?? {}) };
+      // status counters
       for (const k of Object.keys(stats)) newStats[k] = (newStats[k] ?? 0) + (stats as any)[k];
+      // subtype counters
+      newStats.subtypes = newStats.subtypes ?? {};
+      for (const [k, v] of Object.entries(subtypeStats)) newStats.subtypes[k] = (newStats.subtypes[k] ?? 0) + v;
+      // tier + freshness
+      newStats.tiers = newStats.tiers ?? {};
+      for (const [k, v] of Object.entries(tierStats)) newStats.tiers[k] = (newStats.tiers[k] ?? 0) + v;
+      newStats.freshness = newStats.freshness ?? {};
+      for (const [k, v] of Object.entries(freshStats)) newStats.freshness[k] = (newStats.freshness[k] ?? 0) + v;
+      newStats.safe_to_send = (newStats.safe_to_send ?? 0) + safeToSendCount;
+      newStats.risky_total = (newStats.risky_total ?? 0) + riskyCount;
+      // running averages via sums + counts
+      newStats.conf_sum = (newStats.conf_sum ?? 0) + confSum;
+      newStats.conf_n = (newStats.conf_n ?? 0) + confN;
+      newStats.bounce_sum = (newStats.bounce_sum ?? 0) + bounceSum;
+      newStats.bounce_n = (newStats.bounce_n ?? 0) + bounceN;
+      newStats.safe_sum = (newStats.safe_sum ?? 0) + safeSum;
+      newStats.safe_n = (newStats.safe_n ?? 0) + safeN;
+      newStats.avg_confidence = newStats.conf_n ? Math.round((newStats.conf_sum / newStats.conf_n) * 100) / 100 : null;
+      newStats.avg_bounce_probability = newStats.bounce_n ? Math.round((newStats.bounce_sum / newStats.bounce_n) * 10000) / 10000 : null;
+      newStats.avg_safe_to_send_score = newStats.safe_n ? Math.round((newStats.safe_sum / newStats.safe_n) * 100) / 100 : null;
+      // learning impact
+      newStats.domains_learned = (newStats.domains_learned ?? 0) + domainAgg.size;
+      newStats.providers_learned_set = Array.from(new Set([...(newStats.providers_learned_set ?? []), ...providerAgg.keys()]));
+      newStats.providers_learned = newStats.providers_learned_set.length;
+      newStats.greylisted_patterns = (newStats.greylisted_patterns ?? 0) + (subtypeStats.greylisted ?? 0);
+      // duplicates
+      newStats.skipped_duplicates = (newStats.skipped_duplicates ?? 0) + skippedDuplicates;
       newStats.prospects_created = (newStats.prospects_created ?? 0) + prospectsCreated;
       newStats.prospects_merged = (newStats.prospects_merged ?? 0) + prospectsMerged;
+      // top-N maps (merge then trim to top 25)
+      const mergeTop = (existingObj: any, incoming: Map<string, number>) => {
+        const m = new Map<string, number>(Object.entries(existingObj ?? {}).map(([k, v]) => [k, Number(v)]));
+        for (const [k, v] of incoming) m.set(k, (m.get(k) ?? 0) + v);
+        return Object.fromEntries([...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 25));
+      };
+      newStats.top_industries = mergeTop(newStats.top_industries, industryTop);
+      newStats.top_countries = mergeTop(newStats.top_countries, countryTop);
+      newStats.top_providers = mergeTop(newStats.top_providers, providerTop);
+      newStats.top_companies = mergeTop(newStats.top_companies, companyTop);
+      newStats.top_risky_domains = mergeTop(newStats.top_risky_domains, riskyDomainTop);
+      newStats.top_safe_domains = mergeTop(newStats.top_safe_domains, safeDomainTop);
+
       await supa.from("imported_datasets").update({
         processed_count: (ds?.processed_count ?? 0) + processed,
         failed_count: (ds?.failed_count ?? 0) + failed,
