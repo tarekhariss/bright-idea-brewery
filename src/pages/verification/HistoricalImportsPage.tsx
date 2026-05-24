@@ -20,39 +20,46 @@ import * as XLSX from "xlsx";
 const sb = supabase as any;
 
 const CANONICAL: { key: string; label: string; required?: boolean; hints: string[]; group?: "verification" | "prospect" }[] = [
-  { key: "email", label: "Email", required: true, hints: ["email", "email_address", "address", "mail"], group: "verification" },
-  { key: "status", label: "Verification status", hints: ["status", "result", "verification_status", "state"], group: "verification" },
-  { key: "result", label: "Result (alt)", hints: ["result", "verdict"], group: "verification" },
-  { key: "confidence", label: "Confidence / score", hints: ["confidence", "score", "deliverability_score"], group: "verification" },
-  { key: "reason", label: "Reason", hints: ["reason", "sub_status", "details", "message"], group: "verification" },
-  { key: "date", label: "Date verified", hints: ["date", "verified_at", "verification_date", "checked_at", "last_verified"], group: "verification" },
-  { key: "provider", label: "Provider / MX provider", hints: ["provider", "mx_provider", "mailbox_provider", "esp"], group: "verification" },
-  { key: "mx", label: "MX record", hints: ["mx", "mx_record"], group: "verification" },
-  { key: "domain", label: "Domain", hints: ["domain", "host"], group: "verification" },
-  { key: "disposable", label: "Is disposable", hints: ["disposable", "is_disposable"], group: "verification" },
-  { key: "role_based", label: "Is role-based", hints: ["role_based", "is_role", "role"], group: "verification" },
-  { key: "catch_all", label: "Is catch-all", hints: ["catch_all", "catchall", "accept_all"], group: "verification" },
-  { key: "bounce", label: "Bounced", hints: ["bounce", "bounced", "hard_bounce"], group: "verification" },
-  { key: "smtp_response", label: "SMTP response", hints: ["smtp_response", "smtp", "response"], group: "verification" },
+  { key: "email", label: "Email", required: true, hints: ["email", "emailaddress", "email_address", "address", "mail", "recipient", "to"], group: "verification" },
+  { key: "status", label: "Verification status", hints: ["status", "verification_status", "verificationstatus", "state", "elv_status", "validation_status", "valid"], group: "verification" },
+  { key: "result", label: "Result (alt)", hints: ["result", "verdict", "outcome", "verification_result", "validation_result"], group: "verification" },
+  { key: "confidence", label: "Confidence / score", hints: ["confidence", "confidence_score", "score", "deliverability_score", "deliverability", "quality_score", "verification_score"], group: "verification" },
+  { key: "reason", label: "Reason", hints: ["reason", "verification_reason", "sub_status", "substatus", "details", "message", "error", "notes"], group: "verification" },
+  { key: "date", label: "Date verified", hints: ["date", "verified_at", "verification_date", "checked_at", "last_verified", "verified_on", "verified_date", "datechecked", "timestamp", "checked"], group: "verification" },
+  { key: "provider", label: "Provider / MX provider", hints: ["provider", "provider_detected", "mx_provider", "mailbox_provider", "esp", "email_provider", "host_provider"], group: "verification" },
+  { key: "mx", label: "MX record", hints: ["mx", "mx_record", "mx_host", "mxhost", "mx_server"], group: "verification" },
+  { key: "domain", label: "Domain", hints: ["domain", "host", "email_domain", "emaildomain"], group: "verification" },
+  { key: "disposable", label: "Is disposable", hints: ["disposable", "is_disposable", "disposable_flag", "temp_mail"], group: "verification" },
+  { key: "role_based", label: "Is role-based", hints: ["role_based", "rolebased", "is_role", "role_account", "role_based_flag", "is_role_based"], group: "verification" },
+  { key: "catch_all", label: "Is catch-all", hints: ["catch_all", "catchall", "accept_all", "catch_all_flag", "is_catch_all", "is_catchall"], group: "verification" },
+  { key: "bounce", label: "Bounced", hints: ["bounce", "bounced", "hard_bounce", "bounce_status", "bounce_risk", "is_bounce"], group: "verification" },
+  { key: "smtp_response", label: "SMTP response", hints: ["smtp_response", "smtp", "response", "smtp_code", "smtp_message"], group: "verification" },
+  { key: "verification_quality", label: "Verification quality", hints: ["verification_quality", "quality", "quality_tier", "grade", "rating"], group: "verification" },
+  { key: "source", label: "Source", hints: ["source", "source_file", "origin", "lead_source", "list_source"], group: "verification" },
   // Prospect fields — used to enrich Prospect Search when verification is safe.
-  { key: "first_name", label: "First name", hints: ["first_name", "firstname", "fname", "given_name"], group: "prospect" },
-  { key: "last_name", label: "Last name", hints: ["last_name", "lastname", "lname", "surname", "family_name"], group: "prospect" },
-  { key: "full_name", label: "Full name", hints: ["full_name", "fullname", "name", "contact_name"], group: "prospect" },
-  { key: "company", label: "Company", hints: ["company", "company_name", "organization", "organisation", "account", "employer"], group: "prospect" },
-  { key: "company_domain", label: "Company domain", hints: ["company_domain", "company_website", "corporate_domain"], group: "prospect" },
-  { key: "title", label: "Job title", hints: ["title", "job_title", "position", "role"], group: "prospect" },
-  { key: "linkedin", label: "LinkedIn URL", hints: ["linkedin", "linkedin_url", "linkedin_profile", "li"], group: "prospect" },
-  { key: "phone", label: "Phone", hints: ["phone", "phone_number", "mobile", "tel", "telephone"], group: "prospect" },
-  { key: "country", label: "Country", hints: ["country", "country_code"], group: "prospect" },
-  { key: "city", label: "City", hints: ["city", "town"], group: "prospect" },
-  { key: "state", label: "State / region", hints: ["state", "region", "province"], group: "prospect" },
-  { key: "industry", label: "Industry", hints: ["industry", "vertical", "sector"], group: "prospect" },
-  { key: "website", label: "Website", hints: ["website", "site", "url", "homepage"], group: "prospect" },
-  { key: "employee_count", label: "Employee count", hints: ["employee_count", "employees", "company_size", "headcount"], group: "prospect" },
-  { key: "revenue", label: "Revenue", hints: ["revenue", "annual_revenue", "company_revenue"], group: "prospect" },
-  { key: "department", label: "Department", hints: ["department", "dept"], group: "prospect" },
-  { key: "seniority", label: "Seniority", hints: ["seniority", "seniority_level"], group: "prospect" },
-  { key: "headline", label: "Headline", hints: ["headline", "tagline"], group: "prospect" },
+  { key: "first_name", label: "First name", hints: ["first_name", "firstname", "fname", "given_name", "givenname"], group: "prospect" },
+  { key: "last_name", label: "Last name", hints: ["last_name", "lastname", "lname", "surname", "family_name", "familyname"], group: "prospect" },
+  { key: "full_name", label: "Full name", hints: ["full_name", "fullname", "name", "contact_name", "person_name"], group: "prospect" },
+  { key: "company", label: "Company", hints: ["company", "company_name", "organization", "organisation", "account", "employer", "business"], group: "prospect" },
+  { key: "company_domain", label: "Company domain", hints: ["company_domain", "company_website", "corporate_domain", "company_url"], group: "prospect" },
+  { key: "title", label: "Job title", hints: ["title", "job_title", "position", "designation"], group: "prospect" },
+  { key: "role", label: "Role", hints: ["role", "function", "job_role", "job_function"], group: "prospect" },
+  { key: "linkedin", label: "LinkedIn URL", hints: ["linkedin", "linkedin_url", "linkedin_profile", "li_url", "linkedin_link"], group: "prospect" },
+  { key: "phone", label: "Phone", hints: ["phone", "phone_number", "tel", "telephone", "work_phone", "direct_phone"], group: "prospect" },
+  { key: "mobile", label: "Mobile", hints: ["mobile", "mobile_phone", "cell_phone", "cell"], group: "prospect" },
+  { key: "country", label: "Country", hints: ["country", "country_code", "nation"], group: "prospect" },
+  { key: "city", label: "City", hints: ["city", "town", "person_city", "location_city"], group: "prospect" },
+  { key: "company_city", label: "Company city", hints: ["company_city", "hq_city", "office_city"], group: "prospect" },
+  { key: "state", label: "State / region", hints: ["state", "region", "province", "county"], group: "prospect" },
+  { key: "industry", label: "Industry", hints: ["industry", "vertical", "sector", "category"], group: "prospect" },
+  { key: "website", label: "Website", hints: ["website", "site", "url", "homepage", "web", "company_site"], group: "prospect" },
+  { key: "employee_count", label: "Employee count", hints: ["employee_count", "employees", "company_size", "headcount", "staff_size", "num_employees"], group: "prospect" },
+  { key: "revenue", label: "Revenue", hints: ["revenue", "annual_revenue", "company_revenue", "turnover", "sales_revenue"], group: "prospect" },
+  { key: "department", label: "Department", hints: ["department", "dept", "division"], group: "prospect" },
+  { key: "seniority", label: "Seniority", hints: ["seniority", "seniority_level", "level"], group: "prospect" },
+  { key: "headline", label: "Headline", hints: ["headline", "tagline", "bio_headline"], group: "prospect" },
+  { key: "technologies", label: "Technologies", hints: ["technologies", "tech_stack", "tech", "tools", "stack"], group: "prospect" },
+  { key: "tags", label: "Tags", hints: ["tags", "labels", "categories"], group: "prospect" },
 ];
 
 
@@ -66,15 +73,26 @@ const SOURCE_OPTIONS = [
   { value: "Custom", label: "Custom / other" },
 ];
 
+const norm = (s: string) => (s ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
 function autoMap(headers: string[]): Record<string, string> {
   const m: Record<string, string> = {};
-  const lower = headers.map(h => h.toLowerCase().replace(/[_\s-]/g, ""));
+  const used = new Set<string>();
+  const normalized = headers.map(h => ({ raw: h, n: norm(h) }));
+  // Pass 1: exact normalized match against key + hints (strongest signal)
   for (const c of CANONICAL) {
-    for (const hint of [c.key, ...c.hints]) {
-      const target = hint.toLowerCase().replace(/[_\s-]/g, "");
-      const idx = lower.findIndex(h => h === target);
-      if (idx >= 0) { m[c.key] = headers[idx]; break; }
-    }
+    const targets = new Set([c.key, ...c.hints].map(norm));
+    const hit = normalized.find(h => !used.has(h.raw) && targets.has(h.n));
+    if (hit) { m[c.key] = hit.raw; used.add(hit.raw); }
+  }
+  // Pass 2: aggressive fuzzy — header contains hint OR hint contains header
+  for (const c of CANONICAL) {
+    if (m[c.key]) continue;
+    const targets = [c.key, ...c.hints].map(norm).filter(t => t.length >= 3);
+    const hit = normalized.find(h =>
+      !used.has(h.raw) && h.n.length >= 3 && targets.some(t => h.n.includes(t) || t.includes(h.n))
+    );
+    if (hit) { m[c.key] = hit.raw; used.add(hit.raw); }
   }
   return m;
 }
