@@ -79,6 +79,56 @@ const FRESHNESS_TONE: Record<string, string> = {
   aging: "text-amber-400", stale: "text-orange-400", expired: "text-rose-500",
 };
 
+const UNKNOWN_SUBCLASS_META: Record<string, { label: string; tone: string; hint: string }> = {
+  likely_valid:        { label: "Likely valid",        tone: "text-emerald-400", hint: "Clean SMTP signals — safe to attempt send." },
+  likely_invalid:      { label: "Likely invalid",      tone: "text-rose-400",    hint: "Weak signals — recommend suppression." },
+  temporary_failure:   { label: "Temp failure",        tone: "text-amber-400",   hint: "4xx response — retry on recovery pass." },
+  greylisted:          { label: "Greylisted",          tone: "text-amber-400",   hint: "Server asked us to try again later." },
+  provider_blocked:    { label: "Provider blocked",    tone: "text-orange-400",  hint: "Blocked by reputation filter (Proofpoint, Spamhaus, …)." },
+  rate_limited:        { label: "Rate limited",        tone: "text-orange-400",  hint: "Provider throttled us — back off and retry." },
+  tls_failure:         { label: "TLS failure",         tone: "text-rose-400",    hint: "STARTTLS handshake failed mid-session." },
+  smtp_disconnect:     { label: "SMTP disconnect",     tone: "text-rose-400",    hint: "Server closed the connection abnormally." },
+  timeout:             { label: "Timeout",             tone: "text-zinc-400",    hint: "Server didn't respond in time." },
+  temporary_dns_issue: { label: "DNS issue",           tone: "text-zinc-400",    hint: "MX records did not resolve." },
+  high_risk_unknown:   { label: "High-risk unknown",   tone: "text-rose-400",    hint: "Multiple risk signals — do not send." },
+};
+
+function ConfidenceCell({ row }: { row: any }) {
+  const breakdown = row.confidence_breakdown as { factors?: Array<{ k: string; w: number; why: string }>; mode?: string; provider?: string } | null;
+  const score = row.confidence_score != null ? Number(row.confidence_score) : (row.confidence != null ? Number(row.confidence) / 100 : null);
+  if (score == null) return <span className="text-xs text-muted-foreground">—</span>;
+  const pct = Math.round(score * 100);
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button className="text-xs tabular-nums underline-offset-2 hover:underline">{pct}</button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 text-xs">
+        <div className="font-medium mb-1">Confidence breakdown</div>
+        <div className="text-muted-foreground mb-2">
+          Mode: {breakdown?.mode ?? "—"} · Provider: {breakdown?.provider ?? row.provider_type ?? "—"}
+        </div>
+        {breakdown?.factors?.length ? (
+          <ul className="space-y-1">
+            {breakdown.factors.map((f, i) => (
+              <li key={i} className="flex justify-between gap-2">
+                <span className="text-muted-foreground truncate">{f.why}</span>
+                <span className={`tabular-nums ${f.w > 0 ? "text-emerald-500" : f.w < 0 ? "text-rose-500" : "text-zinc-400"}`}>
+                  {f.w > 0 ? "+" : ""}{(f.w * 100).toFixed(0)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="text-muted-foreground">No breakdown stored for this verdict.</div>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+
+
 type ExportMode = "safe_to_send" | "recommended" | "simplified" | "all" | "custom";
 
 export default function VfJobDetailPage() {
