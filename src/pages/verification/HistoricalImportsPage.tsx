@@ -167,7 +167,9 @@ export default function HistoricalImportsPage() {
         mapping: { ...mapping, _tags: tags.split(",").map(t => t.trim()).filter(Boolean), _historical_only: true },
         stats: {},
         status: "pending",
+        auto_seed_prospects: autoSeedProspects,
         uploaded_by: user?.id,
+
       }).select("id").single();
       if (dsErr) throw dsErr;
       const datasetId = ds.id as string;
