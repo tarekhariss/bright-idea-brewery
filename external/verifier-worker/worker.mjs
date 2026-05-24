@@ -22,7 +22,7 @@ const cfg = {
   base: `${requireEnv("SUPABASE_URL")}/functions/v1/verification-worker-api`,
   secret: requireEnv("VERIFICATION_WORKER_SECRET"),
   workerId: process.env.WORKER_ID ?? `worker-${process.pid}`,
-  workerVersion: process.env.WORKER_VERSION ?? "1.1.0",
+  workerVersion: process.env.WORKER_VERSION ?? "1.2.0",
   host: process.env.WORKER_HOST ?? "unknown",
   verifierUrl: process.env.VERIFIER_URL ?? "http://email-verifier:8080",
   engine: process.env.VERIFIER_ENGINE ?? "aftership-email-verifier",
