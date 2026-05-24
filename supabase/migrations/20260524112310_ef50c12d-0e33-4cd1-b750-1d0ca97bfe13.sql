@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.is_email_allowed(text) TO anon, authenticated;
