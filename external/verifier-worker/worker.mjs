@@ -27,6 +27,11 @@ const cfg = {
   concurrency: Number(process.env.MAX_CONCURRENCY ?? 10),
   perDomainDelay: Number(process.env.PER_DOMAIN_DELAY_MS ?? 5000),
   maxRetries: Number(process.env.MAX_RETRIES ?? 3),
+  // Recovery loop (unknown-recovery optimization)
+  recoveryInterval: Number(process.env.RECOVERY_INTERVAL_MS ?? 15_000),
+  recoveryConcurrency: Number(process.env.RECOVERY_CONCURRENCY ?? 5),
+  heloPool: (process.env.SMTP_HELO_POOL ?? "").split(",").map(s => s.trim()).filter(Boolean),
+  fromPool: (process.env.SMTP_FROM_POOL ?? "").split(",").map(s => s.trim()).filter(Boolean),
 };
 
 function requireEnv(k) {
