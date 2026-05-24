@@ -369,12 +369,28 @@ export default function HistoricalImportsPage() {
                   </Table>
                 </div>
               </div>
+              <label className="flex items-start gap-3 rounded-md border bg-card p-3 text-xs cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-4 w-4"
+                  checked={autoSeedProspects}
+                  onChange={(e) => setAutoSeedProspects(e.target.checked)}
+                />
+                <span>
+                  <span className="font-medium text-foreground">Auto-add safe verified emails to Prospect Search.</span>
+                  <span className="block text-muted-foreground">
+                    Only rows that are <b>valid</b>, not catch-all, trust ≥ 55, bounce risk ≤ 15% are imported.
+                    All original CSV columns are preserved on the prospect. Duplicates are merged — stronger data is never overwritten.
+                  </span>
+                </span>
+              </label>
               <div className="rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
                 On import we compute per row: <b>freshness_state</b> (fresh / aging / stale / expired), <b>trust_score</b> (0–100),
                 <b> safe_to_send_score</b>, <b>estimated_bounce_probability</b>, and <b>campaign_safety_tier</b>.
                 Aggregates are added to <code>domain_intelligence</code>, <code>provider_behavior</code>,
                 <code>confidence_learning</code>, <code>smtp_learning</code>, and <code>bounce_intelligence</code>.
               </div>
+
             </div>
           )}
 
