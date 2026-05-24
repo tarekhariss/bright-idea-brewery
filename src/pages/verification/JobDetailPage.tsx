@@ -609,6 +609,23 @@ export default function VfJobDetailPage() {
                           <TableCell className="font-mono text-[11px]">{r.email}</TableCell>
                           <TableCell><Badge variant="outline" className={`text-[10px] ${STATUS_META[k].tone}`}>{STATUS_META[k].label}</Badge></TableCell>
                           <TableCell className="text-xs">
+                            {r.result_source ? (
+                              <span
+                                title={r.finalization_reason ?? ""}
+                                className={
+                                  r.result_source === "cache"     ? "text-amber-400" :
+                                  r.result_source === "recovery"  ? "text-sky-400" :
+                                  r.result_source === "live_smtp" ? "text-emerald-400" :
+                                  "text-muted-foreground"
+                                }
+                              >
+                                {r.result_source}
+                                {r.pass_number > 1 ? ` ·p${r.pass_number}` : ""}
+                              </span>
+                            ) : r.from_cache ? <span className="text-amber-400">cache</span>
+                              : <span className="text-muted-foreground">—</span>}
+                          </TableCell>
+                          <TableCell className="text-xs">
                             {sub ? (
                               <span title={sub.hint} className={sub.tone}>{sub.label}</span>
                             ) : r.unknown_subclass ? (
@@ -620,11 +637,15 @@ export default function VfJobDetailPage() {
                           <TableCell className={`text-right tabular-nums text-xs ${bouncePct != null && bouncePct >= 50 ? "text-rose-400" : ""}`}>{bouncePct != null ? bouncePct : "—"}</TableCell>
                           <TableCell className="text-xs">{r.risk_level ?? "—"}</TableCell>
                           <TableCell className={`text-xs ${FRESHNESS_TONE[r.freshness_label] ?? ""}`}>{r.freshness_label ?? "—"}</TableCell>
-                          <TableCell className="text-xs text-muted-foreground">{r.provider_type ?? r.mx_provider ?? "—"}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground">{r.provider_detected ?? r.provider_type ?? r.mx_provider ?? "—"}</TableCell>
                           <TableCell className="text-xs text-muted-foreground truncate max-w-[160px]">{r.smtp_code ?? ""} {r.smtp_result ?? r.smtp_response ?? ""}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground truncate max-w-[120px]" title={r.claimed_by_worker ?? ""}>
+                            {r.claimed_by_worker ? `${r.claimed_by_worker}${r.worker_version ? ` (${r.worker_version})` : ""}` : "—"}
+                          </TableCell>
                           <TableCell className="text-xs">{r.recheck_required ? <Badge variant="outline" className="text-[10px] text-amber-400">required</Badge> : "—"}</TableCell>
                         </TableRow>
                       );
+
                     })}
                   </TableBody>
                 </Table>
