@@ -11,9 +11,10 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Database, Upload, FileSpreadsheet, Brain, Sparkles, ChevronRight, ChevronLeft } from "lucide-react";
+import { Database, Upload, FileSpreadsheet, Brain, Sparkles, ChevronRight, ChevronLeft, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
+import { Link, useNavigate } from "react-router-dom";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 
