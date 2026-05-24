@@ -315,7 +315,18 @@ Deno.serve(async (req) => {
     const historyRows: any[] = [];
 
     const providerAgg = new Map<string, { total: number; bounces: number; catch_all: number; valid: number; greylists: number; rejects: number }>();
-    const domainAgg = new Map<string, { provider: string; seen: number; valid: number; bounces: number; catch_all: number; unknown: number }>();
+    type DomainAggV = {
+      provider: string;
+      seen: number; valid: number; bounces: number; catch_all: number; unknown: number; invalid: number;
+      uniqueMailboxes: Set<string>;
+      roleMailboxes: Set<string>;
+      employeeMailboxes: Set<string>;
+      invalidEmployees: Set<string>;
+      invalidRoles: Set<string>;
+      recentInvalid: number;
+      oldInvalid: number;
+    };
+    const domainAgg = new Map<string, DomainAggV>();
     const confidenceAgg = new Map<string, { sample: number; match: number; conf_sum: number }>();
     const smtpAgg = new Map<string, { provider: string; code: number | null; pattern: string | null; count: number }>();
     const bounceAgg = new Map<string, { domain: string; provider: string; code: number | null; category: string }>();
