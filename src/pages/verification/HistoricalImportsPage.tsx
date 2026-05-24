@@ -347,8 +347,30 @@ export default function HistoricalImportsPage() {
                   </div>
                 ))}
               </div>
+              {(() => {
+                const mapped = new Set(Object.values(mapping).filter(Boolean));
+                const unmapped = headers.filter(h => !mapped.has(h));
+                if (!unmapped.length) return null;
+                return (
+                  <div className="rounded-md border bg-muted/30 p-3 text-xs">
+                    <div className="mb-1 font-medium text-foreground">
+                      {unmapped.length} unmapped column{unmapped.length === 1 ? "" : "s"} — preserved as custom fields
+                    </div>
+                    <div className="mb-2 text-muted-foreground">
+                      These are kept verbatim on every imported row and on seeded prospects (under <code>custom_fields.imported_columns</code>) so they remain available for exports, filtering, and CRM enrichment.
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {unmapped.slice(0, 40).map(h => (
+                        <Badge key={h} variant="outline" className="font-mono text-[10px]">{h}</Badge>
+                      ))}
+                      {unmapped.length > 40 && <Badge variant="outline" className="text-[10px]">+{unmapped.length - 40} more</Badge>}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
+
 
           {step === 3 && (
             <div className="space-y-4">
