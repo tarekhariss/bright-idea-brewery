@@ -94,6 +94,7 @@ import VfRetryPage from "./pages/verification/RetryPipelinePage";
 import VfDLQPage from "./pages/verification/DeadLetterPage";
 import VfImportsPage from "./pages/verification/ImportsCenterPage";
 import VfHistoricalImportsPage from "./pages/verification/HistoricalImportsPage";
+import VfHistoricalImportDetailPage from "./pages/verification/HistoricalImportDetailPage";
 import VfHistoryPage from "./pages/verification/HistoryExplorerPage";
 import VfListQualityPage from "./pages/verification/ListQualityPage";
 import VfRulesPage from "./pages/verification/RulesEnginePage";
