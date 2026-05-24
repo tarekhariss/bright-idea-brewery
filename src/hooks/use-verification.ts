@@ -12,9 +12,9 @@ export type VerificationStatus =
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 
 async function workerHealth() {
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/verification-worker-api/health`);
-  if (!res.ok) return { adapter_configured: false, pending_results: 0 };
-  return res.json();
+  const { data, error } = await sb.functions.invoke("verification-worker-api/health");
+  if (error) return { adapter_configured: false, pending_results: 0 };
+  return data;
 }
 
 export function useVerificationHealth() {
