@@ -122,6 +122,8 @@ function NavSections() {
       })}
     </nav>
   );
+}
+
 
 function HeaderStatusBar() {
   const { data: overview } = useVerificationOverview();
