@@ -1,0 +1,1 @@
+ALTER TABLE public.verification_results ADD COLUMN IF NOT EXISTS verification_mode text;
