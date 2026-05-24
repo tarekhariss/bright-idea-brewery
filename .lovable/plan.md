@@ -1,136 +1,97 @@
-# Unknown Recovery Optimization
+## Diagnosis
 
-Goal: aggressively reduce the 64.2% unknown rate by turning the verification engine into a multi-stage, provider-aware recovery system with greylisting handling, SMTP session intelligence, and staged retry queues — fully integrated into the existing VPS worker, queue, scoring, and dashboard.
+The 978-email job finished in ~1s because `enqueue_verification_job` (migration `20260524181924`) **unconditionally reuses any non-expired `verification_cache` row** — for every email, regardless of:
 
-## Architecture (text diagram)
+- the job's `verification_quality` (fast / balanced / **high_accuracy**)
+- the cached `status` (unknown / risky / catch-all are reused as-is)
+- whether the cached row has SMTP/provider metadata
 
-```
-verification_results (pending)
-        │
-   ┌────▼─────┐
-   │ Pass 1   │  fast standard verify (existing flow)
-   └────┬─────┘
-        │ unknown?
-   ┌────▼─────┐    classify_unknown_reason()
-   │ classify │──► smtp_session_log + verification_recovery_queue
-   └────┬─────┘
-        │
-        ▼
-verification_recovery_queue   (provider-aware scheduler)
-  ├─ Pass 2: adaptive provider retry          (delay ~ provider_profile.retry_base)
-  ├─ Pass 3: greylisting backoff              (1m → 5m → 15m → 30m)
-  ├─ Pass 4: anti-spam recovery               (rotate HELO/from, longer wait)
-  └─ Pass 5: extended timeout fallback        (high timeout, single-shot)
-        │
-        ▼
-final status OR classified unknown
-(likely_valid | likely_invalid | greylisted | provider_blocked | temporary_failure | high_risk_unknown)
-```
+When all rows hit the cache, the function marks the job `completed` immediately. The worker never sees the job, so:
+- `workers 0/0`, `avg latency 0ms`, `recovery 0`, `throughput` reflects DB insert speed
+- cache hit % shows 0 because the UI reads a different field (`from_cache` is set on results, but the dashboard widget reads `cached_hit_count` from a stat that isn't surfaced)
+- High Accuracy never triggers Pass 2–5 recovery
 
-## Database changes (single migration)
+## Fix plan
 
-New tables:
-- `provider_profiles` — seeded rows for microsoft365, google_workspace, yahoo, proofpoint, mimecast, barracuda, cloudflare_email, generic. Columns: mx_pattern[], banner_pattern[], smtp_timeout_ms, connect_timeout_ms, retry_base_seconds, retry_multiplier, max_concurrency, greylisting_strategy, helo_rotation bool, notes.
-- `verification_recovery_queue` — result_id (FK), workspace_id, job_id, email, provider_key, pass_number (2..5), reason_code, attempt_count, next_attempt_at, last_smtp_code, last_smtp_message, state (queued|in_flight|done|exhausted), created_at, updated_at. Indexes on (state, next_attempt_at), (provider_key, state).
-- `smtp_session_log` — result_id, email, provider_key, mx_host, banner, helo_used, response_code, response_text, latency_ms, tls_used, disconnect_reason, pass_number, captured_at. Partitionable later; for now plain table + retention via cron (30d).
-- `greylisting_events` — domain, provider_key, detected_at, recovered_at, attempts, success bool. Used for analytics.
-- `unknown_reason_stats` (materialized via cron) — provider_key, reason_code, day, count, recovery_rate.
+### 1. Cache intelligence (DB)
 
-Columns added to `verification_results`:
-- `unknown_reason` text (timeout|antispam|dns_temp|conn_reset|smtp_disconnect|provider_throttle|greylisting|mailbox_busy|temp_reject|worker_timeout|ratelimit|tls_fail)
-- `unknown_confidence` text (likely_valid|likely_invalid|temporary_failure|greylisted|provider_blocked|high_risk_unknown)
-- `provider_key` text
-- `recovery_passes` int default 1
-- `last_recovery_at` timestamptz
+Rewrite `enqueue_verification_job` so reuse depends on **status + confidence + quality + freshness + completeness**:
 
-Functions (SQL, all SECURITY DEFINER, search_path = public):
-- `detect_provider(_mx text, _banner text) returns text` — pattern-match against provider_profiles, fallback `generic`.
-- `classify_unknown_reason(_smtp_code int, _smtp_text text, _err text) returns text` — regex/code map.
-- `classify_unknown_confidence(_reason text, _pass int, _provider text) returns text`.
-- `enqueue_recovery(_result_id uuid, _reason text, _smtp_code int, _smtp_text text)` — picks next pass based on reason + history, computes `next_attempt_at` from provider_profile (greylisting uses 1/5/15/30m schedule).
-- `claim_recovery_batch(_limit int, _provider_key text default null)` — atomic claim for worker, returns rows where state=queued and next_attempt_at<=now().
-- `complete_recovery(_id uuid, _status text, _smtp_code int, _smtp_text text, _latency int)` — writes back to verification_results, may re-enqueue next pass or finalize.
-- `recovery_metrics()` — JSON for ops dashboard.
+**Safe to reuse** (any quality mode):
+- `valid` with `confidence >= 80` and `verified_at > now() - interval '30 days'`
+- `invalid` with deterministic reason: `invalid_syntax`, `invalid_mx`, `dead_server`, `disposable`, `spamtrap`
+- always reuse: `disposable`, `spamtrap`, `invalid_syntax`
 
-Triggers:
-- After UPDATE on `verification_results` when status flips to `unknown` on pass 1 → call `enqueue_recovery`. (Skip if `verification_mode='cache'`.)
+**Never auto-reuse**:
+- `unknown`, `risky`, `catch_all`, `ok_for_all`, `smtp_protocol`, `antispam`
+- `confidence < 70`
+- rows missing `mx_record` or `smtp_response`
+- rows older than 30 days
 
-Cron:
-- `verification-recovery-tick` every minute → calls worker API `/recovery/tick` (drains due rows by handing them to active workers via existing claim path, or fires a lightweight recovery dispatch).
-- `recovery-rollup` every 15 min → refresh `unknown_reason_stats`, expire `smtp_session_log` >30d.
+**High Accuracy** additionally forces live re-verification for any non-`valid`/non-deterministic-invalid status, regardless of cache freshness — unless the caller passes `cache_policy = 'trusted'`.
 
-Seed data: 8 provider_profiles rows with sensible defaults (M365 timeouts 30s, greylisting common; Google rare greylist, fast retries; Proofpoint/Mimecast aggressive antispam → longer backoff and HELO rotation; generic fallback).
+New optional param `_cache_policy public.verification_cache_policy` with values:
+- `trusted_cache` — current behavior (reuse anything fresh)
+- `default` — rules above
+- `recheck_weak` — reuse only deterministic invalid + high-conf valid; re-verify everything else
+- `force_live` — skip cache entirely
 
-## Edge function: verification-worker-api (extend existing)
+### 2. Per-row execution trace
 
-New endpoints:
-- `POST /recovery/claim` — body `{worker_id, limit, providers?}` → returns recovery rows + provider profile hints (timeouts, concurrency, helo strategy). Marks `state=in_flight`.
-- `POST /recovery/submit` — body `{recovery_id, status, smtp_code, smtp_text, latency_ms, banner, mx_host, tls_used, helo_used, disconnect_reason}`. Writes `smtp_session_log`, classifies reason/confidence, calls `complete_recovery`. If still unknown and pass<5 → schedules next pass; if exhausted → finalizes `unknown_confidence`.
-- `POST /recovery/tick` — internal (x-cron-secret). Wakes workers / no-op metrics update.
-- `GET /recovery/metrics` — JSON: pass-level counts, provider breakdown, greylist recovery rate, top SMTP codes, reason breakdown, recovery throughput.
+Add columns to `verification_results`:
+- `result_source text` (`live_smtp` | `cache` | `history` | `recovery` | `syntax` | `mx_only`)
+- `claimed_by_worker text`
+- `worker_version text`
+- `pass_number int` (1–5)
+- `smtp_attempt_count int default 0`
+- `recovery_attempt_count int default 0`
+- `provider_detected text`
+- `used_probe boolean default false`
+- `finalization_reason text`
+- `reuse_kind text` (`reused_from_cache` | `reused_from_history` | `reused_from_previous_job` | null)
 
-Existing `/claim` extended: also returns `provider_hint` field on each row (uses last-known provider for domain from `smtp_session_log` or `domain_intelligence`), and `recommended_timeout_ms` from provider_profile.
+Populate `result_source='cache'` + `reuse_kind` in the enqueue function when a cache hit is used. The worker populates the rest when it processes a row.
 
-Existing `/submit` extended: when status=unknown, captures `smtp_code/text/latency/banner/mx/tls/helo` from worker payload, writes `smtp_session_log`, classifies `unknown_reason`, fires `enqueue_recovery` (the trigger also covers safety).
+### 3. Job-level counters
 
-## VPS worker (`external/verifier-worker/worker.mjs`)
+Add to `verification_jobs`:
+- `live_smtp_count int default 0`
+- `recovery_count int default 0`
+- `skipped_live_verification_count int default 0`
+- `reused_from_cache_count int default 0`
+- `reused_from_history_count int default 0`
+- `cache_policy public.verification_cache_policy`
 
-- Add recovery loop alongside main claim loop:
-  - Every `RECOVERY_INTERVAL_MS` (default 15s), call `/recovery/claim` with current capacity.
-  - For each item, apply `provider_hint` settings: per-provider `timeout`, `concurrency`, optional `helo` from rotation pool (env `SMTP_HELO_POOL` comma list, fallback to default).
-  - Greylisting strategy: if reason=greylisting, use minimal verification mode (RCPT only, no VRFY), longer wait between commands.
-  - Anti-spam (pass 4): rotate HELO, randomize from-email, longer connect timeout.
-  - Pass 5: extended timeout (e.g. 60s).
-  - Submit to `/recovery/submit` with full SMTP session data.
-- Connection pooling: lightweight per-MX queue (`Map<mx_host, p-queue>`), drains serially per host respecting `per_domain_delay_ms` from provider_hint. Reuses Node `net`/`tls` sockets within a pool window (60s idle TTL).
-- Reports new heartbeat field `recovery_in_flight` so ops dashboard can show it.
-- `.env.example` updated with `RECOVERY_INTERVAL_MS`, `RECOVERY_CONCURRENCY`, `SMTP_HELO_POOL`, `SMTP_FROM_POOL`.
+Backfill from existing `cached_hit_count` (→ `reused_from_cache_count`).
 
-(Engine `engine/main.go` already returns enough metadata; we surface SMTP code/text via existing `aftership-email-verifier` `SMTP` block and pass through.)
+### 4. UI
 
-## Frontend
+**Upload dialog (`VerificationPage` upload flow)**: add a "Cache policy" select with the 4 options above (default = `default` for Balanced, `force_live` for High Accuracy).
 
-Operations dashboard (`src/pages/verification/OperationsDashboardPage.tsx`) — extend with new panels (using existing kit + recharts):
-- Unknown Reason Breakdown (pie + table) from `/recovery/metrics`.
-- Provider Failure Breakdown (bar by provider_key).
-- Greylisting Recovery (success rate gauge + trend line).
-- Retry Success by Pass (stacked bar pass 2..5).
-- Top SMTP Error Codes (table with count, recovery rate).
-- Recovery Pipeline Live (counts: queued/in_flight/done/exhausted per pass).
+**Job detail page (`JobDetailPage`)**:
+- Show `cache_policy`, `live_smtp_count`, `recovery_count`, `reused_from_cache_count`, `skipped_live_verification_count`
+- Fix metric labels: if `live_smtp_count == 0`, throughput/latency/worker tiles display "—  (all results reused from cache)" instead of `0ms` / `0/0`
+- Per-row drawer/table: surface `result_source`, `pass_number`, `worker_version`, `provider_detected`, `finalization_reason`
 
-New page `src/pages/verification/RecoveryPipelinePage.tsx` (registered route already exists in nav as Retry Pipeline) — full table of `verification_recovery_queue` with filters by provider, reason, pass; manual "force retry" / "abandon" actions (admin-only RPC).
+### 5. Worker (`external/verifier-worker/worker.mjs`)
 
-JobDetailPage: add small "Recovery in progress" card when job has rows in recovery queue, showing how many unknowns are being recovered and projected final unknown rate.
+On every result it submits back, include: `result_source: 'live_smtp' | 'recovery'`, `pass_number`, `smtp_attempt_count`, `recovery_attempt_count`, `provider_detected`, `used_probe`, `finalization_reason`, `worker_version`. The `verification-worker-api` `submit` endpoint persists those into `verification_results`.
 
-Hook: `src/hooks/use-verification-platform.ts` — add `useRecoveryMetrics()`, `useRecoveryQueue(filters)` calling worker API edge function.
+Bump worker to `1.3.0`.
 
-## Files to create / edit
+### 6. Worker API
 
-Created:
-- `supabase/migrations/<ts>_unknown_recovery.sql` (schema + functions + triggers + seed)
-- `src/pages/verification/RecoveryPipelinePage.tsx`
+Extend `submit` payload schema in `supabase/functions/verification-worker-api/index.ts` to accept and persist the new trace fields, and increment the new job counters (`live_smtp_count`, `recovery_count`, etc.) atomically.
 
-Edited:
-- `external/verifier-worker/worker.mjs` (recovery loop, pooling, provider-aware behavior)
-- `external/verifier-worker/.env.example`
-- `supabase/functions/verification-worker-api/index.ts` (new endpoints, classifier helpers, hints in /claim, capture in /submit)
-- `src/pages/verification/OperationsDashboardPage.tsx` (new panels)
-- `src/pages/verification/JobDetailPage.tsx` (recovery-in-progress card)
-- `src/hooks/use-verification-platform.ts` (new hooks)
-- `src/App.tsx` (register `/verification/recovery-pipeline` if not already pointing at a real page)
-- A pg_cron schedule via `supabase--insert` for the tick + rollup.
+## Files changed
 
-## Out of scope (explicit)
+- new migration: schema + rewritten `enqueue_verification_job`
+- `supabase/functions/verification-worker-api/index.ts` — accept trace fields, update counters
+- `external/verifier-worker/worker.mjs` — emit trace fields, v1.3.0
+- `src/pages/tools/VerificationPage.tsx` — cache policy selector in upload
+- `src/pages/verification/JobDetailPage.tsx` (+ tool variant) — new metrics tiles, fixed labels, per-row trace
+- `src/hooks/use-verification.ts` — pass `cache_policy` to RPC, expose new fields
 
-- Engine binary changes (Go) — using existing AfterShip verifier responses; we only read more fields it already returns.
-- Replacing Pass 1 logic — kept identical to preserve current dashboards.
-- Editing `src/integrations/supabase/types.ts` (auto-generated).
+## Out of scope (call out, not building now)
 
-## Risk notes
-
-- Trigger-fired enqueue must be idempotent (unique on result_id + pass_number) to avoid double-queue from worker resubmits.
-- Recovery loop must respect per-provider concurrency so we don't trip Microsoft 365 throttles.
-- All new RPCs gated by `x-cron-secret` or workspace RLS as appropriate.
-- Greylisting backoff caps at 30m; after pass 5 finalize as `unknown_confidence='greylisted'` (treated as risky, not invalid).
-
-If you approve, I'll ship the migration first, wait for confirmation, then edit the worker + edge function + UI in one batch.
+- Pass 2–5 recovery scheduling internals already exist in the worker; this plan only ensures HA rows actually reach the worker and that the trace surfaces what happened. If recovery scheduling itself is broken we'll address in a follow-up after we can see real worker trace data.
