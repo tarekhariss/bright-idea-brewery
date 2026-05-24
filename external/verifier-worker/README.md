@@ -38,14 +38,14 @@ egress independently behind your own outbound IPs / proxies.
 
 ---
 
-## Quick start (Docker Compose)
+## Quick start (Docker Compose, local)
 
 1. Copy `.env.example` to `.env` and fill in:
    - `SUPABASE_URL` — your Lovable Cloud URL
    - `VERIFICATION_WORKER_SECRET` — the same value set in Lovable
    - `WORKER_ID` — unique id per running instance (e.g. `worker-eu-1`)
-   - `VERIFIER_URL` — internal URL of the engine (defaults to the bundled
-     `email-verifier`)
+   - `VERIFIER_URL` — internal URL of the engine (default
+     `http://email-verifier:8080` works with the bundled compose file)
 
 2. Boot it:
 
@@ -53,10 +53,50 @@ egress independently behind your own outbound IPs / proxies.
    docker compose up -d --build
    ```
 
+   This builds **two local images** from source:
+   - `./engine` — a small Go HTTP service wrapping the open-source
+     [`AfterShip/email-verifier`](https://github.com/AfterShip/email-verifier)
+     library (MIT). Exposes `GET /v1/{email}/verification` on port 8080.
+   - `.` — this Node worker that pulls jobs and submits results.
+
+   No private registry images are required.
+
 3. In Lovable, open **Verification → API** and confirm:
    - The worker appears under **Workers** within ~60s
    - The **Connection Checklist** turns green
    - Jobs start draining from the queue when you create a verification job
+
+---
+
+## Deploy on Railway
+
+Create **two services** in the same Railway project, pointed at this repo:
+
+| Service          | Root directory                  | Notes                                                                                       |
+| ---------------- | ------------------------------- | ------------------------------------------------------------------------------------------- |
+| `email-verifier` | `external/verifier-worker/engine` | Uses `engine/railway.json` + `engine/Dockerfile`. Exposes port 8080. No public domain needed. |
+| `verifier-worker`| `external/verifier-worker`      | Uses `railway.json` + `Dockerfile`. Set env vars below.                                     |
+
+On the **worker** service set:
+
+```
+SUPABASE_URL=https://YOUR-PROJECT.supabase.co
+VERIFICATION_WORKER_SECRET=...        # same value as Lovable secret
+WORKER_ID=worker-railway-1
+VERIFIER_URL=http://email-verifier.railway.internal:8080
+```
+
+On the **engine** service set (recommended on Railway, which blocks port 25):
+
+```
+DISABLE_SMTP_CHECK=1
+```
+
+With `DISABLE_SMTP_CHECK=1` the engine returns syntax + MX + disposable +
+role-based + catch-all heuristics; SMTP deliverability is reported as
+`unknown` and the worker submits `status: "unknown"` rather than fabricating
+a `valid`. To get real SMTP probing, run the engine on a host with outbound
+port 25 (a small VPS works) and unset `DISABLE_SMTP_CHECK`.
 
 ---
 
