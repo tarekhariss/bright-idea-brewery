@@ -45,6 +45,7 @@ Deno.serve(async (req) => {
     const workerActions = [
       "claim", "submit", "retry", "bounce", "heartbeat",
       "dead-letter", "quota", "fail", "recheck", "intelligence", "decide",
+      "recovery-claim", "recovery-submit",
     ];
     if (workerActions.includes(action)) {
       if (!workerOk(req)) {
