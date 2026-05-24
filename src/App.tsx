@@ -76,8 +76,7 @@ import AnalyticsPage from "./pages/tools/AnalyticsPage";
 import ExportHistoryPage from "./pages/tools/ExportHistoryPage";
 import BulkUpdatePage from "./pages/tools/BulkUpdatePage";
 import DuplicateReviewPage from "./pages/tools/DuplicateReviewPage";
-import VerificationPage from "./pages/tools/VerificationPage";
-import VerificationJobDetailPage from "./pages/tools/VerificationJobDetailPage";
+// Legacy /tools/verification → redirected to /verification
 
 // Verification standalone module
 import { VerificationLayout } from "./components/verification/VerificationLayout";
