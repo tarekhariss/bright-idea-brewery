@@ -2507,42 +2507,69 @@ export type Database = {
       }
       domain_intelligence: {
         Row: {
+          block_reason: string | null
+          bounce_rate: number | null
+          catch_all_rate: number | null
           deliverability_score: number | null
           domain: string
           freshness_label:
             | Database["public"]["Enums"]["verification_freshness"]
             | null
+          is_blocked: boolean | null
           last_seen_at: string | null
           learning_signals: Json | null
           mx_health: string | null
           provider_type: string | null
+          reputation_score: number | null
+          total_bounces: number | null
+          total_catch_all: number | null
           total_emails_seen: number | null
+          total_unknown: number | null
+          total_valid: number | null
           updated_at: string
         }
         Insert: {
+          block_reason?: string | null
+          bounce_rate?: number | null
+          catch_all_rate?: number | null
           deliverability_score?: number | null
           domain: string
           freshness_label?:
             | Database["public"]["Enums"]["verification_freshness"]
             | null
+          is_blocked?: boolean | null
           last_seen_at?: string | null
           learning_signals?: Json | null
           mx_health?: string | null
           provider_type?: string | null
+          reputation_score?: number | null
+          total_bounces?: number | null
+          total_catch_all?: number | null
           total_emails_seen?: number | null
+          total_unknown?: number | null
+          total_valid?: number | null
           updated_at?: string
         }
         Update: {
+          block_reason?: string | null
+          bounce_rate?: number | null
+          catch_all_rate?: number | null
           deliverability_score?: number | null
           domain?: string
           freshness_label?:
             | Database["public"]["Enums"]["verification_freshness"]
             | null
+          is_blocked?: boolean | null
           last_seen_at?: string | null
           learning_signals?: Json | null
           mx_health?: string | null
           provider_type?: string | null
+          reputation_score?: number | null
+          total_bounces?: number | null
+          total_catch_all?: number | null
           total_emails_seen?: number | null
+          total_unknown?: number | null
+          total_valid?: number | null
           updated_at?: string
         }
         Relationships: []
@@ -6823,13 +6850,16 @@ export type Database = {
           accept_rate: number | null
           accepts: number | null
           avg_latency_ms: number | null
+          avg_retry_delay_seconds: number | null
           bounce_rate: number | null
           bounces: number | null
           catch_all_count: number | null
+          greylist_rate: number | null
           greylists: number | null
           id: string
           last_seen_at: string | null
           provider_type: string
+          recommended_concurrency: number | null
           rejects: number | null
           reliability_score: number | null
           top_responses: Json | null
@@ -6840,13 +6870,16 @@ export type Database = {
           accept_rate?: number | null
           accepts?: number | null
           avg_latency_ms?: number | null
+          avg_retry_delay_seconds?: number | null
           bounce_rate?: number | null
           bounces?: number | null
           catch_all_count?: number | null
+          greylist_rate?: number | null
           greylists?: number | null
           id?: string
           last_seen_at?: string | null
           provider_type: string
+          recommended_concurrency?: number | null
           rejects?: number | null
           reliability_score?: number | null
           top_responses?: Json | null
@@ -6857,13 +6890,16 @@ export type Database = {
           accept_rate?: number | null
           accepts?: number | null
           avg_latency_ms?: number | null
+          avg_retry_delay_seconds?: number | null
           bounce_rate?: number | null
           bounces?: number | null
           catch_all_count?: number | null
+          greylist_rate?: number | null
           greylists?: number | null
           id?: string
           last_seen_at?: string | null
           provider_type?: string
+          recommended_concurrency?: number | null
           rejects?: number | null
           reliability_score?: number | null
           top_responses?: Json | null
@@ -8581,12 +8617,15 @@ export type Database = {
           mx_provider: string | null
           mx_record: string | null
           mx_status: string | null
+          next_recheck_at: string | null
           next_retry_at: string | null
           primary_engine: string | null
           priority: number
           processing_started_at: string | null
+          provider_reputation_score: number | null
           provider_type: string | null
           raw_response: Json | null
+          recheck_attempts: number | null
           recheck_required: boolean | null
           retry_count: number
           risk_level:
@@ -8664,12 +8703,15 @@ export type Database = {
           mx_provider?: string | null
           mx_record?: string | null
           mx_status?: string | null
+          next_recheck_at?: string | null
           next_retry_at?: string | null
           primary_engine?: string | null
           priority?: number
           processing_started_at?: string | null
+          provider_reputation_score?: number | null
           provider_type?: string | null
           raw_response?: Json | null
+          recheck_attempts?: number | null
           recheck_required?: boolean | null
           retry_count?: number
           risk_level?:
@@ -8747,12 +8789,15 @@ export type Database = {
           mx_provider?: string | null
           mx_record?: string | null
           mx_status?: string | null
+          next_recheck_at?: string | null
           next_retry_at?: string | null
           primary_engine?: string | null
           priority?: number
           processing_started_at?: string | null
+          provider_reputation_score?: number | null
           provider_type?: string | null
           raw_response?: Json | null
+          recheck_attempts?: number | null
           recheck_required?: boolean | null
           retry_count?: number
           risk_level?:
@@ -9081,6 +9126,15 @@ export type Database = {
     }
     Functions: {
       assert_email_allowed: { Args: never; Returns: undefined }
+      bump_provider_behavior: {
+        Args: {
+          _latency_ms?: number
+          _provider: string
+          _smtp_response?: string
+          _status: Database["public"]["Enums"]["verification_status"]
+        }
+        Returns: undefined
+      }
       check_campaign_list_safety: {
         Args: { _campaign_id: string }
         Returns: Json
@@ -9096,7 +9150,11 @@ export type Database = {
           domain: string
           email: string
           job_id: string
+          provider_hint: string
+          quality_mode: Database["public"]["Enums"]["verification_quality_mode"]
+          recommended_concurrency: number
           result_id: string
+          retry_delay_seconds: number
           workspace_id: string
         }[]
       }
@@ -9104,8 +9162,20 @@ export type Database = {
         Args: { p_body: string; p_subject: string }
         Returns: Database["public"]["Enums"]["reply_category"]
       }
+      compute_catch_all_probability: {
+        Args: { _domain: string }
+        Returns: number
+      }
       compute_decay: {
         Args: { _confidence: number; _last_verified_at: string }
+        Returns: number
+      }
+      compute_deliverability_score: {
+        Args: { _result_id: string }
+        Returns: number
+      }
+      compute_domain_intelligence: {
+        Args: { _domain: string }
         Returns: number
       }
       compute_domain_risk: { Args: { _domain: string }; Returns: Json }
@@ -9114,6 +9184,10 @@ export type Database = {
         Returns: Database["public"]["Enums"]["verification_freshness"]
       }
       compute_list_health: { Args: { _job_id: string }; Returns: Json }
+      compute_provider_reputation: {
+        Args: { _provider: string }
+        Returns: number
+      }
       compute_recheck_required: {
         Args: {
           _confidence_decay: number
@@ -9129,6 +9203,10 @@ export type Database = {
       }
       create_workspace_for_user: {
         Args: { p_name: string; p_user_id: string }
+        Returns: Json
+      }
+      decide_verification_strategy: {
+        Args: { _email: string; _workspace_id: string }
         Returns: Json
       }
       enqueue_verification_job: {
@@ -9177,6 +9255,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      intelligence_rollup: { Args: never; Returns: Json }
       is_email_allowed: { Args: { p_email: string }; Returns: boolean }
       is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
       is_sending_window_open: { Args: { _window_id: string }; Returns: boolean }
@@ -9382,6 +9461,11 @@ export type Database = {
         Args: { _error: string; _result_id: string }
         Returns: undefined
       }
+      schedule_recheck: {
+        Args: { _reason: string; _result_id: string }
+        Returns: Json
+      }
+      sweep_due_rechecks: { Args: { _limit?: number }; Returns: number }
       user_workspace_ids: { Args: never; Returns: string[] }
       worker_heartbeat: {
         Args: {
