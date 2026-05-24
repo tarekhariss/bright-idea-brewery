@@ -19,22 +19,42 @@ import * as XLSX from "xlsx";
 
 const sb = supabase as any;
 
-const CANONICAL: { key: string; label: string; required?: boolean; hints: string[] }[] = [
-  { key: "email", label: "Email", required: true, hints: ["email", "email_address", "address", "mail"] },
-  { key: "status", label: "Verification status", hints: ["status", "result", "verification_status", "state"] },
-  { key: "result", label: "Result (alt)", hints: ["result", "verdict"] },
-  { key: "confidence", label: "Confidence / score", hints: ["confidence", "score", "deliverability_score"] },
-  { key: "reason", label: "Reason", hints: ["reason", "sub_status", "details", "message"] },
-  { key: "date", label: "Date verified", hints: ["date", "verified_at", "verification_date", "checked_at", "last_verified"] },
-  { key: "provider", label: "Provider / MX provider", hints: ["provider", "mx_provider", "mailbox_provider", "esp"] },
-  { key: "mx", label: "MX record", hints: ["mx", "mx_record"] },
-  { key: "domain", label: "Domain", hints: ["domain", "host"] },
-  { key: "disposable", label: "Is disposable", hints: ["disposable", "is_disposable"] },
-  { key: "role_based", label: "Is role-based", hints: ["role_based", "is_role", "role"] },
-  { key: "catch_all", label: "Is catch-all", hints: ["catch_all", "catchall", "accept_all"] },
-  { key: "bounce", label: "Bounced", hints: ["bounce", "bounced", "hard_bounce"] },
-  { key: "smtp_response", label: "SMTP response", hints: ["smtp_response", "smtp", "response"] },
+const CANONICAL: { key: string; label: string; required?: boolean; hints: string[]; group?: "verification" | "prospect" }[] = [
+  { key: "email", label: "Email", required: true, hints: ["email", "email_address", "address", "mail"], group: "verification" },
+  { key: "status", label: "Verification status", hints: ["status", "result", "verification_status", "state"], group: "verification" },
+  { key: "result", label: "Result (alt)", hints: ["result", "verdict"], group: "verification" },
+  { key: "confidence", label: "Confidence / score", hints: ["confidence", "score", "deliverability_score"], group: "verification" },
+  { key: "reason", label: "Reason", hints: ["reason", "sub_status", "details", "message"], group: "verification" },
+  { key: "date", label: "Date verified", hints: ["date", "verified_at", "verification_date", "checked_at", "last_verified"], group: "verification" },
+  { key: "provider", label: "Provider / MX provider", hints: ["provider", "mx_provider", "mailbox_provider", "esp"], group: "verification" },
+  { key: "mx", label: "MX record", hints: ["mx", "mx_record"], group: "verification" },
+  { key: "domain", label: "Domain", hints: ["domain", "host"], group: "verification" },
+  { key: "disposable", label: "Is disposable", hints: ["disposable", "is_disposable"], group: "verification" },
+  { key: "role_based", label: "Is role-based", hints: ["role_based", "is_role", "role"], group: "verification" },
+  { key: "catch_all", label: "Is catch-all", hints: ["catch_all", "catchall", "accept_all"], group: "verification" },
+  { key: "bounce", label: "Bounced", hints: ["bounce", "bounced", "hard_bounce"], group: "verification" },
+  { key: "smtp_response", label: "SMTP response", hints: ["smtp_response", "smtp", "response"], group: "verification" },
+  // Prospect fields — used to enrich Prospect Search when verification is safe.
+  { key: "first_name", label: "First name", hints: ["first_name", "firstname", "fname", "given_name"], group: "prospect" },
+  { key: "last_name", label: "Last name", hints: ["last_name", "lastname", "lname", "surname", "family_name"], group: "prospect" },
+  { key: "full_name", label: "Full name", hints: ["full_name", "fullname", "name", "contact_name"], group: "prospect" },
+  { key: "company", label: "Company", hints: ["company", "company_name", "organization", "organisation", "account", "employer"], group: "prospect" },
+  { key: "company_domain", label: "Company domain", hints: ["company_domain", "company_website", "corporate_domain"], group: "prospect" },
+  { key: "title", label: "Job title", hints: ["title", "job_title", "position", "role"], group: "prospect" },
+  { key: "linkedin", label: "LinkedIn URL", hints: ["linkedin", "linkedin_url", "linkedin_profile", "li"], group: "prospect" },
+  { key: "phone", label: "Phone", hints: ["phone", "phone_number", "mobile", "tel", "telephone"], group: "prospect" },
+  { key: "country", label: "Country", hints: ["country", "country_code"], group: "prospect" },
+  { key: "city", label: "City", hints: ["city", "town"], group: "prospect" },
+  { key: "state", label: "State / region", hints: ["state", "region", "province"], group: "prospect" },
+  { key: "industry", label: "Industry", hints: ["industry", "vertical", "sector"], group: "prospect" },
+  { key: "website", label: "Website", hints: ["website", "site", "url", "homepage"], group: "prospect" },
+  { key: "employee_count", label: "Employee count", hints: ["employee_count", "employees", "company_size", "headcount"], group: "prospect" },
+  { key: "revenue", label: "Revenue", hints: ["revenue", "annual_revenue", "company_revenue"], group: "prospect" },
+  { key: "department", label: "Department", hints: ["department", "dept"], group: "prospect" },
+  { key: "seniority", label: "Seniority", hints: ["seniority", "seniority_level"], group: "prospect" },
+  { key: "headline", label: "Headline", hints: ["headline", "tagline"], group: "prospect" },
 ];
+
 
 const SOURCE_OPTIONS = [
   { value: "EmailListVerify", label: "EmailListVerify" },
@@ -93,6 +113,8 @@ export default function HistoricalImportsPage() {
   const [sourceLabel, setSourceLabel] = useState("EmailListVerify");
   const [datasetName, setDatasetName] = useState("");
   const [tags, setTags] = useState("");
+  const [autoSeedProspects, setAutoSeedProspects] = useState(true);
+
   const [progress, setProgress] = useState({ done: 0, total: 0 });
 
   const { data: datasets = [] } = useQuery({
@@ -107,7 +129,7 @@ export default function HistoricalImportsPage() {
 
   const reset = () => {
     setStep(1); setFile(null); setHeaders([]); setRows([]); setMapping({});
-    setDatasetName(""); setTags(""); setProgress({ done: 0, total: 0 });
+    setDatasetName(""); setTags(""); setAutoSeedProspects(true); setProgress({ done: 0, total: 0 });
   };
 
   const onPickFile = async (f: File) => {
@@ -145,7 +167,9 @@ export default function HistoricalImportsPage() {
         mapping: { ...mapping, _tags: tags.split(",").map(t => t.trim()).filter(Boolean), _historical_only: true },
         stats: {},
         status: "pending",
+        auto_seed_prospects: autoSeedProspects,
         uploaded_by: user?.id,
+
       }).select("id").single();
       if (dsErr) throw dsErr;
       const datasetId = ds.id as string;
@@ -345,12 +369,28 @@ export default function HistoricalImportsPage() {
                   </Table>
                 </div>
               </div>
+              <label className="flex items-start gap-3 rounded-md border bg-card p-3 text-xs cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-4 w-4"
+                  checked={autoSeedProspects}
+                  onChange={(e) => setAutoSeedProspects(e.target.checked)}
+                />
+                <span>
+                  <span className="font-medium text-foreground">Auto-add safe verified emails to Prospect Search.</span>
+                  <span className="block text-muted-foreground">
+                    Only rows that are <b>valid</b>, not catch-all, trust ≥ 55, bounce risk ≤ 15% are imported.
+                    All original CSV columns are preserved on the prospect. Duplicates are merged — stronger data is never overwritten.
+                  </span>
+                </span>
+              </label>
               <div className="rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
                 On import we compute per row: <b>freshness_state</b> (fresh / aging / stale / expired), <b>trust_score</b> (0–100),
                 <b> safe_to_send_score</b>, <b>estimated_bounce_probability</b>, and <b>campaign_safety_tier</b>.
                 Aggregates are added to <code>domain_intelligence</code>, <code>provider_behavior</code>,
                 <code>confidence_learning</code>, <code>smtp_learning</code>, and <code>bounce_intelligence</code>.
               </div>
+
             </div>
           )}
 
