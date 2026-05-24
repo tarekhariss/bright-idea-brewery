@@ -8,7 +8,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { useVerificationOverview, useVerificationWorkers } from "@/hooks/use-verification-platform";
+import { useVerificationOverview, useVerificationWorkers, useIsPlatformAdmin } from "@/hooks/use-verification-platform";
 
 interface NavItem {
   title: string;
