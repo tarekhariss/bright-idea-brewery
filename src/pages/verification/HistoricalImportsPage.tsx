@@ -143,6 +143,17 @@ export default function HistoricalImportsPage() {
     refetchInterval: 4000,
   });
 
+  const { data: completedDataset } = useQuery({
+    queryKey: ["imported_dataset", completedDatasetId],
+    enabled: !!completedDatasetId,
+    refetchInterval: completedDatasetId ? 2000 : false,
+    queryFn: async () => {
+      const { data, error } = await sb.from("imported_datasets").select("*").eq("id", completedDatasetId).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const reset = () => {
     setStep(1); setFile(null); setHeaders([]); setRows([]); setMapping({});
     setDatasetName(""); setTags(""); setAutoSeedProspects(true); setProgress({ done: 0, total: 0 });
