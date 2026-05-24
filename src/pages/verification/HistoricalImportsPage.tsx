@@ -300,16 +300,19 @@ export default function HistoricalImportsPage() {
       </Card>
 
       <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {step === 1 && "Upload dataset"}
               {step === 2 && "Map columns"}
               {step === 3 && "Preview & dataset details"}
               {step === 4 && "Importing…"}
+              {step === 5 && "Import complete — intelligence updated"}
             </DialogTitle>
             <DialogDescription>
-              Step {step} of 4 — historical data is marked <code>historical_only=true</code>, scored for freshness, and never overrides live verification.
+              {step < 5
+                ? `Step ${step} of 4 — historical data is marked historical_only=true, scored for freshness, and never overrides live verification.`
+                : "Summary of what was learned from this dataset."}
             </DialogDescription>
           </DialogHeader>
 
