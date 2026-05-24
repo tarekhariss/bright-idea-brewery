@@ -272,8 +272,17 @@ export default function HistoricalImportsPage() {
             </TableHeader>
             <TableBody>
               {datasets.map((d: any) => (
-                <TableRow key={d.id}>
-                  <TableCell className="font-medium">{d.filename ?? "(unnamed)"}</TableCell>
+                <TableRow
+                  key={d.id}
+                  className="cursor-pointer hover:bg-muted/40"
+                  onClick={() => navigate(`/verification/historical-imports/${d.id}`)}
+                >
+                  <TableCell className="font-medium">
+                    <span className="inline-flex items-center gap-1.5">
+                      {d.filename ?? "(unnamed)"}
+                      <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                    </span>
+                  </TableCell>
                   <TableCell className="text-xs"><Badge variant="outline">{d.source}</Badge></TableCell>
                   <TableCell className="text-xs uppercase text-muted-foreground">{d.file_type ?? "—"}</TableCell>
                   <TableCell><StatusPill status={d.status} /></TableCell>
