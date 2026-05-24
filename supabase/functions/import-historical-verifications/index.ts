@@ -352,6 +352,37 @@ Deno.serve(async (req) => {
         const tier = safetyTier(safe, status, bounceProb);
         const recheck = needsRecheck(status, ageDays, confidence, isCatchAll);
 
+        // Granular subtype + tier + freshness + averages + top maps.
+        const subtype = detectSubtype(rawStatus, reason, smtpResponse);
+        if (subtype) subtypeStats[subtype] = (subtypeStats[subtype] ?? 0) + 1;
+        if (isDisposable === true && !subtype) subtypeStats.disposable = (subtypeStats.disposable ?? 0);
+        (tierStats as any)[tier]++;
+        (freshStats as any)[fresh]++;
+        if (tier === "safe" || tier === "recommended") safeToSendCount++;
+        if (tier === "risky" || status === "risky") riskyCount++;
+        if (confidence !== null && !isNaN(confidence)) {
+          const c = confidence > 1.5 ? confidence : confidence * 100;
+          confSum += c; confN++;
+        }
+        bounceSum += bounceProb; bounceN++;
+        safeSum += safe; safeN++;
+
+        const industry = String(pick(row, mapping, "industry") ?? "").trim();
+        if (industry) industryTop.set(industry, (industryTop.get(industry) ?? 0) + 1);
+        const country = String(pick(row, mapping, "country") ?? "").trim();
+        if (country) countryTop.set(country, (countryTop.get(country) ?? 0) + 1);
+        if (provider) providerTop.set(provider, (providerTop.get(provider) ?? 0) + 1);
+        const companyName = String(pick(row, mapping, "company") ?? "").trim();
+        if (companyName) companyTop.set(companyName, (companyTop.get(companyName) ?? 0) + 1);
+        if (domain) {
+          if (bounce || status === "invalid" || status === "risky") {
+            riskyDomainTop.set(domain, (riskyDomainTop.get(domain) ?? 0) + 1);
+          } else if (status === "valid" && !isCatchAll) {
+            safeDomainTop.set(domain, (safeDomainTop.get(domain) ?? 0) + 1);
+          }
+        }
+
+
         cacheRows.push({
           email_normalized: email, domain,
           status,
