@@ -3901,7 +3901,7 @@ export type Database = {
           metadata: Json
           result: string | null
           status: string
-          workspace_id: string | null
+          workspace_id: string
         }
         Insert: {
           action_type: Database["public"]["Enums"]["linkedin_action_type"]
@@ -3914,7 +3914,7 @@ export type Database = {
           metadata?: Json
           result?: string | null
           status?: string
-          workspace_id?: string | null
+          workspace_id: string
         }
         Update: {
           action_type?: Database["public"]["Enums"]["linkedin_action_type"]
@@ -3927,7 +3927,7 @@ export type Database = {
           metadata?: Json
           result?: string | null
           status?: string
-          workspace_id?: string | null
+          workspace_id?: string
         }
         Relationships: [
           {
@@ -3979,7 +3979,7 @@ export type Database = {
           updated_at: string
           variant_id: string | null
           workflow_node_id: string | null
-          workspace_id: string | null
+          workspace_id: string
         }
         Insert: {
           action_type: Database["public"]["Enums"]["linkedin_action_type"]
@@ -3999,7 +3999,7 @@ export type Database = {
           updated_at?: string
           variant_id?: string | null
           workflow_node_id?: string | null
-          workspace_id?: string | null
+          workspace_id: string
         }
         Update: {
           action_type?: Database["public"]["Enums"]["linkedin_action_type"]
@@ -4019,7 +4019,7 @@ export type Database = {
           updated_at?: string
           variant_id?: string | null
           workflow_node_id?: string | null
-          workspace_id?: string | null
+          workspace_id?: string
         }
         Relationships: [
           {
@@ -8077,7 +8077,7 @@ export type Database = {
           updated_at: string
           variant_id: string | null
           workflow_node_id: string | null
-          workspace_id: string | null
+          workspace_id: string
         }[]
         SetofOptions: {
           from: "*"
