@@ -212,12 +212,12 @@ export default function HistoricalImportsPage() {
       }
       return datasetId;
     },
-    onSuccess: () => {
+    onSuccess: (datasetId: string) => {
       toast.success("Dataset imported — intelligence and learning tables updated.");
       qc.invalidateQueries({ queryKey: ["imported_datasets"] });
       qc.invalidateQueries({ queryKey: ["historical_imports"] });
-      setOpen(false);
-      reset();
+      setCompletedDatasetId(datasetId);
+      setStep(5);
     },
     onError: (e: any) => toast.error(e.message ?? "Import failed"),
   });
