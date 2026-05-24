@@ -349,10 +349,17 @@ export default function VfJobDetailPage() {
 
       {/* Live processing intelligence */}
       <Card className="p-4">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Activity className="w-4 h-4 text-emerald-500" />
-            <span className="text-sm font-medium">Live processing</span>
+            <span className="text-sm font-medium">Execution trace</span>
+            <Badge variant="outline" className="text-[10px] uppercase">{verificationQ}</Badge>
+            <Badge variant="outline" className="text-[10px]">cache: {cachePolicy}</Badge>
+            {isAllReused && (
+              <Badge variant="outline" className="text-[10px] text-amber-400 border-amber-400/40">
+                All rows reused from cache · no live SMTP performed
+              </Badge>
+            )}
           </div>
           <span className="text-xs text-muted-foreground tabular-nums">
             {processed.toLocaleString()} / {grandTotal.toLocaleString()} ({progressPct}%)
@@ -363,18 +370,37 @@ export default function VfJobDetailPage() {
           <Mini icon={ShieldCheck} label="Processed" value={processed.toLocaleString()} tone="text-emerald-500" />
           <Mini icon={Clock}       label="Pending"   value={pendingCount.toLocaleString()} tone="text-amber-400" />
           <Mini icon={AlertTriangle} label="Failed"  value={failedCount.toLocaleString()} tone={failedCount > 0 ? "text-rose-500" : "text-foreground"} />
-          <Mini icon={RefreshCw}   label="Retrying" value={(rows.filter((r: any) => r.next_recheck_at).length).toLocaleString()} tone="text-sky-400" />
-          <Mini icon={Activity}    label="Throughput" value={`${throughputPerMin}/min`} tone="text-foreground" />
-          <Mini icon={Server}      label="Workers"   value={`${onlineWorkers}/${workers.length}`} tone={onlineWorkers > 0 ? "text-emerald-500" : "text-rose-500"} />
-          <Mini icon={Cpu}         label="Avg latency" value={`${Math.round(avgLatency)}ms`} tone="text-foreground" />
+          <Mini icon={RefreshCw}   label="Recovery"  value={recoveryCount.toLocaleString()} tone="text-sky-400" />
+          <Mini
+            icon={Activity}
+            label="Throughput"
+            value={liveSmtpCount === 0 ? "— (no live)" : `${throughputPerMin}/min`}
+            tone={liveSmtpCount === 0 ? "text-muted-foreground" : "text-foreground"}
+          />
+          <Mini
+            icon={Server}
+            label="Workers"
+            value={liveSmtpCount === 0 ? "n/a" : `${onlineWorkers}/${workers.length}`}
+            tone={liveSmtpCount === 0 ? "text-muted-foreground" : onlineWorkers > 0 ? "text-emerald-500" : "text-rose-500"}
+          />
+          <Mini
+            icon={Cpu}
+            label="Avg latency"
+            value={liveSmtpCount === 0 ? "— (cached)" : `${Math.round(avgLatency)}ms`}
+            tone={liveSmtpCount === 0 ? "text-muted-foreground" : "text-foreground"}
+          />
           <Mini icon={Sparkles}    label="ETA" value={etaMin === null ? "—" : etaMin < 1 ? "<1m" : `${etaMin}m`} tone="text-foreground" />
         </div>
-        <div className="flex items-center gap-4 mt-3 text-[11px] text-muted-foreground">
+        <div className="flex items-center gap-4 mt-3 text-[11px] text-muted-foreground flex-wrap">
+          <span>Live SMTP: <b className="text-foreground tabular-nums">{liveSmtpCount.toLocaleString()}</b></span>
+          <span>Reused from cache: <b className="text-foreground tabular-nums">{reusedCache.toLocaleString()}</b></span>
+          <span>Skipped live: <b className="text-foreground tabular-nums">{skippedLive.toLocaleString()}</b></span>
           <span>Cache hit: <b className="text-foreground tabular-nums">{cacheRate}%</b></span>
           <span>Dead letter: <b className={dlqCount > 0 ? "text-amber-400" : "text-foreground"}>{dlqCount}</b></span>
           <span>Greylisted recovery: <b className="text-foreground">{rows.filter((r: any) => r.greylisting_detected).length}</b></span>
         </div>
       </Card>
+
 
       {/* Status Intelligence Cards (14) */}
       <div>
