@@ -164,13 +164,23 @@ export default function VfJobDetailPage() {
   const avgLatency = job?.avg_latency_ms ?? 0;
   const progressPct = grandTotal > 0 ? Math.min(100, Math.round((processed / grandTotal) * 100)) : 0;
 
-  // Throughput / ETA
+  // --- Reuse / live-vs-cache execution trace ---
+  const liveSmtpCount     = job?.live_smtp_count ?? 0;
+  const recoveryCount     = job?.recovery_count ?? 0;
+  const reusedCache       = job?.reused_from_cache_count ?? job?.cached_hit_count ?? 0;
+  const skippedLive       = job?.skipped_live_verification_count ?? 0;
+  const cachePolicy       = job?.cache_policy ?? "default";
+  const verificationQ     = job?.verification_quality ?? "balanced";
+  const isAllReused       = grandTotal > 0 && liveSmtpCount === 0 && reusedCache >= grandTotal;
+
+  // Throughput / ETA — only meaningful for live work
   const throughputPerMin = useMemo(() => {
-    if (!job?.started_at) return 0;
+    if (!job?.started_at || liveSmtpCount === 0) return 0;
     const elapsedMin = Math.max(0.5, (Date.now() - new Date(job.started_at).getTime()) / 60000);
-    return Math.round(processed / elapsedMin);
-  }, [job?.started_at, processed]);
+    return Math.round(liveSmtpCount / elapsedMin);
+  }, [job?.started_at, liveSmtpCount]);
   const etaMin = throughputPerMin > 0 ? Math.ceil(pendingCount / throughputPerMin) : null;
+
 
   // Freshness distribution
   const freshDist = useMemo(() => {
