@@ -238,8 +238,8 @@ const App = () => (
             <Route path="/tools/exports" element={<PL><ExportHistoryPage /></PL>} />
             <Route path="/tools/duplicates" element={<PL><DuplicateReviewPage /></PL>} />
             <Route path="/tools/bulk-update" element={<PL><BulkUpdatePage /></PL>} />
-            <Route path="/tools/verification" element={<PL><VerificationPage /></PL>} />
-            <Route path="/tools/verification/:id" element={<PL><VerificationJobDetailPage /></PL>} />
+            <Route path="/tools/verification" element={<Navigate to="/verification" replace />} />
+            <Route path="/tools/verification/:id" element={<RedirectToVfJob />} />
 
             {/* Verification — standalone platform */}
             <Route path="/verification" element={<VL><VfDashboardPage /></VL>} />
