@@ -198,14 +198,19 @@ async function heartbeatLoop() {
         : null;
       await api("/heartbeat", {
         worker_id: cfg.workerId,
-        status: stats.inFlight > 0 ? "online" : "idle",
+        status: (stats.inFlight + stats.recoveryInFlight) > 0 ? "online" : "idle",
         in_flight: stats.inFlight,
         batch_size: cfg.claimBatch,
         avg_latency: avg,
         version: cfg.workerVersion,
         host: cfg.host,
         last_error: stats.lastError,
-        metadata: { engine: cfg.engine, engine_version: cfg.engineVersion },
+        metadata: {
+          engine: cfg.engine,
+          engine_version: cfg.engineVersion,
+          recovery_in_flight: stats.recoveryInFlight,
+          recovery_processed: stats.recoveryProcessed,
+        },
       });
     } catch (e) {
       console.error("[heartbeat]", e.message);
