@@ -749,9 +749,13 @@ Deno.serve(async (req) => {
       }).eq("id", importId);
     }
 
-    return new Response(JSON.stringify({ ok: true, processed, failed, stats }), {
+    return new Response(JSON.stringify({
+      ok: true, processed, failed, stats,
+      prospects_created: prospectsCreated, prospects_merged: prospectsMerged,
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+
   } catch (e) {
     console.error("import error", e);
     return new Response(JSON.stringify({ error: String((e as Error).message ?? e) }), {
