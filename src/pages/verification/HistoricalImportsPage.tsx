@@ -85,15 +85,10 @@ function autoMap(headers: string[]): Record<string, string> {
     const hit = normalized.find(h => !used.has(h.raw) && targets.has(h.n));
     if (hit) { m[c.key] = hit.raw; used.add(hit.raw); }
   }
-  // Pass 2: aggressive fuzzy — header contains hint OR hint contains header
-  for (const c of CANONICAL) {
-    if (m[c.key]) continue;
-    const targets = [c.key, ...c.hints].map(norm).filter(t => t.length >= 3);
-    const hit = normalized.find(h =>
-      !used.has(h.raw) && h.n.length >= 3 && targets.some(t => h.n.includes(t) || t.includes(h.n))
-    );
-    if (hit) { m[c.key] = hit.raw; used.add(hit.raw); }
-  }
+  // Note: no fuzzy/substring pass — it causes false positives like
+  // "Company State" → verification status. Unmapped columns are preserved
+  // as custom fields verbatim, so we prefer correctness over coverage here.
+
   return m;
 }
 
