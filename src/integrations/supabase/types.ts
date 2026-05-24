@@ -8845,6 +8845,7 @@ export type Database = {
           cached_until: string | null
           catch_all_probability: number | null
           confidence: number | null
+          confidence_breakdown: Json | null
           confidence_decay_score: number | null
           contact_id: string | null
           created_at: string
@@ -8920,6 +8921,7 @@ export type Database = {
           tls_supported: boolean | null
           unknown_confidence: string | null
           unknown_reason: string | null
+          unknown_subclass: string | null
           verification_mode: string | null
           verification_quality:
             | Database["public"]["Enums"]["verification_quality_mode"]
@@ -8941,6 +8943,7 @@ export type Database = {
           cached_until?: string | null
           catch_all_probability?: number | null
           confidence?: number | null
+          confidence_breakdown?: Json | null
           confidence_decay_score?: number | null
           contact_id?: string | null
           created_at?: string
@@ -9016,6 +9019,7 @@ export type Database = {
           tls_supported?: boolean | null
           unknown_confidence?: string | null
           unknown_reason?: string | null
+          unknown_subclass?: string | null
           verification_mode?: string | null
           verification_quality?:
             | Database["public"]["Enums"]["verification_quality_mode"]
@@ -9037,6 +9041,7 @@ export type Database = {
           cached_until?: string | null
           catch_all_probability?: number | null
           confidence?: number | null
+          confidence_breakdown?: Json | null
           confidence_decay_score?: number | null
           contact_id?: string | null
           created_at?: string
@@ -9112,6 +9117,7 @@ export type Database = {
           tls_supported?: boolean | null
           unknown_confidence?: string | null
           unknown_reason?: string | null
+          unknown_subclass?: string | null
           verification_mode?: string | null
           verification_quality?:
             | Database["public"]["Enums"]["verification_quality_mode"]
