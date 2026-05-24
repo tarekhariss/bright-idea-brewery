@@ -504,12 +504,29 @@ Deno.serve(async (req) => {
         providerAgg.set(provider, pa);
 
         if (domain) {
-          const da = domainAgg.get(domain) ?? { provider, seen: 0, valid: 0, bounces: 0, catch_all: 0, unknown: 0 };
+          const local = (email.split("@")[0] ?? "").toLowerCase();
+          const roleLocal = isRoleLocal(local);
+          const da: DomainAggV = domainAgg.get(domain) ?? {
+            provider, seen: 0, valid: 0, bounces: 0, catch_all: 0, unknown: 0, invalid: 0,
+            uniqueMailboxes: new Set<string>(), roleMailboxes: new Set<string>(),
+            employeeMailboxes: new Set<string>(), invalidEmployees: new Set<string>(),
+            invalidRoles: new Set<string>(), recentInvalid: 0, oldInvalid: 0,
+          };
           da.seen++;
+          if (local) {
+            da.uniqueMailboxes.add(local);
+            if (roleLocal) da.roleMailboxes.add(local); else da.employeeMailboxes.add(local);
+          }
           if (status === "valid") da.valid++;
+          if (status === "invalid") da.invalid++;
           if (bounce) da.bounces++;
           if (isCatchAll) da.catch_all++;
           if (status === "unknown") da.unknown++;
+          if ((status === "invalid" || bounce) && local) {
+            if (roleLocal) da.invalidRoles.add(local); else da.invalidEmployees.add(local);
+            if (ageDays !== null && ageDays < 90) da.recentInvalid++;
+            else da.oldInvalid++;
+          }
           domainAgg.set(domain, da);
         }
 
