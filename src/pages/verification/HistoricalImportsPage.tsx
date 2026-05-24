@@ -113,6 +113,8 @@ export default function HistoricalImportsPage() {
   const [sourceLabel, setSourceLabel] = useState("EmailListVerify");
   const [datasetName, setDatasetName] = useState("");
   const [tags, setTags] = useState("");
+  const [autoSeedProspects, setAutoSeedProspects] = useState(true);
+
   const [progress, setProgress] = useState({ done: 0, total: 0 });
 
   const { data: datasets = [] } = useQuery({
