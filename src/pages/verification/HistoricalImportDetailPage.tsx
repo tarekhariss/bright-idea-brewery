@@ -124,13 +124,7 @@ export default function HistoricalImportDetailPage() {
 
       <SectionHeader
         title={ds.filename ?? "(unnamed dataset)"}
-        subtitle={
-          <>
-            <Badge variant="outline" className="mr-2">{ds.source}</Badge>
-            <span className="uppercase text-muted-foreground">{ds.file_type}</span>
-            {ds.uploaded_at && <span className="ml-2 text-muted-foreground">· {formatDistanceToNow(new Date(ds.uploaded_at), { addSuffix: true })}</span>}
-          </>
-        }
+        subtitle={`${ds.source} · ${String(ds.file_type ?? "").toUpperCase()}${ds.uploaded_at ? " · " + formatDistanceToNow(new Date(ds.uploaded_at), { addSuffix: true }) : ""}`}
       />
 
       <div className="rounded-md border bg-primary/5 px-4 py-3 text-sm">
