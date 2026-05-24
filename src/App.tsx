@@ -208,6 +208,9 @@ const App = () => (
             <Route path="/tools/exports" element={<PL><ExportHistoryPage /></PL>} />
             <Route path="/tools/duplicates" element={<PL><DuplicateReviewPage /></PL>} />
             <Route path="/tools/bulk-update" element={<PL><BulkUpdatePage /></PL>} />
+            <Route path="/tools/verification" element={<PL><VerificationPage /></PL>} />
+            <Route path="/tools/verification/:id" element={<PL><VerificationJobDetailPage /></PL>} />
+
 
             {/* Records (reuse existing) */}
             <Route path="/records" element={<PL><ContactsPage /></PL>} />
