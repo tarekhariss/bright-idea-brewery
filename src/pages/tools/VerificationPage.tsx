@@ -46,6 +46,8 @@ export default function VerificationPage() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [pasted, setPasted] = useState("");
+  const [quality, setQuality] = useState<"fast" | "balanced" | "high_accuracy">("balanced");
+  const [cachePolicy, setCachePolicy] = useState<CachePolicy | "auto">("auto");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const totals = useMemo(() => {
@@ -72,7 +74,12 @@ export default function VerificationPage() {
     if (f) text = (text ? text + "\n" : "") + (await f.text());
     const emails = extractEmails(text);
     if (!emails.length) { return; }
-    await enqueue.mutateAsync({ name: name || `Job · ${new Date().toLocaleString()}`, emails });
+    await enqueue.mutateAsync({
+      name: name || `Job · ${new Date().toLocaleString()}`,
+      emails,
+      quality,
+      cache_policy: cachePolicy === "auto" ? undefined : cachePolicy,
+    });
     setOpen(false);
     setName(""); setPasted("");
     if (fileRef.current) fileRef.current.value = "";
@@ -81,7 +88,7 @@ export default function VerificationPage() {
   return (
     <PageShell
       title="Email Verification"
-      description="First-party verification powered by your self-hosted SMTP engine. Reuses cached results for 30 days."
+      description="First-party verification powered by your self-hosted SMTP engine. Smart cache reuses only deterministic results; weak/unknown rows always re-verify live."
       actions={
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
@@ -96,8 +103,37 @@ export default function VerificationPage() {
                 rows={8} value={pasted} onChange={(e) => setPasted(e.target.value)}
               />
               <Input type="file" accept=".csv,.txt" ref={fileRef} />
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Quality</div>
+                  <Select value={quality} onValueChange={(v: any) => setQuality(v)}>
+                    <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="fast">Fast — cheap, allow cache</SelectItem>
+                      <SelectItem value="balanced">Balanced — recommended</SelectItem>
+                      <SelectItem value="high_accuracy">High Accuracy — full live + recovery</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Cache policy</div>
+                  <Select value={cachePolicy} onValueChange={(v: any) => setCachePolicy(v)}>
+                    <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="auto">Auto (default per quality)</SelectItem>
+                      <SelectItem value="trusted_cache">Use trusted cache (reuse anything fresh)</SelectItem>
+                      <SelectItem value="default">Smart reuse (valid + deterministic only)</SelectItem>
+                      <SelectItem value="recheck_weak">Recheck weak results only</SelectItem>
+                      <SelectItem value="force_live">Force live re-verification</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               <p className="text-xs text-muted-foreground">
-                Cached results (last 30 days) resolve instantly. The rest are queued for the external verifier engine.
+                High Accuracy defaults to <b>Force live</b>. Unknown / Risky / Catch-all / low-confidence rows
+                never auto-reuse; they enter staged SMTP + recovery passes.
               </p>
             </div>
             <DialogFooter>
@@ -107,6 +143,7 @@ export default function VerificationPage() {
         </Dialog>
       }
     >
+
       {!health?.adapter_configured && (
         <Alert className="mb-4">
           <AlertTriangle className="h-4 w-4" />
