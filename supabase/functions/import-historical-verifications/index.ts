@@ -49,6 +49,21 @@ function normStatus(raw: unknown): string {
     (["valid","invalid","risky","catch_all","unknown","disposable","role_based","suppressed","failed"].includes(s) ? s : "unknown");
 }
 
+// Granular subtype detection for richer reporting.
+function detectSubtype(rawStatus: unknown, reason: unknown, smtp: unknown): string | null {
+  const blob = `${rawStatus ?? ""} ${reason ?? ""} ${smtp ?? ""}`.toLowerCase();
+  if (/spam[\s_-]?trap|honeypot/.test(blob)) return "spamtrap";
+  if (/dead[\s_-]?server|server[\s_-]?down|no[\s_-]?such[\s_-]?host/.test(blob)) return "dead_server";
+  if (/invalid[\s_-]?mx|no[\s_-]?mx|mx[\s_-]?missing|mx[\s_-]?error/.test(blob)) return "invalid_mx";
+  if (/email[\s_-]?disabled|account[\s_-]?disabled|mailbox[\s_-]?disabled|suspended/.test(blob)) return "email_disabled";
+  if (/blocked|denied|reject(ed)?[\s_-]?by[\s_-]?provider|reputation|policy/.test(blob)) return "provider_blocked";
+  if (/grey[\s_-]?list|^421|^451|temporary|try[\s_-]?later/.test(blob)) return "greylisted";
+  if (/disposable|temp[\s_-]?mail/.test(blob)) return "disposable";
+  if (/catch[\s_-]?all|accept[\s_-]?all/.test(blob)) return "catch_all";
+  if (/role[\s_-]?based|role[\s_-]?account/.test(blob)) return "role_based";
+  return null;
+}
+
 function pick(row: Row, mapping: Record<string,string>, key: string): unknown {
   const src = mapping[key];
   if (!src) return null;
