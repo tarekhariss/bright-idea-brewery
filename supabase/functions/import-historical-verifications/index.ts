@@ -79,6 +79,23 @@ function parseBool(v: unknown): boolean | null {
   return null;
 }
 
+// Role-based mailbox local-parts. These should be scored differently from
+// employee mailboxes — a bouncing info@ does not say anything about whether
+// the domain's actual employees are reachable.
+const ROLE_LOCALS = new Set([
+  "info","sales","support","admin","hello","hr","jobs","contact","noreply","no-reply",
+  "donotreply","enquiries","enquiry","press","marketing","billing","abuse","webmaster",
+  "postmaster","office","team","career","careers","legal","help","accounts","accounting",
+  "ar","ap","compliance","privacy","security","feedback","newsletter","subscribe",
+  "unsubscribe","service","general","mail","inbox","reception","hi","hey","welcome",
+  "notifications","alerts","root","mailer-daemon","bounce","bounces",
+]);
+function isRoleLocal(local: string): boolean {
+  const l = local.toLowerCase().trim();
+  if (ROLE_LOCALS.has(l)) return true;
+  return /^(no[._-]?reply|do[._-]?not[._-]?reply|info[._-]|sales[._-]|support[._-]|team[._-]|hello[._-]|contact[._-])/i.test(l);
+}
+
 function parseDate(v: unknown): string | null {
   if (!v) return null;
   // Excel sometimes serializes as serial number; handle ISO + common formats
