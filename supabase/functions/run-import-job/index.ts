@@ -14,6 +14,9 @@ const BATCH_SIZE = 500;
 const RETRY_SUB_BATCH = 50;
 const MAX_RETRIES = 2;
 const MAX_TIMING_BATCHES = 30;
+// Self-continuation: when wall-clock exceeds this, exit cleanly and re-invoke ourselves so
+// imports of 100k+ rows don't get killed by the Deno edge function timeout (~5 min hard cap).
+const MAX_WALL_CLOCK_MS = 230_000; // 3m50s — well under the platform 5m budget
 
 const RequestSchema = z.object({ job_id: z.string().uuid() });
 
