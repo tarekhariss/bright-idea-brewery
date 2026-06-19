@@ -158,6 +158,11 @@ export default function OpportunityDetail() {
             <CardContent className="text-sm space-y-2">
               <Row label="Priority" value={<Badge variant="secondary">{opportunity.priority}</Badge>} />
               <Row label="Owner" value={opportunity.owner?.full_name ?? opportunity.owner?.email ?? "—"} />
+              <Row label="Source" value={`${opportunity.source_channel}${opportunity.source_campaign_type ? ` · ${opportunity.source_campaign_type} campaign` : ""}`} />
+              {opportunity.source_thread_id && (
+                <Row label="Source thread" value={<span className="text-xs font-mono truncate max-w-[160px] inline-block">{opportunity.source_thread_id.slice(0, 8)}…</span>} />
+              )}
+              <Row label="Next action" value={opportunity.next_action_at ? new Date(opportunity.next_action_at).toLocaleString() : "—"} />
               <Row label="Created" value={new Date(opportunity.created_at).toLocaleString()} />
               <Row label="Last activity" value={opportunity.last_activity_at ? new Date(opportunity.last_activity_at).toLocaleString() : "—"} />
               {opportunity.closed_at && <Row label="Closed" value={new Date(opportunity.closed_at).toLocaleString()} />}
