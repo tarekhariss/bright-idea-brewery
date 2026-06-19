@@ -65,15 +65,20 @@ export default function SmartQueues() {
         {QUEUES.map((q) => {
           const count = counts[q.key] ?? 0;
           const isActive = active === q.key;
+          const drilldown = q.key === "review_needed" ? "/crm/review"
+            : q.key === "overdue_tasks" ? "/crm/tasks"
+            : `/crm/opportunities?queue=${q.key}`;
           return (
-            <button
-              key={q.key}
-              onClick={() => setActive(q.key)}
-              className={`text-left rounded-lg border p-3 transition-colors ${isActive ? "bg-primary/5 border-primary/40" : "hover:bg-accent/40"}`}
-            >
-              <div className="text-xs uppercase tracking-wider text-muted-foreground">{q.label}</div>
-              <div className="text-xl font-semibold">{loading ? "…" : count}</div>
-            </button>
+            <div key={q.key} className="relative">
+              <button
+                onClick={() => setActive(q.key)}
+                className={`w-full text-left rounded-lg border p-3 transition-colors ${isActive ? "bg-primary/5 border-primary/40" : "hover:bg-accent/40"}`}
+              >
+                <div className="text-xs uppercase tracking-wider text-muted-foreground">{q.label}</div>
+                <div className="text-xl font-semibold">{loading ? "…" : count}</div>
+              </button>
+              <Link to={drilldown} className="absolute top-2 right-2 text-[10px] text-primary opacity-0 group-hover:opacity-100 hover:underline">Open →</Link>
+            </div>
           );
         })}
       </div>
