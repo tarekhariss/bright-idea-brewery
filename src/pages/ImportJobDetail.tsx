@@ -210,6 +210,7 @@ export default function ImportJobDetailPage() {
                 const params = new URLSearchParams();
                 params.set("source_file", job.file_name);
                 if (job.settings?.import_tag) params.set("import_tag", job.settings.import_tag);
+                if (job.settings?.list_id) params.set("list_id", job.settings.list_id);
                 navigate(`/search/prospects?${params.toString()}`);
               }}
             >
