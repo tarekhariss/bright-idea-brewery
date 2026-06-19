@@ -91,11 +91,66 @@ export default function CrmReports() {
         <Stat label="Pipeline value" value={`$${pipelineValue.toLocaleString()}`} />
       </div>
 
+      <TimeSeriesPanel workspaceId={workspaceId ?? null} />
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <ChartCard title="Stage conversion (counts)" rows={byStage} />
         <ChartCard title="By source channel" rows={bySource} />
         <ChartCard title="By owner" rows={byOwner} />
         <ChartCard title="By campaign" rows={byCampaign} emptyHint="No campaign-attributed opportunities yet." />
+      </div>
+    </div>
+  );
+}
+
+function TimeSeriesPanel({ workspaceId }: { workspaceId: string | null }) {
+  const [days, setDays] = useState(30);
+  const [data, setData] = useState<any>(null);
+  useEffect(() => {
+    if (!workspaceId) return;
+    (async () => {
+      const { data } = await (supabase as any).rpc("crm_timeseries", { p_workspace_id: workspaceId, p_days: days });
+      setData(data);
+    })();
+  }, [workspaceId, days]);
+  if (!data) return null;
+  const series = (key: string) => (data.days ?? []).map((d: string) => ({ d, c: data[key]?.[d] ?? 0 }));
+  const sets = [
+    { key: "created", label: "Opportunities created" },
+    { key: "meetings_booked", label: "Meetings booked" },
+    { key: "won", label: "Won" },
+    { key: "lost", label: "Lost" },
+  ];
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0">
+        <CardTitle className="text-sm">Time series — last {days} days</CardTitle>
+        <div className="flex gap-1 text-xs">
+          {[7, 30, 90].map((d) => (
+            <button key={d} onClick={() => setDays(d)} className={`px-2 py-0.5 rounded ${days === d ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent"}`}>{d}d</button>
+          ))}
+        </div>
+      </CardHeader>
+      <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {sets.map((s) => <Sparkline key={s.key} label={s.label} rows={series(s.key)} />)}
+      </CardContent>
+    </Card>
+  );
+}
+
+function Sparkline({ label, rows }: { label: string; rows: { d: string; c: number }[] }) {
+  const max = Math.max(1, ...rows.map((r) => r.c));
+  const total = rows.reduce((s, r) => s + r.c, 0);
+  return (
+    <div className="space-y-1">
+      <div className="flex items-baseline justify-between">
+        <div className="text-xs text-muted-foreground">{label}</div>
+        <div className="text-xs font-medium tabular-nums">{total}</div>
+      </div>
+      <div className="flex items-end gap-[2px] h-16">
+        {rows.map((r) => (
+          <div key={r.d} title={`${r.d}: ${r.c}`} className="flex-1 bg-primary/70 rounded-sm" style={{ height: `${(r.c / max) * 100}%`, minHeight: r.c > 0 ? 2 : 1 }} />
+        ))}
       </div>
     </div>
   );
