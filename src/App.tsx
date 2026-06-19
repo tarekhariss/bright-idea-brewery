@@ -272,6 +272,8 @@ const App = () => (
             <Route path="/crm/tasks" element={<CL><CrmTasks /></CL>} />
             <Route path="/crm/notes" element={<CL><CrmNotes /></CL>} />
             <Route path="/crm/activity" element={<CL><CrmActivity /></CL>} />
+            <Route path="/crm/review" element={<CL><CrmReviewQueue /></CL>} />
+            <Route path="/crm/bulk-jobs" element={<CL><CrmBulkJobs /></CL>} />
             <Route path="/crm/settings" element={<CL><CrmSettingsPage /></CL>} />
 
             {/* Deals */}
