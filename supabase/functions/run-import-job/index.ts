@@ -457,18 +457,30 @@ Deno.serve(async (req: Request) => {
       return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: corsHeaders });
     }
 
-    console.log(`[import] Starting job ${job_id}, total_rows=${job.total_rows}`);
+    // Detect continuation vs. fresh start: a resume case is when the job is already
+    // marked processing and has staged rows still in flight (some processed, some pending).
+    const prevDiag = (job.error_summary && typeof job.error_summary === "object" ? (job.error_summary as any).diagnostics : null) ?? null;
+    const isResume = job.status === "processing" && (job.processed_rows ?? 0) > 0;
 
-    // Reset counters fresh — never carry over stale counters from a previous broken run
-    diag = {};
-    updateDiag({ phase: "loading_existing_records", last_progress_at: nowIso(), total_rows: job.total_rows, batch_size: BATCH_SIZE });
+    console.log(`[import] ${isResume ? "Resuming" : "Starting"} job ${job_id}, total_rows=${job.total_rows}, processed_so_far=${job.processed_rows ?? 0}`);
 
-    await supabase.from("import_jobs").update({
-      status: "processing", started_at: nowIso(),
-      processed_rows: 0, success_rows: 0, inserted_rows: 0,
-      error_rows: 0, duplicate_rows: 0, review_rows: 0,
-      error_summary: diag,
-    }).eq("id", job_id);
+    if (isResume) {
+      // Preserve prior diagnostics and counters; only refresh the heartbeat phase.
+      diag = { diagnostics: { ...(prevDiag ?? {}), phase: "resuming", last_progress_at: nowIso() } };
+      await supabase.from("import_jobs").update({
+        status: "processing", error_summary: diag,
+      }).eq("id", job_id);
+    } else {
+      // Fresh start — never carry over stale counters from a previous broken run.
+      diag = {};
+      updateDiag({ phase: "loading_existing_records", last_progress_at: nowIso(), total_rows: job.total_rows, batch_size: BATCH_SIZE });
+      await supabase.from("import_jobs").update({
+        status: "processing", started_at: nowIso(),
+        processed_rows: 0, success_rows: 0, inserted_rows: 0,
+        error_rows: 0, duplicate_rows: 0, review_rows: 0,
+        error_summary: diag,
+      }).eq("id", job_id);
+    }
 
     // Count actual staged rows (source of truth)
     const { count: stagedRowCount } = await (supabase.from("import_job_rows") as any)
