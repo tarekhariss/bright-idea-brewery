@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { CrmOpsPanel } from "@/components/crm/CrmOpsPanel";
 
 interface CrmSettings {
   workspace_id: string;
