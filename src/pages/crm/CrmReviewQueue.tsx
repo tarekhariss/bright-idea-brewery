@@ -1,14 +1,15 @@
 /**
  * CrmReviewQueue — human approval queue for AI-detected positive replies.
- * Lists pending items with confidence + reasoning; supports approve / reject.
- * Approve calls approve_review_item RPC which pushes through push_to_crm.
+ * Supports single + bulk approve/reject. Approvals route through push_to_crm
+ * (dedupe + audit enforced server-side).
  */
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { Inbox, Check, X, ExternalLink, RefreshCw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,6 +36,8 @@ export default function CrmReviewQueue() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"pending" | "approved" | "rejected" | "auto_pushed">("pending");
   const [running, setRunning] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const load = async () => {
     if (!workspaceId) return;
@@ -43,9 +46,12 @@ export default function CrmReviewQueue() {
       .select("*").eq("workspace_id", workspaceId).eq("status", tab)
       .order("created_at", { ascending: false }).limit(200);
     setRows((data ?? []) as Row[]);
+    setSelected(new Set());
     setLoading(false);
   };
   useEffect(() => { load(); }, [workspaceId, tab]);
+
+  const allSelected = useMemo(() => rows.length > 0 && selected.size === rows.length, [rows, selected]);
 
   const runDetection = async () => {
     if (!workspaceId) return;
@@ -64,16 +70,36 @@ export default function CrmReviewQueue() {
   };
 
   const approve = async (id: string) => {
-    const { data, error } = await (supabase as any).rpc("approve_review_item", { p_id: id, p_overrides: {} });
+    const { error } = await (supabase as any).rpc("approve_review_item", { p_id: id, p_overrides: {} });
     if (error) return toast.error(error.message);
-    toast.success("Pushed to CRM");
-    load();
+    toast.success("Pushed to CRM"); load();
   };
   const reject = async (id: string) => {
     const { error } = await (supabase as any).rpc("reject_review_item", { p_id: id, p_reason: null });
     if (error) return toast.error(error.message);
-    toast.success("Rejected");
-    load();
+    toast.success("Rejected"); load();
+  };
+
+  const bulkApprove = async () => {
+    setBulkBusy(true);
+    try {
+      const { data, error } = await (supabase as any).rpc("approve_review_items_bulk", { p_ids: Array.from(selected) });
+      if (error) throw error;
+      const r = data as any;
+      toast.success(`Approved · ${r.created} created · ${r.updated} updated${r.failed ? ` · ${r.failed} failed` : ""}`);
+      load();
+    } catch (e: any) { toast.error(e.message); }
+    finally { setBulkBusy(false); }
+  };
+  const bulkReject = async () => {
+    setBulkBusy(true);
+    try {
+      const { data, error } = await (supabase as any).rpc("reject_review_items_bulk", { p_ids: Array.from(selected), p_reason: null });
+      if (error) throw error;
+      toast.success(`Rejected ${(data as any)?.rejected ?? 0} items`);
+      load();
+    } catch (e: any) { toast.error(e.message); }
+    finally { setBulkBusy(false); }
   };
 
   return (
@@ -85,8 +111,7 @@ export default function CrmReviewQueue() {
           <p className="text-sm text-muted-foreground">AI-detected positive replies awaiting your approval before becoming CRM opportunities.</p>
         </div>
         <Button variant="outline" size="sm" onClick={runDetection} disabled={running}>
-          <RefreshCw className={`h-4 w-4 mr-2 ${running ? "animate-spin" : ""}`} />
-          Run detection now
+          <RefreshCw className={`h-4 w-4 mr-2 ${running ? "animate-spin" : ""}`} />Run detection now
         </Button>
       </div>
 
@@ -98,6 +123,19 @@ export default function CrmReviewQueue() {
           <TabsTrigger value="rejected">Rejected</TabsTrigger>
         </TabsList>
       </Tabs>
+
+      {tab === "pending" && rows.length > 0 && (
+        <div className="flex items-center gap-2 text-sm">
+          <Checkbox checked={allSelected} onCheckedChange={(v) => setSelected(v ? new Set(rows.map((r) => r.id)) : new Set())} />
+          <span className="text-muted-foreground">{selected.size} selected</span>
+          {selected.size > 0 && (
+            <div className="ml-auto flex gap-2">
+              <Button size="sm" disabled={bulkBusy} onClick={bulkApprove}><Check className="h-4 w-4 mr-1" />Approve all</Button>
+              <Button size="sm" variant="outline" disabled={bulkBusy} onClick={bulkReject}><X className="h-4 w-4 mr-1" />Reject all</Button>
+            </div>
+          )}
+        </div>
+      )}
 
       <Card>
         <CardContent className="p-0">
@@ -112,6 +150,11 @@ export default function CrmReviewQueue() {
               {rows.map((r) => (
                 <li key={r.id} className="p-4 space-y-2">
                   <div className="flex items-center gap-2 flex-wrap">
+                    {tab === "pending" && (
+                      <Checkbox checked={selected.has(r.id)} onCheckedChange={(v) => {
+                        const s = new Set(selected); if (v) s.add(r.id); else s.delete(r.id); setSelected(s);
+                      }} />
+                    )}
                     <Badge variant="outline">{r.detected_intent}</Badge>
                     <Badge variant="secondary">{Math.round(r.confidence * 100)}% confidence</Badge>
                     <Badge variant="outline" className="text-[10px]">{r.source_type.replace("_", " ")}</Badge>
