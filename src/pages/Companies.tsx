@@ -20,6 +20,7 @@ import { TableSkeleton } from "@/components/data-table/TableSkeleton";
 import { VirtualizedTableBody } from "@/components/data-table/VirtualizedTableBody";
 import { Badge } from "@/components/ui/badge";
 import { CompanyBulkActionsBar } from "@/components/companies/BulkActionsBar";
+import { PushToCrmButton } from "@/components/crm/PushToCrmButton";
 import { format } from "date-fns";
 
 const COLUMNS: ColumnDef[] = [
@@ -245,6 +246,7 @@ export default function CompaniesPage() {
               {col("state") && <TableHead className="text-xs font-medium text-muted-foreground">State</TableHead>}
               {col("data_quality_score") && <TableHead><SortableHeader label="Quality" sortKey="data_quality_score" currentSort={sortBy} currentDirection={sortDir} onSort={handleSort} /></TableHead>}
               {col("updated_at") && <TableHead><SortableHeader label="Updated" sortKey="updated_at" currentSort={sortBy} currentDirection={sortDir} onSort={handleSort} /></TableHead>}
+              <TableHead className="w-20 text-right text-xs font-medium text-muted-foreground">Actions</TableHead>
             </TableRow>
           </TableHeader>
           {loading ? (
@@ -281,6 +283,17 @@ export default function CompaniesPage() {
                   {col("state") && <TableCell className="text-xs">{c.state ?? "—"}</TableCell>}
                   {col("data_quality_score") && <TableCell><QualityScoreBadge score={c.data_quality_score} /></TableCell>}
                   {col("updated_at") && <TableCell className="text-xs text-muted-foreground">{formatDate(c.updated_at)}</TableCell>}
+                  <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                    <PushToCrmButton
+                      size="sm"
+                      variant="ghost"
+                      label="CRM"
+                      className="h-7 px-2 text-[11px]"
+                      companyId={c.id}
+                      sourceChannel="manual_push"
+                      defaultTitle={c.name || undefined}
+                    />
+                  </TableCell>
                 </TableRow>
               )}
             />

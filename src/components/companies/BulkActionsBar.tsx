@@ -5,18 +5,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ChevronDown, Globe, Building2, Download, RefreshCw } from "lucide-react";
+import { ChevronDown, Globe, Building2, Download, RefreshCw, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { pushToCrm } from "@/hooks/use-opportunities";
 
 interface Props {
   selectedIds: string[];
   onDone: () => void;
 }
 
-type ActionType = "industry" | "country" | null;
+type ActionType = "industry" | "country" | "push_crm" | null;
 
 export function CompanyBulkActionsBar({ selectedIds, onDone }: Props) {
-  const { user } = useAuth();
+  const { user, workspaceId } = useAuth();
   const [action, setAction] = useState<ActionType>(null);
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
@@ -67,6 +68,10 @@ export function CompanyBulkActionsBar({ selectedIds, onDone }: Props) {
               <Globe className="h-3.5 w-3.5 mr-2" /> Update Country
             </DropdownMenuItem>
             <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => setAction("push_crm")}>
+              <Sparkles className="h-3.5 w-3.5 mr-2" /> Push to CRM
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => {
               const csv = ["company_id"].concat(selectedIds).join("\n");
               const blob = new Blob([csv], { type: "text/csv" });
@@ -106,6 +111,37 @@ export function CompanyBulkActionsBar({ selectedIds, onDone }: Props) {
           <DialogFooter>
             <Button variant="outline" onClick={() => setAction(null)}>Cancel</Button>
             <Button disabled={!value.trim() || busy} onClick={() => applyUpdate("country", value.trim(), "bulk_country_update")}>Apply</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={action === "push_crm"} onOpenChange={(o) => !o && setAction(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Push to CRM</DialogTitle>
+            <DialogDescription>
+              Create or update an Opportunity for each of the {count} selected companies.
+              Existing open opportunities will be updated, not duplicated.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAction(null)}>Cancel</Button>
+            <Button disabled={busy || !workspaceId} onClick={async () => {
+              if (!workspaceId) return;
+              setBusy(true);
+              let created = 0, updated = 0, failed = 0;
+              for (const cid of selectedIds) {
+                const r = await pushToCrm(workspaceId, {
+                  company_id: cid,
+                  source_channel: "manual_push",
+                  status: "interested",
+                });
+                if (!r) failed++; else if (r.created) created++; else updated++;
+              }
+              setBusy(false);
+              setAction(null);
+              toast.success(`CRM: ${created} created, ${updated} updated${failed ? `, ${failed} failed` : ""}`);
+              onDone();
+            }}>{busy ? "Pushing…" : "Push to CRM"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -6,11 +6,14 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ListPlus, Tags, Download, Megaphone, X, CheckCheck, Info } from "lucide-react";
+import { ListPlus, Tags, Download, Megaphone, X, CheckCheck, Info, Sparkles } from "lucide-react";
 import { ExportDialog } from "@/components/export/ExportDialog";
 import { AddToListDialog } from "@/components/lists/AddToListDialog";
 import { BulkTagsDialog } from "@/components/contacts/BulkTagsDialog";
 import { EnrollContactsDialog } from "@/components/contacts/EnrollContactsDialog";
+import { pushToCrm } from "@/hooks/use-opportunities";
+import { toast } from "sonner";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface SearchBulkActionsBarProps {
   selectedCount: number;
@@ -31,6 +34,8 @@ export function SearchBulkActionsBar({
   const [addToListOpen, setAddToListOpen] = useState(false);
   const [tagsOpen, setTagsOpen] = useState(false);
   const [enrollOpen, setEnrollOpen] = useState(false);
+  const [crmOpen, setCrmOpen] = useState(false);
+  const [crmBusy, setCrmBusy] = useState(false);
 
   if (selectedCount === 0) return null;
 
@@ -70,6 +75,9 @@ export function SearchBulkActionsBar({
                 <Megaphone className="h-3 w-3" /> Campaign
               </Button>
             )}
+            <Button variant="default" size="sm" className="h-7 text-xs gap-1" onClick={() => setCrmOpen(true)} disabled={idActionsDisabled}>
+              <Sparkles className="h-3 w-3" /> Push to CRM
+            </Button>
           </div>
           <Button variant="ghost" size="sm" className="h-7 text-xs ml-auto" onClick={onClear}>
             <X className="h-3 w-3 mr-1" /> Clear
@@ -123,6 +131,38 @@ export function SearchBulkActionsBar({
           onSuccess={onClear}
         />
       )}
+
+      <Dialog open={crmOpen} onOpenChange={(o) => !crmBusy && setCrmOpen(o)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Push to CRM</DialogTitle>
+            <DialogDescription>
+              Create or update an Opportunity for each of the {selectedIds.length} selected {entityType === "contact" ? "contacts" : "companies"}.
+              Dedupe rules apply.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" disabled={crmBusy} onClick={() => setCrmOpen(false)}>Cancel</Button>
+            <Button disabled={crmBusy || !workspaceId} onClick={async () => {
+              setCrmBusy(true);
+              let created = 0, updated = 0, failed = 0;
+              for (const id of selectedIds) {
+                const r = await pushToCrm(workspaceId, {
+                  contact_id: entityType === "contact" ? id : null,
+                  company_id: entityType === "company" ? id : null,
+                  source_channel: "prospect_search",
+                  status: "interested",
+                });
+                if (!r) failed++; else if (r.created) created++; else updated++;
+              }
+              setCrmBusy(false);
+              setCrmOpen(false);
+              toast.success(`CRM: ${created} created, ${updated} updated${failed ? `, ${failed} failed` : ""}`);
+              onClear();
+            }}>{crmBusy ? "Pushing…" : "Push to CRM"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

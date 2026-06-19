@@ -28,6 +28,7 @@ import { AdvancedFilterPanel, ActiveAdvancedFilters } from "@/components/data-ta
 import { ProspectMetricsBar } from "@/components/search/ProspectMetricsBar";
 import { SearchBulkActionsBar } from "@/components/search/SearchBulkActionsBar";
 import { ProspectPreviewDrawer } from "@/components/search/ProspectPreviewDrawer";
+import { PushToCrmButton } from "@/components/crm/PushToCrmButton";
 import { useProspectSearch, useProspectSearchState, type EntityType } from "@/hooks/use-prospect-search";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSavedSearches, type SavedSearch } from "@/hooks/use-saved-searches";
@@ -393,6 +394,7 @@ export default function ProspectSearchPage() {
                     )}
                   </TableHead>
                 ))}
+                <TableHead className="w-20 text-right text-xs">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -407,7 +409,7 @@ export default function ProspectSearchPage() {
                 ))
               ) : rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={columns.length + 1} className="text-center py-16 text-muted-foreground">
+                  <TableCell colSpan={columns.length + 2} className="text-center py-16 text-muted-foreground">
                     No {state.entityType === "contact" ? "contacts" : "companies"} found. Try adjusting your filters.
                   </TableCell>
                 </TableRow>
@@ -432,6 +434,17 @@ export default function ProspectSearchPage() {
                         {col.render ? col.render(row) : <span className="text-xs">{row[col.key] ?? "—"}</span>}
                       </TableCell>
                     ))}
+                    <TableCell className="py-2 text-right" onClick={(e) => e.stopPropagation()}>
+                      <PushToCrmButton
+                        size="sm"
+                        variant="ghost"
+                        label="CRM"
+                        className="h-7 px-2 text-[11px]"
+                        contactId={state.entityType === "contact" ? row.id : null}
+                        companyId={state.entityType === "company" ? row.id : null}
+                        sourceChannel="prospect_search"
+                      />
+                    </TableCell>
                   </TableRow>
                 ))
               )}

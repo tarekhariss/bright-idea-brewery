@@ -7,6 +7,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +32,8 @@ export interface PushToCrmDialogProps {
   defaultStatus?: OpportunityStatus;
   defaultTitle?: string;
   navigateOnSuccess?: boolean;
+  /** When set, the resulting opportunity is linked to this existing deal (overrides "create deal"). */
+  linkDealId?: string | null;
   onPushed?: (opportunityId: string, created: boolean) => void;
 }
 
@@ -52,7 +55,7 @@ const PRIORITY_OPTIONS: { value: OpportunityPriority; label: string }[] = [
 export function PushToCrmDialog(props: PushToCrmDialogProps) {
   const { open, onOpenChange, contactId, companyId, sourceThreadId, sourceThreadType,
     sourceCampaignId, sourceCampaignType, sourceMessageId, sourceChannel,
-    defaultStatus, defaultTitle, navigateOnSuccess, onPushed } = props;
+    defaultStatus, defaultTitle, navigateOnSuccess, linkDealId, onPushed } = props;
   const { workspaceId } = useAuth();
   const navigate = useNavigate();
 
@@ -99,6 +102,12 @@ export function PushToCrmDialog(props: PushToCrmDialogProps) {
       force_create_new: forceNew,
     };
     const result = await pushToCrm(workspaceId, payload);
+    if (result && linkDealId) {
+      await (supabase as any)
+        .from("opportunities")
+        .update({ deal_id: linkDealId })
+        .eq("id", result.opportunity_id);
+    }
     setSubmitting(false);
     if (result) {
       onPushed?.(result.opportunity_id, result.created);

@@ -11,6 +11,7 @@ import { LifecycleBadge } from "@/components/data-table/StatusBadge";
 import { TablePagination } from "@/components/data-table/TablePagination";
 import { AddToListDialog } from "@/components/lists/AddToListDialog";
 import { DynamicListBuilder } from "@/components/lists/DynamicListBuilder";
+import { PushToCrmButton } from "@/components/crm/PushToCrmButton";
 import { applyAdvancedFilters } from "@/lib/advanced-filter-engine";
 import { format } from "date-fns";
 import type { LifecycleStatus } from "@/integrations/supabase/db-types";
@@ -233,7 +234,7 @@ export default function ListDetailPage() {
                   <TableHead className="text-xs font-medium text-muted-foreground">Job Title</TableHead>
                   <TableHead className="text-xs font-medium text-muted-foreground">Company</TableHead>
                   <TableHead className="text-xs font-medium text-muted-foreground">Lifecycle</TableHead>
-                  {!list.is_dynamic && <TableHead className="w-10" />}
+                  <TableHead className="w-24 text-right text-xs font-medium text-muted-foreground">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -269,13 +270,23 @@ export default function ListDetailPage() {
                       <TableCell className="text-xs">{c.job_title ?? "—"}</TableCell>
                       <TableCell className="text-xs">{c.company_name_raw ?? "—"}</TableCell>
                       <TableCell><LifecycleBadge status={c.lifecycle_status} /></TableCell>
-                      {!list.is_dynamic && (
-                        <TableCell>
-                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeContact(c.id)}>
-                            <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
-                          </Button>
-                        </TableCell>
-                      )}
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <PushToCrmButton
+                            size="sm"
+                            variant="ghost"
+                            label="CRM"
+                            className="h-7 px-2 text-[11px]"
+                            contactId={c.id}
+                            sourceChannel="list"
+                          />
+                          {!list.is_dynamic && (
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeContact(c.id)}>
+                              <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))
                 )}

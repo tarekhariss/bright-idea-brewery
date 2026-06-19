@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useLinkedinInboxThreads, useLinkedinInboxMessages, useUpdateLinkedinThread } from "@/hooks/use-linkedin-campaigns";
 import { ConfigRequiredBanner } from "@/components/config";
+import { PushToCrmButton } from "@/components/crm/PushToCrmButton";
 
 const CATEGORIES = [
   { value: "", label: "All" },
@@ -69,13 +70,32 @@ export default function LinkedinInboxPage() {
             <div className="h-full flex items-center justify-center text-sm text-muted-foreground">Select a thread.</div>
           ) : (
             <div className="space-y-4 max-w-2xl">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs text-muted-foreground">Override:</span>
-                {CATEGORIES.filter(c => c.value).map((c) => (
-                  <Button key={c.value} variant="outline" size="sm" className="h-7 text-[11px]" onClick={() => updateThread.mutate({ id: selectedId, user_category: c.value })}>
-                    {c.label}
-                  </Button>
-                ))}
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-muted-foreground">Override:</span>
+                  {CATEGORIES.filter(c => c.value).map((c) => (
+                    <Button key={c.value} variant="outline" size="sm" className="h-7 text-[11px]" onClick={() => updateThread.mutate({ id: selectedId, user_category: c.value })}>
+                      {c.label}
+                    </Button>
+                  ))}
+                </div>
+                {(() => {
+                  const t: any = threads?.find((x: any) => x.id === selectedId);
+                  if (!t) return null;
+                  return (
+                    <PushToCrmButton
+                      size="sm"
+                      variant="default"
+                      contactId={t.contact_id ?? t.contacts?.id ?? null}
+                      sourceThreadId={t.id}
+                      sourceThreadType="linkedin"
+                      sourceCampaignId={t.campaign_id ?? null}
+                      sourceCampaignType={t.campaign_id ? "linkedin" : null}
+                      sourceChannel="linkedin_reply"
+                      defaultTitle={t.subject || t.preview || undefined}
+                    />
+                  );
+                })()}
               </div>
               <div className="space-y-3">
                 {messages?.map((m: any) => (
