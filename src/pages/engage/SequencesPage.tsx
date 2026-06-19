@@ -207,6 +207,7 @@ export default function SequencesListPage() {
   if (!editId) {
     return (
       <div className="p-6 space-y-6 animate-fade-in">
+        <ConfigRequiredBanner capabilities={["email", "domains"]} title="Sequences require a sender" />
         <div className="flex items-center justify-between">
           <div className="flex items-start gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
