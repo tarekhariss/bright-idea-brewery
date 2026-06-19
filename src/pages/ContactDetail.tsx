@@ -13,6 +13,7 @@ import { Loader2, ArrowLeft, Mail, Phone, Linkedin, MapPin, Building2, Calendar,
 import { LifecycleBadge, OutreachBadge, EmailValidityBadge, QualityScoreBadge, DncBadge } from "@/components/data-table/StatusBadge";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { PushToCrmButton } from "@/components/crm/PushToCrmButton";
 import { IntelligenceTab } from "@/components/intelligence/IntelligenceTab";
 import { AttributionSection } from "@/components/analytics/AttributionSection";
 import { useContactAttribution } from "@/hooks/use-analytics";
@@ -140,7 +141,17 @@ export default function ContactDetailPage() {
             <QualityScoreBadge score={contact.data_quality_score} />
           </div>
         </div>
-        {canEdit && <Button variant="outline" size="sm" className="text-xs">Edit Contact</Button>}
+        <div className="flex items-center gap-2">
+          {contact?.id && (
+            <PushToCrmButton
+              contactId={contact.id}
+              companyId={contact.company_id ?? null}
+              sourceChannel="manual_push"
+              defaultTitle={`${contact.first_name ?? ""} ${contact.last_name ?? ""}`.trim() || contact.email || undefined}
+            />
+          )}
+          {canEdit && <Button variant="outline" size="sm" className="text-xs">Edit Contact</Button>}
+        </div>
       </div>
 
       <Tabs defaultValue="details" className="space-y-4">

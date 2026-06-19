@@ -13,6 +13,7 @@ import { Loader2, ArrowLeft, Globe, Linkedin, Facebook, Twitter, MapPin, Buildin
 import { QualityScoreBadge, LifecycleBadge } from "@/components/data-table/StatusBadge";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { PushToCrmButton } from "@/components/crm/PushToCrmButton";
 import { IntelligenceTab } from "@/components/intelligence/IntelligenceTab";
 import { AttributionSection } from "@/components/analytics/AttributionSection";
 import { useCompanyAttribution } from "@/hooks/use-analytics";
@@ -140,7 +141,16 @@ export default function CompanyDetailPage() {
             {company.revenue_range && <Badge variant="outline" className="text-[11px]">{company.revenue_range}</Badge>}
           </div>
         </div>
-        {canEdit && <Button variant="outline" size="sm" className="text-xs">Edit Company</Button>}
+        <div className="flex items-center gap-2">
+          {company?.id && (
+            <PushToCrmButton
+              companyId={company.id}
+              sourceChannel="manual_push"
+              defaultTitle={company.name ?? undefined}
+            />
+          )}
+          {canEdit && <Button variant="outline" size="sm" className="text-xs">Edit Company</Button>}
+        </div>
       </div>
 
       <Tabs defaultValue="details" className="space-y-4">
