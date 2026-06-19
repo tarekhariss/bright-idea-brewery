@@ -139,5 +139,12 @@ Deno.serve(async (req) => {
     completed_at: new Date().toISOString(),
   }).eq("id", jobId);
 
+  await admin.from("crm_job_runs").insert({
+    workspace_id: job.workspace_id, job_name: "bulk_push",
+    status: failed > 0 ? "error" : "ok",
+    scanned: processed, queued: created, auto_pushed: updated, errors: failed,
+    details: { job_id: jobId, source_kind: job.source_kind, selection_mode: job.selection_mode },
+  });
+
   return json(200, { ok: true, processed, created, updated, failed });
 });
