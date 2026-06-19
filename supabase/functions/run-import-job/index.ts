@@ -352,6 +352,31 @@ async function insertContactsWithRetry(
           if (!singleErr && singleData) {
             entry.rowUpdate.contact_id = singleData.id;
             allInserted.push(singleData as ExistingContact);
+          } else if (singleErr && ((singleErr as any).code === "23505" || /duplicate key|unique/i.test(singleErr.message || ""))) {
+            // Unique-constraint hit (race with another import or pre-existing).
+            // Look up the surviving contact and mark this row as a duplicate skip — not an error.
+            const emailVal = String(entry.contact.email ?? "").toLowerCase().trim();
+            let matched: any = null;
+            if (emailVal) {
+              let lookup = supabase.from("contacts")
+                .select("id, email, secondary_email, tertiary_email, linkedin_url, external_contact_id, first_name, last_name, company_name_raw, phone")
+                .eq("email_normalized", emailVal)
+                .is("merged_into", null)
+                .limit(1);
+              if (entry.contact.workspace_id) lookup = lookup.eq("workspace_id", entry.contact.workspace_id as string);
+              else lookup = lookup.is("workspace_id", null);
+              const { data: m } = await lookup;
+              matched = m?.[0] ?? null;
+            }
+            entry.rowUpdate.status = "skipped";
+            entry.rowUpdate.action_taken = "skipped_exact_duplicate";
+            entry.rowUpdate.review_required = false;
+            entry.rowUpdate.duplicate_match_reason = `Exact email already exists: ${emailVal}`;
+            entry.rowUpdate.error_message = null;
+            if (matched) {
+              entry.rowUpdate.contact_id = matched.id;
+              addToContactIndex(contactIndex, [matched as ExistingContact]);
+            }
           } else {
             entry.rowUpdate.status = "error";
             entry.rowUpdate.error_message = singleErr?.message || "Insert failed after retries";
