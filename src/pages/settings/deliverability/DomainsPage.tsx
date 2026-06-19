@@ -18,6 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { useSendingDomains, useCreateDomain, useUpdateDomain, useDeleteDomain } from "@/hooks/use-deliverability";
+import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/db-types";
 
 type SendingDomain = Database["public"]["Tables"]["sending_domains"]["Row"];
@@ -65,13 +66,40 @@ export default function DomainsPage() {
     setDetailId(d.id);
   };
 
-  const handleVerify = (id: string) => {
-    // Simulate DNS verification — in prod this would call an edge function
-    const rnd = () => Math.random() > 0.3 ? "pass" as const : "pending" as const;
-    const spf = rnd(); const dkim = rnd(); const dmarc = rnd();
-    const allPass = spf === "pass" && dkim === "pass" && dmarc === "pass";
-    updateDomain.mutate({ id, spf_status: spf, dkim_status: dkim, dmarc_status: dmarc, status: allPass ? "verified" : "pending" });
-    toast.info("DNS records checked");
+  const [verifying, setVerifying] = useState<string | null>(null);
+  const handleVerify = async (id: string) => {
+    setVerifying(id);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { toast.error("Not authenticated"); return; }
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-domain-dns`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ domain_id: id }),
+      });
+      const body = await res.json();
+      if (!res.ok) { toast.error(body.error || "DNS verification failed"); return; }
+      if (body.all_pass) {
+        toast.success("All DNS records verified ✓");
+      } else {
+        const missing = [
+          body.spf !== "pass" && "SPF",
+          body.dkim !== "pass" && "DKIM",
+          body.dmarc !== "pass" && "DMARC",
+        ].filter(Boolean).join(", ");
+        toast.warning(`DNS check complete — missing: ${missing}`);
+      }
+      // refresh local cache
+      updateDomain.mutate({ id, spf_status: body.spf, dkim_status: body.dkim, dmarc_status: body.dmarc, status: body.all_pass ? "verified" : "pending" });
+    } catch (e: any) {
+      toast.error(e?.message ?? "DNS verification failed");
+    } finally {
+      setVerifying(null);
+    }
   };
 
   return (
