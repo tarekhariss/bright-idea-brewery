@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ComingSoonBanner, ComingSoonBadge } from "@/components/config";
 import {
   GitBranch, Plus, Play, Pause, MoreHorizontal, Loader2,
   Zap, Filter, ArrowRight, CheckCircle2, Mail, UserPlus,
@@ -167,17 +168,28 @@ export default function WorkflowsListPage() {
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
+      <ComingSoonBanner
+        title="Workflows engine — not active yet"
+        scope={[
+          "Trigger types: contact created/updated, import completed, manual, scheduled",
+          "Conditions and multi-step actions",
+          "Persisted runs, enable/disable, run history",
+        ]}
+      />
       <div className="flex items-center justify-between">
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <GitBranch className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Workflows</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Automate actions with rule-based triggers and conditions.</p>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-semibold tracking-tight">Workflows</h1>
+              <ComingSoonBadge />
+            </div>
+            <p className="text-sm text-muted-foreground mt-0.5">Automate actions with rule-based triggers and conditions. Builder is visible for planning; nothing executes yet.</p>
           </div>
         </div>
-        <Button size="sm" className="gap-1.5 text-xs" onClick={() => setCreateOpen(true)}>
+        <Button size="sm" className="gap-1.5 text-xs" disabled title="Workflow execution engine is not active yet">
           <Plus className="h-3.5 w-3.5" /> New Workflow
         </Button>
       </div>
