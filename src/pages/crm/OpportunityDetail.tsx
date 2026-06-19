@@ -100,6 +100,13 @@ export default function OpportunityDetail() {
               </Link>
             )}
             <Badge variant="outline">{opportunity.source_channel}</Badge>
+            <StaleBadge opportunity={opportunity} staleDays={staleDays} />
+            {opportunity.urgency && opportunity.urgency !== "normal" && (
+              <Badge variant="secondary" className="capitalize">{opportunity.urgency} urgency</Badge>
+            )}
+            {typeof opportunity.icp_fit_score === "number" && (
+              <Badge variant="outline">ICP {opportunity.icp_fit_score}</Badge>
+            )}
           </div>
         </div>
 
@@ -133,6 +140,43 @@ export default function OpportunityDetail() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-4">
+          <NextBestActionCard opportunity={opportunity} staleDays={staleDays} />
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" /> AI Opportunity Summary
+              </CardTitle>
+              <Button size="sm" variant="outline" onClick={generateSummary} disabled={genLoading}>
+                <RefreshCw className={`h-3.5 w-3.5 mr-1 ${genLoading ? "animate-spin" : ""}`} />
+                {opportunity.ai_summary ? (genLoading ? "Refreshing…" : "Refresh") : (genLoading ? "Generating…" : "Generate")}
+              </Button>
+            </CardHeader>
+            <CardContent className="pt-0 text-sm space-y-2">
+              {opportunity.ai_summary ? (
+                <>
+                  <div className="whitespace-pre-wrap">{opportunity.ai_summary}</div>
+                  {opportunity.ai_generated_at && (
+                    <div className="text-[11px] text-muted-foreground">
+                      Generated {new Date(opportunity.ai_generated_at).toLocaleString()}
+                    </div>
+                  )}
+                  {opportunity.risk_flags && opportunity.risk_flags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 pt-1">
+                      {opportunity.risk_flags.map((r, i) => (
+                        <Badge key={i} variant="outline" className="text-[10px] border-red-500/40 text-red-700 dark:text-red-300">{r}</Badge>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-muted-foreground">
+                  No AI summary yet. Click <strong>Generate</strong> to summarise this opportunity, suggest objections, and score ICP fit.
+                  Rule-based next-best-action above always works without AI.
+                </div>
+              )}
+            </CardContent>
+          </Card>
           <Tabs defaultValue="timeline">
             <TabsList>
               <TabsTrigger value="timeline"><Clock className="h-3.5 w-3.5 mr-1" /> Timeline</TabsTrigger>
