@@ -451,7 +451,7 @@ Deno.serve(async (req: Request) => {
 
     // Preload existing data for dedup
     const preloadStart = performance.now();
-    let contactsQuery = supabase.from("contacts").select("id, email, secondary_email, tertiary_email, linkedin_url, external_contact_id, first_name, last_name, company_name_raw, phone").limit(100000);
+    let contactsQuery = supabase.from("contacts").select("id, email, secondary_email, tertiary_email, linkedin_url, external_contact_id, first_name, last_name, company_name_raw, phone").is("merged_into", null).limit(200000);
     let companiesQuery = supabase.from("companies").select("id, name, normalized_name, domain, external_account_id, website").limit(100000);
     if (job.workspace_id) {
       contactsQuery = contactsQuery.eq("workspace_id", job.workspace_id) as any;
