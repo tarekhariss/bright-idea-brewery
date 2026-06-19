@@ -12,6 +12,7 @@ import { AddToListDialog } from "@/components/lists/AddToListDialog";
 import { BulkTagsDialog } from "@/components/contacts/BulkTagsDialog";
 import { EnrollContactsDialog } from "@/components/contacts/EnrollContactsDialog";
 import { pushToCrm } from "@/hooks/use-opportunities";
+import { BulkPushProgressBar, runBulkPush, initialBulkPushState, type BulkPushProgressState } from "@/components/crm/BulkPushProgress";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -36,6 +37,7 @@ export function SearchBulkActionsBar({
   const [enrollOpen, setEnrollOpen] = useState(false);
   const [crmOpen, setCrmOpen] = useState(false);
   const [crmBusy, setCrmBusy] = useState(false);
+  const [pushState, setPushState] = useState<BulkPushProgressState>(initialBulkPushState);
 
   if (selectedCount === 0) return null;
 
@@ -132,7 +134,7 @@ export function SearchBulkActionsBar({
         />
       )}
 
-      <Dialog open={crmOpen} onOpenChange={(o) => !crmBusy && setCrmOpen(o)}>
+      <Dialog open={crmOpen} onOpenChange={(o) => !pushState.running && setCrmOpen(o)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Push to CRM</DialogTitle>
@@ -141,25 +143,25 @@ export function SearchBulkActionsBar({
               Dedupe rules apply.
             </DialogDescription>
           </DialogHeader>
+          {pushState.total > 0 && <BulkPushProgressBar state={pushState} />}
           <DialogFooter>
-            <Button variant="outline" disabled={crmBusy} onClick={() => setCrmOpen(false)}>Cancel</Button>
-            <Button disabled={crmBusy || !workspaceId} onClick={async () => {
+            <Button variant="outline" disabled={pushState.running} onClick={() => setCrmOpen(false)}>Close</Button>
+            <Button disabled={crmBusy || !workspaceId || pushState.running} onClick={async () => {
               setCrmBusy(true);
-              let created = 0, updated = 0, failed = 0;
-              for (const id of selectedIds) {
-                const r = await pushToCrm(workspaceId, {
+              const final = await runBulkPush(
+                workspaceId,
+                selectedIds.map((id) => ({
                   contact_id: entityType === "contact" ? id : null,
                   company_id: entityType === "company" ? id : null,
-                  source_channel: "prospect_search",
-                  status: "interested",
-                });
-                if (!r) failed++; else if (r.created) created++; else updated++;
-              }
+                  source_channel: "prospect_search" as const,
+                  status: "interested" as const,
+                })),
+                setPushState,
+              );
               setCrmBusy(false);
-              setCrmOpen(false);
-              toast.success(`CRM: ${created} created, ${updated} updated${failed ? `, ${failed} failed` : ""}`);
+              toast.success(`CRM: ${final.created} created, ${final.updated} updated${final.failed ? `, ${final.failed} failed` : ""}`);
               onClear();
-            }}>{crmBusy ? "Pushing…" : "Push to CRM"}</Button>
+            }}>{pushState.running ? "Pushing…" : pushState.total > 0 ? "Run again" : "Push to CRM"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
