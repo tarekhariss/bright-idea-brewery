@@ -4,7 +4,7 @@
  * Round 3A scope only: name, stage, status, amount, currency, owner, notes,
  * one linked company, multi-link contacts, expected close date.
  */
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
