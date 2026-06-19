@@ -99,15 +99,11 @@ export function PushToCrmDialog(props: PushToCrmDialogProps) {
       note: note.trim() || null,
       next_task: taskTitle.trim() ? { title: taskTitle.trim(), due_at: taskDue || null } : null,
       deal: createDeal ? { create: true, value: dealValue ? Number(dealValue) : null, name: title.trim() || null } : null,
+      // Atomic deal linking happens inside the RPC; we no longer write deal_id from the client.
+      link_deal_id: !createDeal && linkDealId ? linkDealId : null,
       force_create_new: forceNew,
     };
     const result = await pushToCrm(workspaceId, payload);
-    if (result && linkDealId) {
-      await (supabase as any)
-        .from("opportunities")
-        .update({ deal_id: linkDealId })
-        .eq("id", result.opportunity_id);
-    }
     setSubmitting(false);
     if (result) {
       onPushed?.(result.opportunity_id, result.created);

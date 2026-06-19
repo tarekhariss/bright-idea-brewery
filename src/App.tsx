@@ -96,6 +96,8 @@ import CrmDeals from "./pages/crm/CrmDeals";
 import CrmTasks from "./pages/crm/CrmTasks";
 import CrmNotes from "./pages/crm/CrmNotes";
 import CrmActivity from "./pages/crm/CrmActivity";
+import SmartQueues from "./pages/crm/SmartQueues";
+import CrmReports from "./pages/crm/CrmReports";
 import VfDashboardPage from "./pages/verification/DashboardPage";
 import VfJobsPage from "./pages/verification/JobsPage";
 import VfQueuePage from "./pages/verification/QueueMonitorPage";

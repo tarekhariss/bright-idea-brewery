@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Inbox, Columns3, Table2, Users, Building2,
   HandCoins, ClipboardList, FileText, Settings as SettingsIcon,
-  ArrowLeft, LogOut, Sparkles, Activity,
+  ArrowLeft, LogOut, Sparkles, Activity, ListChecks, BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -14,8 +14,10 @@ interface NavItem { title: string; url: string; icon: any; end?: boolean; }
 const navItems: NavItem[] = [
   { title: "Command Center", url: "/crm", icon: LayoutDashboard, end: true },
   { title: "Inbox", url: "/crm/inbox", icon: Inbox },
+  { title: "Smart Queues", url: "/crm/queues", icon: ListChecks },
   { title: "Pipeline", url: "/crm/pipeline", icon: Columns3 },
   { title: "Opportunities", url: "/crm/opportunities", icon: Table2 },
+  { title: "Reports", url: "/crm/reports", icon: BarChart3 },
   { title: "Accounts", url: "/crm/accounts", icon: Building2 },
   { title: "Contacts", url: "/crm/contacts", icon: Users },
   { title: "Deals", url: "/crm/deals", icon: HandCoins },

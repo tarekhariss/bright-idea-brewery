@@ -53,7 +53,9 @@ export function useOpportunityDetail(id: string | undefined) {
           `id, workspace_id, owner_id, contact_id, company_id, deal_id, pipeline_id, stage_id,
            status, priority, source_channel, source_campaign_type, source_campaign_id,
            source_thread_type, source_thread_id, source_message_id, title, intent_signal,
-           next_action_at, last_activity_at, closed_at, close_reason, created_at, updated_at,
+           next_action_at, last_activity_at, closed_at, close_reason,
+           ai_summary, ai_next_best_action, ai_generated_at, urgency, icp_fit_score, objections, risk_flags,
+           created_at, updated_at,
            contact:contacts(id, first_name, last_name, email),
            company:companies(id, name)`
         ).eq("id", id).maybeSingle(),
