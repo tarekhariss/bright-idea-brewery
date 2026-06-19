@@ -19,18 +19,31 @@ interface GenericSettingsProps {
   icon: LucideIcon;
   title: string;
   description: string;
+  scope?: string[];
 }
 
-function GenericSettings({ icon, title, description }: GenericSettingsProps) {
+/**
+ * GenericSettings — honest placeholder for Settings pages that are visible in
+ * navigation but not yet wired to a real backend. The route stays so we don't
+ * lose track of planned scope, but the page is clearly labelled "Coming soon /
+ * Not active yet" and exposes no fake save buttons.
+ */
+function GenericSettings({ icon, title, description, scope }: GenericSettingsProps) {
   return (
     <PageShell
       icon={icon}
       title={title}
       description={description}
+      comingSoon
+      comingSoonScope={
+        scope && scope.length > 0
+          ? scope
+          : [`${title} configuration UI`, "Persistence to backend", "Permission-aware actions"]
+      }
       emptyState={{
         icon,
-        title: `${title} configuration`,
-        description: `This section will allow you to manage ${title.toLowerCase()} settings. Configuration options are being built for your platform.`,
+        title: `${title} is not active yet`,
+        description: `${title} is part of the product roadmap. We've intentionally left the page visible so it stays on the plan, but it has no live data and no save actions — clicking around here will not change anything in your account.`,
       }}
     />
   );
