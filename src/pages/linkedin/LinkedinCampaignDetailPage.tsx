@@ -27,6 +27,7 @@ import { LinkedinWorkflowBuilder } from "@/components/linkedin/LinkedinWorkflowB
 import { CampaignSendersTab } from "@/components/linkedin/CampaignSendersTab";
 import { LaunchCampaignDialog } from "@/components/linkedin/LaunchCampaignDialog";
 import { ConfigRequiredBanner } from "@/components/config";
+import { PushToCrmButton } from "@/components/crm/PushToCrmButton";
 import { cn } from "@/lib/utils";
 
 export default function LinkedinCampaignDetailPage() {
@@ -208,6 +209,17 @@ function LeadsTab({ campaignId }: { campaignId: string }) {
                   <TableCell className="text-xs">{l.reply_status || "—"}</TableCell>
                   <TableCell>
                     <div className="flex gap-1 justify-end" data-stop>
+                      <PushToCrmButton
+                        size="sm"
+                        variant="ghost"
+                        label="CRM"
+                        className="h-7 px-2 text-[11px]"
+                        contactId={l.contact_id ?? l.contacts?.id ?? null}
+                        companyId={l.contacts?.companies?.id ?? null}
+                        sourceCampaignId={campaignId}
+                        sourceCampaignType="linkedin"
+                        sourceChannel="linkedin_reply"
+                      />
                       {l.status === "paused" ? (
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => transition.mutate({ lead_id: l.id, action: "resume" })} title="Resume"><Play className="h-3.5 w-3.5" /></Button>
                       ) : (

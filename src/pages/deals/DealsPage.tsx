@@ -21,6 +21,7 @@ import {
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useDeals, type Deal, type PipelineStage } from "@/hooks/use-deals";
 import { DealDialog } from "./DealDialog";
+import { PushToCrmButton } from "@/components/crm/PushToCrmButton";
 
 function formatMoney(amount: number | null, currency: string | null) {
   if (amount == null) return "—";
@@ -319,6 +320,17 @@ function ListView({
               <TableCell className="text-muted-foreground">{d.expected_close_date ?? "—"}</TableCell>
               <TableCell className="text-right">
                 <div className="flex items-center justify-end gap-1">
+                  <PushToCrmButton
+                    size="sm"
+                    variant="ghost"
+                    label="CRM"
+                    className="h-7 px-2 text-[11px]"
+                    companyId={d.company_id ?? null}
+                    contactId={d.contacts?.[0]?.contact_id ?? null}
+                    sourceChannel="manual_push"
+                    defaultTitle={d.name}
+                    linkDealId={d.id}
+                  />
                   <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onEdit(d)}>
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>

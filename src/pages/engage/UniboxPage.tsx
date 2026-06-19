@@ -25,6 +25,7 @@ import {
 } from "@/hooks/use-inbox-classification";
 import { format, formatDistanceToNow } from "date-fns";
 import { ConfigRequiredBanner } from "@/components/config";
+import { PushToCrmButton } from "@/components/crm/PushToCrmButton";
 import { cn } from "@/lib/utils";
 
 const statusColor: Record<string, string> = {
@@ -333,6 +334,17 @@ export default function UniboxPage() {
                   <Button variant="ghost" size="icon" className="h-8 w-8" title="Star">
                     <Star className="h-3.5 w-3.5" />
                   </Button>
+                  <PushToCrmButton
+                    size="sm"
+                    variant="default"
+                    contactId={selected.contact_id ?? selected.contacts?.id ?? null}
+                    sourceThreadId={selected.id}
+                    sourceThreadType="email"
+                    sourceCampaignId={selected.campaign_id ?? null}
+                    sourceCampaignType={selected.campaign_id ? "email" : null}
+                    sourceChannel="email_reply"
+                    defaultTitle={selected.subject || undefined}
+                  />
                 </div>
               </div>
 

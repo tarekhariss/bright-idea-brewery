@@ -15,6 +15,7 @@ import { ColumnVisibility, type ColumnDef } from "@/components/data-table/Column
 import { FilterPanel, ActiveFilters, type FilterConfig, type FilterValues } from "@/components/data-table/FilterPanel";
 import { SavedViewsDropdown } from "@/components/data-table/SavedViewsDropdown";
 import { AddToListDialog } from "@/components/lists/AddToListDialog";
+import { PushToCrmButton } from "@/components/crm/PushToCrmButton";
 import { useSavedViews, type ViewState } from "@/hooks/use-saved-views";
 import { applyFilters } from "@/lib/filter-utils";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -284,6 +285,7 @@ export default function ContactsPage() {
               {col("data_quality_score") && <TableHead><SortableHeader label="Quality" sortKey="data_quality_score" currentSort={sortBy} currentDirection={sortDir} onSort={handleSort} /></TableHead>}
               {col("last_contacted_at") && <TableHead><SortableHeader label="Last Contacted" sortKey="last_contacted_at" currentSort={sortBy} currentDirection={sortDir} onSort={handleSort} /></TableHead>}
               {col("updated_at") && <TableHead><SortableHeader label="Updated" sortKey="updated_at" currentSort={sortBy} currentDirection={sortDir} onSort={handleSort} /></TableHead>}
+              <TableHead className="w-20 text-right text-xs font-medium text-muted-foreground">Actions</TableHead>
             </TableRow>
           </TableHeader>
           {loading ? (
@@ -331,6 +333,16 @@ export default function ContactsPage() {
                   {col("data_quality_score") && <TableCell><QualityScoreBadge score={c.data_quality_score} /></TableCell>}
                   {col("last_contacted_at") && <TableCell className="text-xs text-muted-foreground">{formatDate(c.last_contacted_at)}</TableCell>}
                   {col("updated_at") && <TableCell className="text-xs text-muted-foreground">{formatDate(c.updated_at)}</TableCell>}
+                  <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                    <PushToCrmButton
+                      size="sm"
+                      variant="ghost"
+                      label="CRM"
+                      className="h-7 px-2 text-[11px]"
+                      contactId={c.id}
+                      sourceChannel="manual_push"
+                    />
+                  </TableCell>
                 </TableRow>
               )}
             />

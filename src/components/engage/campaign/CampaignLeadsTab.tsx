@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { PushToCrmButton } from "@/components/crm/PushToCrmButton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -215,6 +216,19 @@ export function CampaignLeadsTab({ campaignId }: { campaignId: string }) {
                         : format(new Date(e.created_at), "MMM d")}
                     </TableCell>
                     <TableCell>
+                      <div className="flex items-center justify-end gap-1">
+                        <PushToCrmButton
+                          size="sm"
+                          variant="ghost"
+                          label="CRM"
+                          className="h-7 px-2 text-[11px]"
+                          contactId={c.id ?? null}
+                          companyId={c.companies?.id ?? null}
+                          sourceCampaignId={campaignId}
+                          sourceCampaignType="email"
+                          sourceChannel="email_reply"
+                          defaultStatus={e.derivedStatus === "replied" ? "interested" : "interested"}
+                        />
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon" className="h-7 w-7">
@@ -245,6 +259,7 @@ export function CampaignLeadsTab({ campaignId }: { campaignId: string }) {
                           )}
                         </DropdownMenuContent>
                       </DropdownMenu>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );

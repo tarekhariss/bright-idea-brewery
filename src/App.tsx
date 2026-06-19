@@ -90,6 +90,12 @@ import OpportunitiesTable from "./pages/crm/OpportunitiesTable";
 import OpportunityDetail from "./pages/crm/OpportunityDetail";
 import CrmSettingsPage from "./pages/crm/CrmSettings";
 import CrmComingSoon from "./pages/crm/CrmComingSoon";
+import CrmAccounts from "./pages/crm/CrmAccounts";
+import CrmContacts from "./pages/crm/CrmContacts";
+import CrmDeals from "./pages/crm/CrmDeals";
+import CrmTasks from "./pages/crm/CrmTasks";
+import CrmNotes from "./pages/crm/CrmNotes";
+import CrmActivity from "./pages/crm/CrmActivity";
 import VfDashboardPage from "./pages/verification/DashboardPage";
 import VfJobsPage from "./pages/verification/JobsPage";
 import VfQueuePage from "./pages/verification/QueueMonitorPage";
@@ -254,11 +260,12 @@ const App = () => (
             <Route path="/crm/pipeline" element={<CL><CrmPipelinePage /></CL>} />
             <Route path="/crm/opportunities" element={<CL><OpportunitiesTable /></CL>} />
             <Route path="/crm/opportunities/:id" element={<CL><OpportunityDetail /></CL>} />
-            <Route path="/crm/accounts" element={<CL><CrmComingSoon title="Accounts" scope={["Account-centric view of opportunities", "Multi-stakeholder rollups", "Account scoring"]} /></CL>} />
-            <Route path="/crm/contacts" element={<CL><CrmComingSoon title="Contacts" scope={["CRM-styled contact directory", "Per-contact opportunity history"]} /></CL>} />
-            <Route path="/crm/deals" element={<CL><CrmComingSoon title="Deals" scope={["CRM-styled deals view linked to opportunities"]} /></CL>} />
-            <Route path="/crm/tasks" element={<CL><CrmComingSoon title="Tasks" scope={["Tasks scoped to CRM opportunities (Phase 1.5)"]} /></CL>} />
-            <Route path="/crm/notes" element={<CL><CrmComingSoon title="Notes" scope={["Global notes index across opportunities"]} /></CL>} />
+            <Route path="/crm/accounts" element={<CL><CrmAccounts /></CL>} />
+            <Route path="/crm/contacts" element={<CL><CrmContacts /></CL>} />
+            <Route path="/crm/deals" element={<CL><CrmDeals /></CL>} />
+            <Route path="/crm/tasks" element={<CL><CrmTasks /></CL>} />
+            <Route path="/crm/notes" element={<CL><CrmNotes /></CL>} />
+            <Route path="/crm/activity" element={<CL><CrmActivity /></CL>} />
             <Route path="/crm/settings" element={<CL><CrmSettingsPage /></CL>} />
 
             {/* Deals */}
