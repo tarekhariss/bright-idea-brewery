@@ -25,6 +25,7 @@ const navItems: NavItem[] = [
   { title: "Tasks", url: "/crm/tasks", icon: ClipboardList },
   { title: "Notes", url: "/crm/notes", icon: FileText },
   { title: "Activity", url: "/crm/activity", icon: Activity },
+  { title: "Bulk Jobs", url: "/crm/bulk-jobs", icon: Briefcase },
   { title: "Settings", url: "/crm/settings", icon: SettingsIcon },
 ];
 
