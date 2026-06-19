@@ -104,14 +104,14 @@ export function useDeals() {
         setStages([]);
       }
 
-      // Deals with joins
+      // Deals with joins (company + contacts via FK relations).
+      // Owner is FK to auth.users, so we resolve profiles in a second query.
       const { data: dealRows, error } = await (supabase as any)
         .from("deals")
         .select(
           `id, workspace_id, pipeline_id, stage_id, name, status, amount, currency,
            notes, company_id, owner_id, expected_close_date, created_at, updated_at,
            company:companies(id, name),
-           owner:profiles(id, full_name, email),
            contacts:deal_contacts(contact_id, role, contact:contacts(id, first_name, last_name, email))`
         )
         .eq("workspace_id", workspaceId)
@@ -121,7 +121,16 @@ export function useDeals() {
         console.error("loadDeals error", error);
         toast.error(`Failed to load deals: ${error.message}`);
       }
-      setDeals((dealRows ?? []) as Deal[]);
+
+      const rows = (dealRows ?? []) as Deal[];
+      const ownerIds = Array.from(new Set(rows.map((d) => d.owner_id).filter(Boolean))) as string[];
+      let owners: Record<string, Deal["owner"]> = {};
+      if (ownerIds.length > 0) {
+        const { data: profs } = await (supabase as any)
+          .from("profiles").select("id, full_name, email").in("id", ownerIds);
+        (profs ?? []).forEach((p: any) => { owners[p.id] = p; });
+      }
+      setDeals(rows.map((d) => ({ ...d, owner: d.owner_id ? owners[d.owner_id] ?? null : null })));
     } finally {
       setLoading(false);
     }
