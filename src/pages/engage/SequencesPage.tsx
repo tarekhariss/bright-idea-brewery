@@ -23,6 +23,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { ConfigRequiredBanner } from "@/components/config";
 import {
   useSequences, useSequenceSteps, useSequenceEnrollments,
   useCreateSequence, useUpdateSequence, useDeleteSequence,
