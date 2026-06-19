@@ -22,7 +22,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { X, Check, ChevronsUpDown, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useWorkspace } from "@/hooks/use-workspace";
+
 import { useAuth } from "@/contexts/AuthContext";
 import type { Deal, DealInput, PipelineStage } from "@/hooks/use-deals";
 
@@ -44,8 +44,7 @@ function contactLabel(c: ContactOpt) {
 }
 
 export function DealDialog({ open, onOpenChange, stages, deal, onSubmit }: Props) {
-  const { workspaceId } = useWorkspace();
-  const { user } = useAuth();
+  const { user, workspaceId } = useAuth();
   const [saving, setSaving] = useState(false);
 
   const [name, setName] = useState("");

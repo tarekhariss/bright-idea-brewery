@@ -11,7 +11,6 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useWorkspace } from "@/hooks/use-workspace";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
@@ -66,15 +65,18 @@ export interface DealInput {
 }
 
 export function useDeals() {
-  const { workspaceId } = useWorkspace();
-  const { user } = useAuth();
+  const { user, workspaceId } = useAuth();
+  const wsLoading = false;
   const [deals, setDeals] = useState<Deal[]>([]);
   const [stages, setStages] = useState<PipelineStage[]>([]);
   const [pipelineId, setPipelineId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const loadAll = useCallback(async () => {
-    if (!workspaceId) return;
+    if (!workspaceId) {
+      if (!wsLoading) setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       // Resolve default deal pipeline
