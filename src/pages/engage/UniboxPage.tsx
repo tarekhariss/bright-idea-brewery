@@ -24,6 +24,7 @@ import {
   CATEGORY_META, PRIMARY_CATEGORIES, type ReplyCategory,
 } from "@/hooks/use-inbox-classification";
 import { format, formatDistanceToNow } from "date-fns";
+import { ConfigRequiredBanner } from "@/components/config";
 import { cn } from "@/lib/utils";
 
 const statusColor: Record<string, string> = {

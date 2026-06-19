@@ -133,6 +133,7 @@ export default function MailboxesPage() {
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
+      <ConfigRequiredBanner capabilities={["domains"]} title="Add a sending domain before connecting mailboxes" />
       <div className="flex items-center justify-between">
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-500">

@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useLinkedinActionQueue, useUpdateQueueAction, useDeleteQueueAction } from "@/hooks/use-linkedin-platform";
 import { useLinkedinAccounts } from "@/hooks/use-linkedin";
 import { useLinkedinCampaigns } from "@/hooks/use-linkedin-campaigns";
+import { ConfigRequiredBanner } from "@/components/config";
 
 const STATUS_OPTIONS = ["pending", "scheduled", "in_progress", "completed", "failed", "blocked", "paused"];
 const ACTION_OPTIONS = [

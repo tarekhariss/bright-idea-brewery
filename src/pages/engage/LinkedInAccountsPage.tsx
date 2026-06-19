@@ -17,6 +17,7 @@ import { Progress } from "@/components/ui/progress";
 import {
   useLinkedinAccounts, useCreateLinkedinAccount, useUpdateLinkedinAccount, useDeleteLinkedinAccount,
 } from "@/hooks/use-linkedin";
+import { ConfigRequiredBanner } from "@/components/config";
 
 export default function LinkedInAccountsPage() {
   const navigate = useNavigate();

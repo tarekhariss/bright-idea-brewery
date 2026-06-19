@@ -5,6 +5,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useLinkedinInboxThreads, useLinkedinInboxMessages, useUpdateLinkedinThread } from "@/hooks/use-linkedin-campaigns";
+import { ConfigRequiredBanner } from "@/components/config";
 
 const CATEGORIES = [
   { value: "", label: "All" },

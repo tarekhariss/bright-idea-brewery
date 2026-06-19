@@ -69,6 +69,12 @@ export default function EmailAccountsPage() {
         </Button>
       </div>
 
+      <div className="px-6 pt-3">
+        <ConfigRequiredBanner capabilities={["domains"]} title="Add a verified sending domain to start sending" />
+      </div>
+
+
+
       {/* KPIs */}
       <div className="grid grid-cols-4 gap-3 border-b bg-card/30 px-6 py-3">
         {[
