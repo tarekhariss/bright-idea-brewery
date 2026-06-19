@@ -80,6 +80,16 @@ import DuplicateReviewPage from "./pages/tools/DuplicateReviewPage";
 
 // Verification standalone module
 import { VerificationLayout } from "./components/verification/VerificationLayout";
+
+// CRM workspace (Phase 1)
+import { CrmLayout } from "./components/crm/CrmLayout";
+import CrmCommandCenter from "./pages/crm/CommandCenter";
+import OpportunityInbox from "./pages/crm/OpportunityInbox";
+import CrmPipelinePage from "./pages/crm/PipelinePage";
+import OpportunitiesTable from "./pages/crm/OpportunitiesTable";
+import OpportunityDetail from "./pages/crm/OpportunityDetail";
+import CrmSettingsPage from "./pages/crm/CrmSettings";
+import CrmComingSoon from "./pages/crm/CrmComingSoon";
 import VfDashboardPage from "./pages/verification/DashboardPage";
 import VfJobsPage from "./pages/verification/JobsPage";
 import VfQueuePage from "./pages/verification/QueueMonitorPage";
