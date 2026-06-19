@@ -2274,17 +2274,251 @@ export type Database = {
           },
         ]
       }
+      crm_bulk_push_job_rows: {
+        Row: {
+          company_id: string | null
+          contact_id: string | null
+          created_at: string
+          error: string | null
+          id: string
+          job_id: string
+          opportunity_id: string | null
+          outcome: string | null
+          processed_at: string | null
+          workspace_id: string
+        }
+        Insert: {
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          job_id: string
+          opportunity_id?: string | null
+          outcome?: string | null
+          processed_at?: string | null
+          workspace_id: string
+        }
+        Update: {
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          job_id?: string
+          opportunity_id?: string | null
+          outcome?: string | null
+          processed_at?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_bulk_push_job_rows_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "crm_bulk_push_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_bulk_push_jobs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          created_count: number
+          error_message: string | null
+          failed_count: number
+          filters: Json
+          id: string
+          processed: number
+          push_defaults: Json
+          selected_ids: string[]
+          source_kind: string
+          started_at: string | null
+          status: string
+          total: number
+          updated_at: string
+          updated_count: number
+          workspace_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_count?: number
+          error_message?: string | null
+          failed_count?: number
+          filters?: Json
+          id?: string
+          processed?: number
+          push_defaults?: Json
+          selected_ids?: string[]
+          source_kind: string
+          started_at?: string | null
+          status?: string
+          total?: number
+          updated_at?: string
+          updated_count?: number
+          workspace_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_count?: number
+          error_message?: string | null
+          failed_count?: number
+          filters?: Json
+          id?: string
+          processed?: number
+          push_defaults?: Json
+          selected_ids?: string[]
+          source_kind?: string
+          started_at?: string | null
+          status?: string
+          total?: number
+          updated_at?: string
+          updated_count?: number
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_bulk_push_jobs_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_review_queue: {
+        Row: {
+          ai_model: string | null
+          company_id: string | null
+          confidence: number
+          contact_id: string | null
+          created_at: string
+          detected_intent: string
+          id: string
+          message_excerpt: string | null
+          reasoning: string | null
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          resolved_opportunity_id: string | null
+          source_campaign_id: string | null
+          source_campaign_type: string | null
+          source_message_id: string | null
+          source_thread_id: string | null
+          source_thread_text_id: string | null
+          source_type: string
+          status: string
+          suggested_note: string | null
+          suggested_status: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          ai_model?: string | null
+          company_id?: string | null
+          confidence?: number
+          contact_id?: string | null
+          created_at?: string
+          detected_intent: string
+          id?: string
+          message_excerpt?: string | null
+          reasoning?: string | null
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_opportunity_id?: string | null
+          source_campaign_id?: string | null
+          source_campaign_type?: string | null
+          source_message_id?: string | null
+          source_thread_id?: string | null
+          source_thread_text_id?: string | null
+          source_type: string
+          status?: string
+          suggested_note?: string | null
+          suggested_status?: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          ai_model?: string | null
+          company_id?: string | null
+          confidence?: number
+          contact_id?: string | null
+          created_at?: string
+          detected_intent?: string
+          id?: string
+          message_excerpt?: string | null
+          reasoning?: string | null
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_opportunity_id?: string | null
+          source_campaign_id?: string | null
+          source_campaign_type?: string | null
+          source_message_id?: string | null
+          source_thread_id?: string | null
+          source_thread_text_id?: string | null
+          source_type?: string
+          status?: string
+          suggested_note?: string | null
+          suggested_status?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_review_queue_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_review_queue_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_review_queue_resolved_opportunity_id_fkey"
+            columns: ["resolved_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_review_queue_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       crm_settings: {
         Row: {
           ai_prompt_overrides: Json
           auto_create_deal_on_proposal: boolean
           auto_detect_positive_replies: boolean
+          auto_push_high_confidence: boolean
+          automation_rules: Json
           created_at: string
           default_owner_strategy: string
           default_pipeline_id: string | null
           default_stale_days: number
           hide_closed_in_active_views: boolean
+          last_reply_detection_at: string | null
+          last_stale_sweep_at: string | null
           positive_reply_confidence_threshold: number
+          positive_reply_review_mode: boolean
+          stale_sweeper_enabled: boolean
           updated_at: string
           workspace_id: string
         }
@@ -2292,12 +2526,18 @@ export type Database = {
           ai_prompt_overrides?: Json
           auto_create_deal_on_proposal?: boolean
           auto_detect_positive_replies?: boolean
+          auto_push_high_confidence?: boolean
+          automation_rules?: Json
           created_at?: string
           default_owner_strategy?: string
           default_pipeline_id?: string | null
           default_stale_days?: number
           hide_closed_in_active_views?: boolean
+          last_reply_detection_at?: string | null
+          last_stale_sweep_at?: string | null
           positive_reply_confidence_threshold?: number
+          positive_reply_review_mode?: boolean
+          stale_sweeper_enabled?: boolean
           updated_at?: string
           workspace_id: string
         }
@@ -2305,12 +2545,18 @@ export type Database = {
           ai_prompt_overrides?: Json
           auto_create_deal_on_proposal?: boolean
           auto_detect_positive_replies?: boolean
+          auto_push_high_confidence?: boolean
+          automation_rules?: Json
           created_at?: string
           default_owner_strategy?: string
           default_pipeline_id?: string | null
           default_stale_days?: number
           hide_closed_in_active_views?: boolean
+          last_reply_detection_at?: string | null
+          last_stale_sweep_at?: string | null
           positive_reply_confidence_threshold?: number
+          positive_reply_review_mode?: boolean
+          stale_sweeper_enabled?: boolean
           updated_at?: string
           workspace_id?: string
         }
@@ -6734,6 +6980,7 @@ export type Database = {
           icp_fit_score: number | null
           id: string
           intent_signal: string | null
+          is_stale: boolean
           last_activity_at: string | null
           next_action_at: string | null
           objections: Json | null
@@ -6770,6 +7017,7 @@ export type Database = {
           icp_fit_score?: number | null
           id?: string
           intent_signal?: string | null
+          is_stale?: boolean
           last_activity_at?: string | null
           next_action_at?: string | null
           objections?: Json | null
@@ -6806,6 +7054,7 @@ export type Database = {
           icp_fit_score?: number | null
           id?: string
           intent_signal?: string | null
+          is_stale?: boolean
           last_activity_at?: string | null
           next_action_at?: string | null
           objections?: Json | null
@@ -10171,6 +10420,10 @@ export type Database = {
       }
     }
     Functions: {
+      approve_review_item: {
+        Args: { p_id: string; p_overrides?: Json }
+        Returns: Json
+      }
       assert_email_allowed: { Args: never; Returns: undefined }
       assign_opportunity: {
         Args: { _opportunity_id: string; _owner_id: string }
@@ -10305,6 +10558,14 @@ export type Database = {
       }
       create_workspace_for_user: {
         Args: { p_name: string; p_user_id: string }
+        Returns: Json
+      }
+      crm_smart_queue_counts: {
+        Args: { p_workspace_id: string }
+        Returns: Json
+      }
+      crm_timeseries: {
+        Args: { p_days?: number; p_workspace_id: string }
         Returns: Json
       }
       decide_verification_strategy: {
@@ -10586,6 +10847,10 @@ export type Database = {
       refresh_email_freshness_batch: {
         Args: { _limit?: number }
         Returns: number
+      }
+      reject_review_item: {
+        Args: { p_id: string; p_reason?: string }
+        Returns: undefined
       }
       resolve_contact_id: { Args: { _id: string }; Returns: string }
       retry_verification_result: {

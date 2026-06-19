@@ -98,6 +98,8 @@ import CrmNotes from "./pages/crm/CrmNotes";
 import CrmActivity from "./pages/crm/CrmActivity";
 import SmartQueues from "./pages/crm/SmartQueues";
 import CrmReports from "./pages/crm/CrmReports";
+import CrmReviewQueue from "./pages/crm/CrmReviewQueue";
+import CrmBulkJobs from "./pages/crm/CrmBulkJobs";
 import VfDashboardPage from "./pages/verification/DashboardPage";
 import VfJobsPage from "./pages/verification/JobsPage";
 import VfQueuePage from "./pages/verification/QueueMonitorPage";
@@ -270,6 +272,8 @@ const App = () => (
             <Route path="/crm/tasks" element={<CL><CrmTasks /></CL>} />
             <Route path="/crm/notes" element={<CL><CrmNotes /></CL>} />
             <Route path="/crm/activity" element={<CL><CrmActivity /></CL>} />
+            <Route path="/crm/review" element={<CL><CrmReviewQueue /></CL>} />
+            <Route path="/crm/bulk-jobs" element={<CL><CrmBulkJobs /></CL>} />
             <Route path="/crm/settings" element={<CL><CrmSettingsPage /></CL>} />
 
             {/* Deals */}

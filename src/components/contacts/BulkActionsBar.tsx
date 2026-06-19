@@ -215,8 +215,23 @@ export function BulkActionsBar({ selectedIds, onDone, onOpenAddToList }: BulkAct
             </DialogDescription>
           </DialogHeader>
           {pushState.total > 0 && <BulkPushProgressBar state={pushState} />}
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
             <Button variant="outline" onClick={() => setAction(null)} disabled={pushState.running}>Close</Button>
+            {count > 50 && (
+              <Button variant="secondary" disabled={busy || !workspaceId} onClick={async () => {
+                if (!workspaceId) return;
+                const { createBulkPushJob } = await import("@/hooks/use-crm-bulk-push");
+                try {
+                  const job = await createBulkPushJob({
+                    workspaceId, sourceKind: "contacts", selectedIds,
+                    defaults: { source_channel: "manual_push", status: "interested", priority: "normal" },
+                  });
+                  toast.success("Bulk job queued. Track progress in CRM › Bulk Jobs.");
+                  if (job?.id) window.open("/crm/bulk-jobs", "_blank");
+                  setAction(null); onDone();
+                } catch (e: any) { toast.error(e.message); }
+              }}>Run as background job ({count})</Button>
+            )}
             <Button disabled={busy || !workspaceId || pushState.running} onClick={async () => {
               if (!workspaceId) return;
               setBusy(true);
@@ -232,7 +247,7 @@ export function BulkActionsBar({ selectedIds, onDone, onOpenAddToList }: BulkAct
               toast.success(`CRM: ${final.created} created, ${final.updated} updated${final.failed ? `, ${final.failed} failed` : ""}`);
               onDone();
             }}>
-              {pushState.running ? "Pushing…" : pushState.total > 0 ? "Run again" : "Push to CRM"}
+              {pushState.running ? "Pushing…" : pushState.total > 0 ? "Run again" : "Push inline"}
             </Button>
           </DialogFooter>
         </DialogContent>

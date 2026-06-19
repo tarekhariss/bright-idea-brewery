@@ -126,8 +126,20 @@ export function CompanyBulkActionsBar({ selectedIds, onDone }: Props) {
             </DialogDescription>
           </DialogHeader>
           {pushState.total > 0 && <BulkPushProgressBar state={pushState} />}
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
             <Button variant="outline" onClick={() => setAction(null)} disabled={pushState.running}>Close</Button>
+            {count > 50 && (
+              <Button variant="secondary" disabled={!workspaceId} onClick={async () => {
+                if (!workspaceId) return;
+                const { createBulkPushJob } = await import("@/hooks/use-crm-bulk-push");
+                try {
+                  await createBulkPushJob({ workspaceId, sourceKind: "companies", selectedIds, defaults: { source_channel: "manual_push", status: "interested" } });
+                  toast.success("Bulk job queued. Track progress in CRM › Bulk Jobs.");
+                  window.open("/crm/bulk-jobs", "_blank");
+                  setAction(null); onDone();
+                } catch (e: any) { toast.error(e.message); }
+              }}>Run as background job ({count})</Button>
+            )}
             <Button disabled={busy || !workspaceId || pushState.running} onClick={async () => {
               if (!workspaceId) return;
               setBusy(true);
@@ -139,7 +151,7 @@ export function CompanyBulkActionsBar({ selectedIds, onDone }: Props) {
               setBusy(false);
               toast.success(`CRM: ${final.created} created, ${final.updated} updated${final.failed ? `, ${final.failed} failed` : ""}`);
               onDone();
-            }}>{pushState.running ? "Pushing…" : pushState.total > 0 ? "Run again" : "Push to CRM"}</Button>
+            }}>{pushState.running ? "Pushing…" : pushState.total > 0 ? "Run again" : "Push inline"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
