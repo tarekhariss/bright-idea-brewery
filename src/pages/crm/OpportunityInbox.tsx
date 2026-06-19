@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useOpportunities, type OpportunityStatus } from "@/hooks/use-opportunities";
+import { useCrmSettings } from "@/hooks/use-crm-settings";
+import { StaleBadge } from "@/components/crm/StaleBadge";
 
 const STATUSES: { value: OpportunityStatus | "all"; label: string }[] = [
   { value: "all", label: "All open" },
@@ -18,6 +20,7 @@ const STATUSES: { value: OpportunityStatus | "all"; label: string }[] = [
 
 export default function OpportunityInbox() {
   const { opportunities, loading } = useOpportunities();
+  const { staleDays } = useCrmSettings();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<OpportunityStatus | "all">("all");
 
@@ -76,6 +79,7 @@ export default function OpportunityInbox() {
                     <Badge variant="outline" className="text-[10px]">{o.status.replace("_", " ")}</Badge>
                     {o.priority !== "normal" && <Badge variant="secondary" className="text-[10px]">{o.priority}</Badge>}
                     {o.deal_id && <Badge variant="outline" className="text-[10px]">deal</Badge>}
+                    <StaleBadge opportunity={o} staleDays={staleDays} compact />
                   </div>
                   <div className="text-xs text-muted-foreground truncate">
                     {o.contact?.email ?? "—"} · {o.company?.name ?? "—"} · via {o.source_channel}

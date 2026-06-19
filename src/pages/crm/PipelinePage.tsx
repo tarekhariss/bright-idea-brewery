@@ -3,9 +3,12 @@ import { Columns3 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { useOpportunities } from "@/hooks/use-opportunities";
+import { useCrmSettings } from "@/hooks/use-crm-settings";
+import { StaleBadge } from "@/components/crm/StaleBadge";
 
 export default function PipelinePage() {
   const { stages, byStage, loading, transition } = useOpportunities();
+  const { staleDays } = useCrmSettings();
 
   function onDragStart(e: React.DragEvent, id: string) {
     e.dataTransfer.setData("text/opp", id);
@@ -72,6 +75,7 @@ export default function PipelinePage() {
                         {o.priority !== "normal" && (
                           <Badge variant="secondary" className="text-[10px]">{o.priority}</Badge>
                         )}
+                        <StaleBadge opportunity={o} staleDays={staleDays} compact />
                       </div>
                     </Link>
                   ))}
