@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useWorkspace } from "@/hooks/use-workspace";
+import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -30,6 +32,7 @@ interface ListRow {
 export default function ListsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { workspaceId } = useWorkspace();
   const [lists, setLists] = useState<ListRow[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
@@ -75,6 +78,7 @@ export default function ListsPage() {
 
   const handleCreateStatic = async () => {
     if (!user || !newName.trim()) return;
+    if (!workspaceId) { toast.error("No active workspace"); return; }
     setCreating(true);
     const { error } = await db().from("lists").insert({
       name: newName.trim(),
@@ -82,8 +86,11 @@ export default function ListsPage() {
       is_dynamic: false,
       filter_criteria: null,
       created_by: user.id,
+      workspace_id: workspaceId,
     });
-    if (!error) {
+    if (error) {
+      toast.error(error.message);
+    } else {
       setCreateOpen(false);
       setNewName("");
       setNewDesc("");

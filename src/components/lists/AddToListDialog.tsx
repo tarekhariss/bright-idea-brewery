@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/hooks/use-workspace";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +26,7 @@ interface ListItem {
 
 export function AddToListDialog({ open, onOpenChange, contactIds, onSuccess }: AddToListDialogProps) {
   const { user } = useAuth();
+  const { workspaceId } = useWorkspace();
   const [lists, setLists] = useState<ListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -69,11 +71,13 @@ export function AddToListDialog({ open, onOpenChange, contactIds, onSuccess }: A
 
   const createAndAdd = async () => {
     if (!user || !newName.trim()) return;
+    if (!workspaceId) { toast({ title: "Error", description: "No active workspace", variant: "destructive" }); return; }
     setAdding(true);
     const { data, error } = await supabase.from("lists").insert({
       name: newName.trim(),
       is_dynamic: false,
       created_by: user.id,
+      workspace_id: workspaceId,
     } as any).select("id").single();
     if (error || !data) {
       toast({ title: "Error", description: error?.message ?? "Failed to create list", variant: "destructive" });
