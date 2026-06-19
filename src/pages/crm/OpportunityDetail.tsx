@@ -1,14 +1,19 @@
 import { useParams, Link } from "react-router-dom";
 import { useState } from "react";
-import { ArrowLeft, User, Building2, Sparkles, MessageSquare, Clock } from "lucide-react";
+import { ArrowLeft, User, Building2, Sparkles, MessageSquare, Clock, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { supabase } from "@/integrations/supabase/client";
 import { useOpportunityDetail } from "@/hooks/use-opportunity-detail";
 import { useOpportunities, type OpportunityStatus } from "@/hooks/use-opportunities";
+import { useCrmSettings } from "@/hooks/use-crm-settings";
+import { NextBestActionCard } from "@/components/crm/NextBestActionCard";
+import { StaleBadge } from "@/components/crm/StaleBadge";
 
 const STATUSES: OpportunityStatus[] = [
   "interested", "qualified", "meeting_requested", "meeting_booked",
@@ -19,7 +24,37 @@ export default function OpportunityDetail() {
   const { id } = useParams<{ id: string }>();
   const { opportunity, notes, timeline, loading, addNote, reload } = useOpportunityDetail(id);
   const { stages, transition } = useOpportunities({ includeClosed: true });
+  const { staleDays } = useCrmSettings();
   const [note, setNote] = useState("");
+  const [genLoading, setGenLoading] = useState(false);
+
+  async function generateSummary() {
+    if (!id) return;
+    setGenLoading(true);
+    try {
+      const { data, error } = await (supabase as any).functions.invoke("crm-ai-summary", {
+        body: { opportunity_id: id },
+      });
+      if (error) {
+        const ctx: any = (error as any).context;
+        const status = ctx?.status ?? ctx?.statusCode;
+        const message = ctx?.body?.message ?? ctx?.body?.error ?? error.message ?? "AI request failed";
+        if (status === 503) toast.error("AI is not configured for this workspace. Showing rule-based suggestions instead.");
+        else if (status === 429) toast.error("AI is rate-limited. Try again in a moment.");
+        else if (status === 402) toast.error("AI credits exhausted. Add credits to continue.");
+        else toast.error(`AI summary failed: ${message}`);
+        return;
+      }
+      if (data?.error) {
+        toast.error(`AI summary failed: ${data.message ?? data.error}`);
+        return;
+      }
+      toast.success("AI summary updated");
+      await reload();
+    } finally {
+      setGenLoading(false);
+    }
+  }
 
   if (loading) return <div className="p-6 text-sm text-muted-foreground">Loading…</div>;
   if (!opportunity) {
