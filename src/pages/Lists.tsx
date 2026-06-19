@@ -78,6 +78,7 @@ export default function ListsPage() {
 
   const handleCreateStatic = async () => {
     if (!user || !newName.trim()) return;
+    if (!workspaceId) { toast.error("No active workspace"); return; }
     setCreating(true);
     const { error } = await db().from("lists").insert({
       name: newName.trim(),
@@ -85,8 +86,11 @@ export default function ListsPage() {
       is_dynamic: false,
       filter_criteria: null,
       created_by: user.id,
+      workspace_id: workspaceId,
     });
-    if (!error) {
+    if (error) {
+      toast.error(error.message);
+    } else {
       setCreateOpen(false);
       setNewName("");
       setNewDesc("");
