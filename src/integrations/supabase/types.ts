@@ -2329,11 +2329,13 @@ export type Database = {
           created_count: number
           error_message: string | null
           failed_count: number
+          filter_snapshot: Json | null
           filters: Json
           id: string
           processed: number
           push_defaults: Json
           selected_ids: string[]
+          selection_mode: string
           source_kind: string
           started_at: string | null
           status: string
@@ -2349,11 +2351,13 @@ export type Database = {
           created_count?: number
           error_message?: string | null
           failed_count?: number
+          filter_snapshot?: Json | null
           filters?: Json
           id?: string
           processed?: number
           push_defaults?: Json
           selected_ids?: string[]
+          selection_mode?: string
           source_kind: string
           started_at?: string | null
           status?: string
@@ -2369,11 +2373,13 @@ export type Database = {
           created_count?: number
           error_message?: string | null
           failed_count?: number
+          filter_snapshot?: Json | null
           filters?: Json
           id?: string
           processed?: number
           push_defaults?: Json
           selected_ids?: string[]
+          selection_mode?: string
           source_kind?: string
           started_at?: string | null
           status?: string
@@ -2385,6 +2391,62 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "crm_bulk_push_jobs_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_job_runs: {
+        Row: {
+          auto_pushed: number
+          details: Json
+          duration_ms: number
+          error_message: string | null
+          errors: number
+          id: string
+          job_name: string
+          queued: number
+          ran_at: string
+          scanned: number
+          skipped: number
+          status: string
+          workspace_id: string
+        }
+        Insert: {
+          auto_pushed?: number
+          details?: Json
+          duration_ms?: number
+          error_message?: string | null
+          errors?: number
+          id?: string
+          job_name: string
+          queued?: number
+          ran_at?: string
+          scanned?: number
+          skipped?: number
+          status: string
+          workspace_id: string
+        }
+        Update: {
+          auto_pushed?: number
+          details?: Json
+          duration_ms?: number
+          error_message?: string | null
+          errors?: number
+          id?: string
+          job_name?: string
+          queued?: number
+          ran_at?: string
+          scanned?: number
+          skipped?: number
+          status?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_job_runs_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -10424,6 +10486,7 @@ export type Database = {
         Args: { p_id: string; p_overrides?: Json }
         Returns: Json
       }
+      approve_review_items_bulk: { Args: { p_ids: string[] }; Returns: Json }
       assert_email_allowed: { Args: never; Returns: undefined }
       assign_opportunity: {
         Args: { _opportunity_id: string; _owner_id: string }
@@ -10851,6 +10914,10 @@ export type Database = {
       reject_review_item: {
         Args: { p_id: string; p_reason?: string }
         Returns: undefined
+      }
+      reject_review_items_bulk: {
+        Args: { p_ids: string[]; p_reason?: string }
+        Returns: Json
       }
       resolve_contact_id: { Args: { _id: string }; Returns: string }
       retry_verification_result: {
