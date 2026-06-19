@@ -50,6 +50,8 @@ export default function CrmCommandCenter() {
         </div>
       </div>
 
+      <CrmOpsPanel />
+
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <StatCard label="Open" value={loading ? "…" : String(open.length)} to="/crm/opportunities" />
         <StatCard label="Mine" value={loading ? "…" : String(myOpen.length)} to="/crm/inbox" />
