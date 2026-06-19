@@ -187,6 +187,10 @@ function VL({ children }: { children: React.ReactNode }) {
   return <ProtectedRoute><VerificationLayout>{children}</VerificationLayout></ProtectedRoute>;
 }
 
+function CL({ children }: { children: React.ReactNode }) {
+  return <ProtectedRoute><CrmLayout>{children}</CrmLayout></ProtectedRoute>;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
