@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { useMailboxes, useDeleteMailbox, useUpdateMailbox } from "@/hooks/use-deliverability";
 import { EmailAccountDetailDrawer } from "@/components/engage/EmailAccountDetailDrawer";
+import { ConfigRequiredBanner } from "@/components/config";
 import { cn } from "@/lib/utils";
 
 const statusInfo: Record<string, { label: string; icon: any; cls: string }> = {
