@@ -39,6 +39,7 @@ export function BulkActionsBar({ selectedIds, onDone, onOpenAddToList }: BulkAct
   const [action, setAction] = useState<ActionType>(null);
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
+  const [pushState, setPushState] = useState<BulkPushProgressState>(initialBulkPushState);
 
   const count = selectedIds.length;
   if (count === 0) return null;
