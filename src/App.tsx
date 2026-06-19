@@ -98,6 +98,8 @@ import CrmNotes from "./pages/crm/CrmNotes";
 import CrmActivity from "./pages/crm/CrmActivity";
 import SmartQueues from "./pages/crm/SmartQueues";
 import CrmReports from "./pages/crm/CrmReports";
+import CrmReviewQueue from "./pages/crm/CrmReviewQueue";
+import CrmBulkJobs from "./pages/crm/CrmBulkJobs";
 import VfDashboardPage from "./pages/verification/DashboardPage";
 import VfJobsPage from "./pages/verification/JobsPage";
 import VfQueuePage from "./pages/verification/QueueMonitorPage";
