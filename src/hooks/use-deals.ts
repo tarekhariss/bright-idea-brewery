@@ -65,8 +65,8 @@ export interface DealInput {
 }
 
 export function useDeals() {
-  const { workspaceId, loading: wsLoading } = useWorkspace();
-  const { user } = useAuth();
+  const { user, workspaceId } = useAuth();
+  const wsLoading = false;
   const [deals, setDeals] = useState<Deal[]>([]);
   const [stages, setStages] = useState<PipelineStage[]>([]);
   const [pipelineId, setPipelineId] = useState<string | null>(null);
