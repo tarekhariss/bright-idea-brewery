@@ -10,6 +10,7 @@ import { useCrmSettings } from "@/hooks/use-crm-settings";
 import { filterQueue, SMART_QUEUES, isStale } from "@/lib/crm-rules";
 import { NextBestActionCard } from "@/components/crm/NextBestActionCard";
 import { StaleBadge } from "@/components/crm/StaleBadge";
+import { CrmOpsPanel } from "@/components/crm/CrmOpsPanel";
 
 const priorityColors: Record<string, string> = {
   urgent: "bg-red-500/15 text-red-700 dark:text-red-300",
@@ -48,6 +49,8 @@ export default function CrmCommandCenter() {
           <p className="text-sm text-muted-foreground">Triage, pipeline, and follow-ups across opportunities.</p>
         </div>
       </div>
+
+      <CrmOpsPanel />
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <StatCard label="Open" value={loading ? "…" : String(open.length)} to="/crm/opportunities" />

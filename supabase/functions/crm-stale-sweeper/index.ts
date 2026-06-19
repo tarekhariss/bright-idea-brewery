@@ -31,14 +31,18 @@ function json(s: number, b: unknown) {
 }
 
 async function sweepWorkspace(admin: any, workspaceId: string) {
+  const t0 = Date.now();
   const { data: settings } = await admin.from("crm_settings").select("default_stale_days, stale_sweeper_enabled")
     .eq("workspace_id", workspaceId).maybeSingle();
-  if (settings?.stale_sweeper_enabled === false) return { workspace_id: workspaceId, skipped: "disabled" };
+  if (settings?.stale_sweeper_enabled === false) {
+    await admin.from("crm_job_runs").insert({ workspace_id: workspaceId, job_name: "stale_sweeper",
+      status: "skipped", duration_ms: Date.now() - t0, details: { reason: "disabled" } });
+    return { workspace_id: workspaceId, skipped: "disabled" };
+  }
   const staleDays = settings?.default_stale_days ?? 14;
   const cutoff = new Date(Date.now() - staleDays * 86400_000).toISOString();
   const nowIso = new Date().toISOString();
 
-  // Fetch open opps
   const { data: opps } = await admin.from("opportunities")
     .select("id, status, last_activity_at, created_at, next_action_at, is_stale, contact_id, company_id")
     .eq("workspace_id", workspaceId)
@@ -68,10 +72,13 @@ async function sweepWorkspace(admin: any, workspaceId: string) {
     }));
     if (rows.length) await admin.from("activities").insert(rows);
   }
-  if (toClear.length) {
-    await admin.from("opportunities").update({ is_stale: false }).in("id", toClear);
-  }
+  if (toClear.length) await admin.from("opportunities").update({ is_stale: false }).in("id", toClear);
   await admin.from("crm_settings").update({ last_stale_sweep_at: nowIso }).eq("workspace_id", workspaceId);
+
+  await admin.from("crm_job_runs").insert({ workspace_id: workspaceId, job_name: "stale_sweeper",
+    status: "ok", scanned: (opps ?? []).length, queued: newlyStale, skipped: unchanged,
+    duration_ms: Date.now() - t0, details: { cleared, stale_days: staleDays } });
+
   return { workspace_id: workspaceId, newly_stale: newlyStale, cleared, unchanged };
 }
 

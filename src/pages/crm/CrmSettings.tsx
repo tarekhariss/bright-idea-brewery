@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { CrmOpsPanel } from "@/components/crm/CrmOpsPanel";
 
 interface CrmSettings {
   workspace_id: string;
@@ -92,6 +93,8 @@ export default function CrmSettingsPage() {
           <p className="text-sm text-muted-foreground">Default behaviour and automations for opportunities in this workspace.</p>
         </div>
       </div>
+
+      <CrmOpsPanel />
 
       <Card>
         <CardHeader><CardTitle className="text-base">Defaults</CardTitle></CardHeader>

@@ -47,6 +47,26 @@ Deno.serve(async (req) => {
   if (job.status === "running") return json(409, { error: "already_running" });
 
   let idsToProcess: string[] = job.selected_ids ?? [];
+
+  // Filter-replay mode: derive ids from a saved filter snapshot.
+  if (job.selection_mode === "filter" && job.filter_snapshot && !retryFailedOnly) {
+    const snap = job.filter_snapshot as any;
+    const table = job.source_kind === "companies" ? "companies"
+                : job.source_kind === "list"      ? "list_contacts"
+                : "contacts";
+    let q = (admin as any).from(table).select("id").eq("workspace_id", job.workspace_id).limit(5000);
+    if (job.source_kind === "list") {
+      q = (admin as any).from("list_contacts").select("contact_id").eq("list_id", snap.list_id).limit(5000);
+    } else {
+      // Generic field filters: { eq:{col:val}, ilike:{col:val}, in:{col:[]} }
+      for (const [col, val] of Object.entries(snap.eq ?? {})) q = q.eq(col, val);
+      for (const [col, val] of Object.entries(snap.ilike ?? {})) q = q.ilike(col, `%${val}%`);
+      for (const [col, arr] of Object.entries(snap.in ?? {})) q = q.in(col, arr as any[]);
+    }
+    const { data: rows } = await q;
+    idsToProcess = (rows ?? []).map((r: any) => r.id ?? r.contact_id).filter(Boolean);
+  }
+
   if (retryFailedOnly) {
     const { data: failed } = await admin.from("crm_bulk_push_job_rows").select("contact_id, company_id").eq("job_id", jobId).eq("outcome", "failed");
     idsToProcess = (failed ?? []).map((r: any) => r.contact_id ?? r.company_id).filter(Boolean);
@@ -118,6 +138,13 @@ Deno.serve(async (req) => {
     updated_count: updated, failed_count: failed,
     completed_at: new Date().toISOString(),
   }).eq("id", jobId);
+
+  await admin.from("crm_job_runs").insert({
+    workspace_id: job.workspace_id, job_name: "bulk_push",
+    status: failed > 0 ? "error" : "ok",
+    scanned: processed, queued: created, auto_pushed: updated, errors: failed,
+    details: { job_id: jobId, source_kind: job.source_kind, selection_mode: job.selection_mode },
+  });
 
   return json(200, { ok: true, processed, created, updated, failed });
 });

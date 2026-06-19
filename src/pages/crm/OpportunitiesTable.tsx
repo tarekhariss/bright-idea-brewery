@@ -1,28 +1,36 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { Table2 } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
+import { Table2, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
 import { useOpportunities } from "@/hooks/use-opportunities";
 import { useCrmSettings } from "@/hooks/use-crm-settings";
 import { StaleBadge } from "@/components/crm/StaleBadge";
+import { filterQueue, type SmartQueueKey, SMART_QUEUES } from "@/lib/crm-rules";
 
 export default function OpportunitiesTable() {
-  const [includeClosed, setIncludeClosed] = useState(false);
-  const { opportunities, loading } = useOpportunities({ includeClosed });
+  const [params, setParams] = useSearchParams();
+  const queueKey = params.get("queue") as SmartQueueKey | null;
+  const [includeClosed, setIncludeClosed] = useState(queueKey === "stale");
+  const { opportunities, loading } = useOpportunities({ includeClosed: includeClosed || !!queueKey });
   const { staleDays } = useCrmSettings();
   const [q, setQ] = useState("");
 
   const rows = useMemo(() => {
+    let list = opportunities;
+    if (queueKey) list = filterQueue(queueKey, list, staleDays);
     const s = q.trim().toLowerCase();
-    if (!s) return opportunities;
-    return opportunities.filter((o) => {
+    if (!s) return list;
+    return list.filter((o) => {
       const name = `${o.contact?.first_name ?? ""} ${o.contact?.last_name ?? ""}`.toLowerCase();
       return [name, o.company?.name ?? "", o.title ?? "", o.contact?.email ?? ""].join(" ").toLowerCase().includes(s);
     });
-  }, [opportunities, q]);
+  }, [opportunities, q, queueKey, staleDays]);
+
+  const queueLabel = queueKey ? SMART_QUEUES.find((q) => q.key === queueKey)?.label : null;
 
   return (
     <div className="p-6 space-y-4 max-w-[1400px] mx-auto">
@@ -42,6 +50,14 @@ export default function OpportunitiesTable() {
           <Checkbox checked={includeClosed} onCheckedChange={(v) => setIncludeClosed(!!v)} />
           Include closed
         </label>
+        {queueLabel && (
+          <Badge variant="secondary" className="gap-1">
+            Queue: {queueLabel}
+            <button onClick={() => { params.delete("queue"); setParams(params); }} aria-label="Clear filter">
+              <X className="h-3 w-3" />
+            </button>
+          </Badge>
+        )}
       </div>
 
       <Card>
