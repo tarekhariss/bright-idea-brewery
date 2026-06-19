@@ -1,12 +1,12 @@
 import { PageContainer, SectionHeader } from "@/components/verification/kit";
 import { Card } from "@/components/ui/card";
 import { Sparkles, Brain, Network, LineChart } from "lucide-react";
-import { ComingSoonBanner, ComingSoonBadge } from "@/components/config";
+import { ComingSoonBanner } from "@/components/config";
 
 export default function AIScoringPlaceholderPage() {
   return (
     <PageContainer>
-      <SectionHeader title={<span className="flex items-center gap-2">AI Risk Scoring <ComingSoonBadge /></span> as any} subtitle="Future module — schema is already in place" />
+      <SectionHeader title="AI Risk Scoring" subtitle="Future module — schema is already in place" />
       <ComingSoonBanner
         title="AI risk scoring is not active yet"
         scope={["Behavioral signals", "Multi-engine consensus", "Bounce / open / reply feedback loop"]}
