@@ -14,6 +14,9 @@ const BATCH_SIZE = 500;
 const RETRY_SUB_BATCH = 50;
 const MAX_RETRIES = 2;
 const MAX_TIMING_BATCHES = 30;
+// Self-continuation: when wall-clock exceeds this, exit cleanly and re-invoke ourselves so
+// imports of 100k+ rows don't get killed by the Deno edge function timeout (~5 min hard cap).
+const MAX_WALL_CLOCK_MS = 230_000; // 3m50s — well under the platform 5m budget
 
 const RequestSchema = z.object({ job_id: z.string().uuid() });
 
@@ -454,18 +457,30 @@ Deno.serve(async (req: Request) => {
       return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: corsHeaders });
     }
 
-    console.log(`[import] Starting job ${job_id}, total_rows=${job.total_rows}`);
+    // Detect continuation vs. fresh start: a resume case is when the job is already
+    // marked processing and has staged rows still in flight (some processed, some pending).
+    const prevDiag = (job.error_summary && typeof job.error_summary === "object" ? (job.error_summary as any).diagnostics : null) ?? null;
+    const isResume = job.status === "processing" && (job.processed_rows ?? 0) > 0;
 
-    // Reset counters fresh — never carry over stale counters from a previous broken run
-    diag = {};
-    updateDiag({ phase: "loading_existing_records", last_progress_at: nowIso(), total_rows: job.total_rows, batch_size: BATCH_SIZE });
+    console.log(`[import] ${isResume ? "Resuming" : "Starting"} job ${job_id}, total_rows=${job.total_rows}, processed_so_far=${job.processed_rows ?? 0}`);
 
-    await supabase.from("import_jobs").update({
-      status: "processing", started_at: nowIso(),
-      processed_rows: 0, success_rows: 0, inserted_rows: 0,
-      error_rows: 0, duplicate_rows: 0, review_rows: 0,
-      error_summary: diag,
-    }).eq("id", job_id);
+    if (isResume) {
+      // Preserve prior diagnostics and counters; only refresh the heartbeat phase.
+      diag = { diagnostics: { ...(prevDiag ?? {}), phase: "resuming", last_progress_at: nowIso() } };
+      await supabase.from("import_jobs").update({
+        status: "processing", error_summary: diag,
+      }).eq("id", job_id);
+    } else {
+      // Fresh start — never carry over stale counters from a previous broken run.
+      diag = {};
+      updateDiag({ phase: "loading_existing_records", last_progress_at: nowIso(), total_rows: job.total_rows, batch_size: BATCH_SIZE });
+      await supabase.from("import_jobs").update({
+        status: "processing", started_at: nowIso(),
+        processed_rows: 0, success_rows: 0, inserted_rows: 0,
+        error_rows: 0, duplicate_rows: 0, review_rows: 0,
+        error_summary: diag,
+      }).eq("id", job_id);
+    }
 
     // Count actual staged rows (source of truth)
     const { count: stagedRowCount } = await (supabase.from("import_job_rows") as any)
@@ -503,16 +518,50 @@ Deno.serve(async (req: Request) => {
       fieldReport[fieldKey] = { inserted: 0, blank: 0, target };
     }
 
-    let processedRows = 0;
-    let successRows = 0;
-    let insertedRows = 0;
-    let errorRows = 0;
-    let duplicateRows = 0;
-    let reviewRows = 0;
-    let batchIndex = 0;
+    // On resume, hydrate in-memory counters from persisted job state so progress doesn't reset.
+    let processedRows = isResume ? (job.processed_rows ?? 0) : 0;
+    let successRows = isResume ? (job.success_rows ?? 0) : 0;
+    let insertedRows = isResume ? (job.inserted_rows ?? 0) : 0;
+    let errorRows = isResume ? (job.error_rows ?? 0) : 0;
+    let duplicateRows = isResume ? (job.duplicate_rows ?? 0) : 0;
+    let reviewRows = isResume ? (job.review_rows ?? 0) : 0;
+    let batchIndex = isResume ? (prevDiag?.total_batches ?? 0) : 0;
+    const wallClockStart = performance.now();
 
     // Main processing loop — fetch only PENDING rows, ordered by row_number
     while (true) {
+      // Self-continuation check: bail out before the platform kills us, and re-invoke ourselves
+      // so the next invocation picks up the remaining pending rows seamlessly.
+      if (performance.now() - wallClockStart > MAX_WALL_CLOCK_MS) {
+        console.log(`[import] Wall-clock budget reached after batch ${batchIndex}. Self-resuming.`);
+        updateDiag({
+          phase: "self_resume_scheduled",
+          last_progress_at: nowIso(),
+          self_resume_count: ((diag?.diagnostics?.self_resume_count ?? 0) + 1),
+        });
+        await supabase.from("import_jobs").update({
+          status: "processing",
+          processed_rows: processedRows, success_rows: successRows,
+          inserted_rows: insertedRows, error_rows: errorRows,
+          duplicate_rows: duplicateRows, review_rows: reviewRows,
+          error_summary: diag,
+        }).eq("id", job_id);
+        // Fire-and-forget re-invoke; do not await so we return immediately.
+        try {
+          const authHeader = req.headers.get("Authorization") ?? "";
+          fetch(`${supabaseUrl}/functions/v1/run-import-job`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": authHeader, "apikey": anonKey },
+            body: JSON.stringify({ job_id }),
+          }).catch((e) => console.warn(`[import] Self-resume invoke failed: ${e?.message}`));
+        } catch (e: any) {
+          console.warn(`[import] Self-resume could not be scheduled: ${e?.message}`);
+        }
+        return new Response(JSON.stringify({ success: true, job_id, resumed: true, processed_rows: processedRows }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       const { data: pendingRows, error: pendingErr } = await supabase
         .from("import_job_rows")
         .select("id, row_number, raw_data")
