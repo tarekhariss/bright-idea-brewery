@@ -32,6 +32,7 @@ interface ListRow {
 export default function ListsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { workspaceId } = useWorkspace();
   const [lists, setLists] = useState<ListRow[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
