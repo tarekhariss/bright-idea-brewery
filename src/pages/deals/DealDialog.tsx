@@ -22,7 +22,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { X, Check, ChevronsUpDown, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useWorkspace } from "@/hooks/use-workspace";
+
 import { useAuth } from "@/contexts/AuthContext";
 import type { Deal, DealInput, PipelineStage } from "@/hooks/use-deals";
 
