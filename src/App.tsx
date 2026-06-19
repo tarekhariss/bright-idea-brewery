@@ -248,11 +248,25 @@ const App = () => (
             <Route path="/linkedin/analytics" element={<LL><LinkedinAnalyticsPage /></LL>} />
             <Route path="/linkedin/settings" element={<LL><LinkedinSettingsPage /></LL>} />
 
+            {/* CRM — standalone intelligent CRM workspace (Phase 1) */}
+            <Route path="/crm" element={<CL><CrmCommandCenter /></CL>} />
+            <Route path="/crm/inbox" element={<CL><OpportunityInbox /></CL>} />
+            <Route path="/crm/pipeline" element={<CL><CrmPipelinePage /></CL>} />
+            <Route path="/crm/opportunities" element={<CL><OpportunitiesTable /></CL>} />
+            <Route path="/crm/opportunities/:id" element={<CL><OpportunityDetail /></CL>} />
+            <Route path="/crm/accounts" element={<CL><CrmComingSoon title="Accounts" scope={["Account-centric view of opportunities", "Multi-stakeholder rollups", "Account scoring"]} /></CL>} />
+            <Route path="/crm/contacts" element={<CL><CrmComingSoon title="Contacts" scope={["CRM-styled contact directory", "Per-contact opportunity history"]} /></CL>} />
+            <Route path="/crm/deals" element={<CL><CrmComingSoon title="Deals" scope={["CRM-styled deals view linked to opportunities"]} /></CL>} />
+            <Route path="/crm/tasks" element={<CL><CrmComingSoon title="Tasks" scope={["Tasks scoped to CRM opportunities (Phase 1.5)"]} /></CL>} />
+            <Route path="/crm/notes" element={<CL><CrmComingSoon title="Notes" scope={["Global notes index across opportunities"]} /></CL>} />
+            <Route path="/crm/settings" element={<CL><CrmSettingsPage /></CL>} />
+
             {/* Deals */}
             <Route path="/deals" element={<PL><MeetingsPage /></PL>} />
             <Route path="/deals/meetings" element={<PL><MeetingsPage /></PL>} />
             <Route path="/deals/conversations" element={<PL><ConversationsPage /></PL>} />
             <Route path="/deals/deals" element={<PL><DealsPage /></PL>} />
+
 
             {/* Tools */}
             <Route path="/tools" element={<PL><WorkflowsListPage /></PL>} />
