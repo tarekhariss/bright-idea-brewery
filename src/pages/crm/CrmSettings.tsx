@@ -106,7 +106,11 @@ export default function CrmSettingsPage() {
         <CardContent className="space-y-4">
           <ComingSoonBanner
             title="Auto positive-reply detection — Coming soon"
-            description="Phase 2 will classify inbound email + LinkedIn replies and push high-confidence positives into the CRM. Toggle below is saved but not active yet."
+            scope={[
+              "Classifies inbound email + LinkedIn replies",
+              "Pushes high-confidence positives into the CRM",
+              "Toggle below is saved but not active yet",
+            ]}
           />
           <Toggle
             label="Auto-detect positive replies (Phase 2)"
