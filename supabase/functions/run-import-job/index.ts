@@ -513,9 +513,42 @@ Deno.serve(async (req: Request) => {
     let duplicateRows = 0;
     let reviewRows = 0;
     let batchIndex = 0;
+    const wallClockStart = performance.now();
 
     // Main processing loop — fetch only PENDING rows, ordered by row_number
     while (true) {
+      // Self-continuation check: bail out before the platform kills us, and re-invoke ourselves
+      // so the next invocation picks up the remaining pending rows seamlessly.
+      if (performance.now() - wallClockStart > MAX_WALL_CLOCK_MS) {
+        console.log(`[import] Wall-clock budget reached after batch ${batchIndex}. Self-resuming.`);
+        updateDiag({
+          phase: "self_resume_scheduled",
+          last_progress_at: nowIso(),
+          self_resume_count: ((diag?.diagnostics?.self_resume_count ?? 0) + 1),
+        });
+        await supabase.from("import_jobs").update({
+          status: "processing",
+          processed_rows: processedRows, success_rows: successRows,
+          inserted_rows: insertedRows, error_rows: errorRows,
+          duplicate_rows: duplicateRows, review_rows: reviewRows,
+          error_summary: diag,
+        }).eq("id", job_id);
+        // Fire-and-forget re-invoke; do not await so we return immediately.
+        try {
+          const authHeader = req.headers.get("Authorization") ?? "";
+          fetch(`${supabaseUrl}/functions/v1/run-import-job`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": authHeader, "apikey": anonKey },
+            body: JSON.stringify({ job_id }),
+          }).catch((e) => console.warn(`[import] Self-resume invoke failed: ${e?.message}`));
+        } catch (e: any) {
+          console.warn(`[import] Self-resume could not be scheduled: ${e?.message}`);
+        }
+        return new Response(JSON.stringify({ success: true, job_id, resumed: true, processed_rows: processedRows }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       const { data: pendingRows, error: pendingErr } = await supabase
         .from("import_job_rows")
         .select("id, row_number, raw_data")
