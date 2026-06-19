@@ -66,7 +66,7 @@ export interface DealInput {
 }
 
 export function useDeals() {
-  const { workspaceId } = useWorkspace();
+  const { workspaceId, loading: wsLoading } = useWorkspace();
   const { user } = useAuth();
   const [deals, setDeals] = useState<Deal[]>([]);
   const [stages, setStages] = useState<PipelineStage[]>([]);
@@ -74,7 +74,10 @@ export function useDeals() {
   const [loading, setLoading] = useState(true);
 
   const loadAll = useCallback(async () => {
-    if (!workspaceId) return;
+    if (!workspaceId) {
+      if (!wsLoading) setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       // Resolve default deal pipeline
