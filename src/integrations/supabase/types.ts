@@ -2052,6 +2052,7 @@ export type Database = {
           education: Json | null
           email: string | null
           email_confidence: number | null
+          email_normalized: string | null
           email_validity_status: Database["public"]["Enums"]["email_validity"]
           enrichment_data: Json | null
           enrichment_source: string | null
@@ -2073,6 +2074,8 @@ export type Database = {
           last_verified_at: string | null
           lifecycle_status: Database["public"]["Enums"]["lifecycle_status"]
           linkedin_url: string | null
+          merged_at: string | null
+          merged_into: string | null
           mobile_phone: string | null
           normalized_name: string | null
           notes: string | null
@@ -2121,6 +2124,7 @@ export type Database = {
           education?: Json | null
           email?: string | null
           email_confidence?: number | null
+          email_normalized?: string | null
           email_validity_status?: Database["public"]["Enums"]["email_validity"]
           enrichment_data?: Json | null
           enrichment_source?: string | null
@@ -2142,6 +2146,8 @@ export type Database = {
           last_verified_at?: string | null
           lifecycle_status?: Database["public"]["Enums"]["lifecycle_status"]
           linkedin_url?: string | null
+          merged_at?: string | null
+          merged_into?: string | null
           mobile_phone?: string | null
           normalized_name?: string | null
           notes?: string | null
@@ -2190,6 +2196,7 @@ export type Database = {
           education?: Json | null
           email?: string | null
           email_confidence?: number | null
+          email_normalized?: string | null
           email_validity_status?: Database["public"]["Enums"]["email_validity"]
           enrichment_data?: Json | null
           enrichment_source?: string | null
@@ -2211,6 +2218,8 @@ export type Database = {
           last_verified_at?: string | null
           lifecycle_status?: Database["public"]["Enums"]["lifecycle_status"]
           linkedin_url?: string | null
+          merged_at?: string | null
+          merged_into?: string | null
           mobile_phone?: string | null
           normalized_name?: string | null
           notes?: string | null
@@ -2247,6 +2256,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contacts_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "contacts"
             referencedColumns: ["id"]
           },
           {
@@ -10109,6 +10125,15 @@ export type Database = {
         }
         Returns: string
       }
+      merge_duplicate_contacts_by_email: {
+        Args: never
+        Returns: {
+          email: string
+          merged_count: number
+          survivor_id: string
+          workspace_id: string
+        }[]
+      }
       pick_campaign_mailbox: { Args: { _campaign_id: string }; Returns: string }
       record_bounce: {
         Args: {
@@ -10174,6 +10199,7 @@ export type Database = {
         Args: { _limit?: number }
         Returns: number
       }
+      resolve_contact_id: { Args: { _id: string }; Returns: string }
       retry_verification_result: {
         Args: { _error: string; _result_id: string }
         Returns: undefined

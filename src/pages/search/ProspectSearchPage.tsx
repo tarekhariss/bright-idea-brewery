@@ -172,15 +172,21 @@ export default function ProspectSearchPage() {
 
   const sourceFile = searchParams.get("source_file") || undefined;
   const importTag = searchParams.get("import_tag") || undefined;
+  const listIdParam = searchParams.get("list_id") || undefined;
 
   const { workspaceId: authWorkspaceId } = useAuth();
   const workspaceId = authWorkspaceId || "";
 
   const { searches, create: createSearch, isCreating } = useSavedSearches(state.entityType, workspaceId);
 
+  // If a list_id is in the URL, inject it as an include-list filter (non-destructive).
+  const effectiveFilter = listIdParam
+    ? { ...state.filterDefinition, includeLists: Array.from(new Set([...(state.filterDefinition.includeLists ?? []), listIdParam])) }
+    : state.filterDefinition;
+
   const searchResult = useProspectSearch({
     entityType: state.entityType,
-    filterDefinition: state.filterDefinition,
+    filterDefinition: effectiveFilter,
     search: state.search,
     sortBy: state.sortBy,
     sortDirection: state.sortDirection,
@@ -236,11 +242,12 @@ export default function ProspectSearchPage() {
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Import filter banner */}
-        {sourceFile && (
+        {(sourceFile || listIdParam) && (
           <div className="px-4 py-2 bg-primary/5 border-b flex items-center justify-between">
             <span className="text-sm text-foreground">
-              Showing contacts imported from <strong>{sourceFile}</strong>
-              {importTag && <> (tag: <strong>{importTag}</strong>)</>}
+              {sourceFile && <>Showing contacts imported from <strong>{sourceFile}</strong></>}
+              {sourceFile && importTag && <> (tag: <strong>{importTag}</strong>)</>}
+              {!sourceFile && listIdParam && <>Showing contacts in the selected list</>}
             </span>
             <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setSearchParams({})}>
               Clear filter
