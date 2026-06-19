@@ -112,6 +112,10 @@ export default function UniboxPage() {
         </Tabs>
       </div>
 
+      <div className="px-6 pt-3">
+        <ConfigRequiredBanner capabilities={["email"]} title="Replies and threads need a connected inbox" />
+      </div>
+
       {/* Filter bar */}
       <div className="flex flex-wrap items-center gap-2 border-b bg-card/50 px-6 py-2">
         <div className="relative max-w-sm flex-1">

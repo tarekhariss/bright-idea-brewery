@@ -34,6 +34,11 @@ export default function LinkedinInboxPage() {
         </div>
       </header>
 
+      <div className="px-6 pt-3">
+        <ConfigRequiredBanner capabilities={["linkedin"]} title="LinkedIn Inbox is empty without a connected account" />
+      </div>
+
+
       <Tabs value={category || "all"} onValueChange={(v) => setCategory(v === "all" ? "" : v)} className="px-6 pt-3">
         <TabsList>
           {CATEGORIES.map((c) => <TabsTrigger key={c.value || "all"} value={c.value || "all"}>{c.label}</TabsTrigger>)}
