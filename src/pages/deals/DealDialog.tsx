@@ -44,8 +44,7 @@ function contactLabel(c: ContactOpt) {
 }
 
 export function DealDialog({ open, onOpenChange, stages, deal, onSubmit }: Props) {
-  const { workspaceId } = useWorkspace();
-  const { user } = useAuth();
+  const { user, workspaceId } = useAuth();
   const [saving, setSaving] = useState(false);
 
   const [name, setName] = useState("");
