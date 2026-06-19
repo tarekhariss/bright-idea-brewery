@@ -10,6 +10,7 @@ import { useCrmSettings } from "@/hooks/use-crm-settings";
 import { filterQueue, SMART_QUEUES, isStale } from "@/lib/crm-rules";
 import { NextBestActionCard } from "@/components/crm/NextBestActionCard";
 import { StaleBadge } from "@/components/crm/StaleBadge";
+import { CrmOpsPanel } from "@/components/crm/CrmOpsPanel";
 
 const priorityColors: Record<string, string> = {
   urgent: "bg-red-500/15 text-red-700 dark:text-red-300",
