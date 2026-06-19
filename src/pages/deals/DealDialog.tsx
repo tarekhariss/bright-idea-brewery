@@ -77,21 +77,24 @@ export function DealDialog({ open, onOpenChange, stages, deal, onSubmit }: Props
   useEffect(() => {
     if (!open || !workspaceId) return;
     (async () => {
-      const { data } = await (supabase as any)
+      const { data: rows } = await (supabase as any)
         .from("workspace_members")
-        .select("user_id, profiles:profiles!workspace_members_user_id_fkey(id, full_name, email)")
+        .select("user_id")
         .eq("workspace_id", workspaceId);
-      const opts: UserOpt[] = (data ?? [])
-        .map((m: any) => m.profiles)
-        .filter(Boolean);
-      if (opts.length === 0 && user) {
-        // Fallback to current user
-        const { data: me } = await (supabase as any)
-          .from("profiles").select("id, full_name, email").eq("id", user.id).maybeSingle();
-        if (me) setMembers([me]);
-      } else {
-        setMembers(opts);
+      const ids = (rows ?? []).map((r: any) => r.user_id).filter(Boolean);
+      if (ids.length === 0) {
+        if (user) {
+          const { data: me } = await (supabase as any)
+            .from("profiles").select("id, full_name, email").eq("id", user.id).maybeSingle();
+          if (me) setMembers([me]);
+        }
+        return;
       }
+      const { data: profs } = await (supabase as any)
+        .from("profiles")
+        .select("id, full_name, email")
+        .in("id", ids);
+      setMembers((profs ?? []) as UserOpt[]);
     })();
   }, [open, workspaceId, user]);
 
