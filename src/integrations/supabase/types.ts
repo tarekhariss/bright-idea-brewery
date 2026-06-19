@@ -6721,6 +6721,7 @@ export type Database = {
       opportunities: {
         Row: {
           ai_generated_at: string | null
+          ai_model: string | null
           ai_next_best_action: string | null
           ai_summary: string | null
           close_reason: string | null
@@ -6751,10 +6752,12 @@ export type Database = {
           status: Database["public"]["Enums"]["opportunity_status"]
           title: string | null
           updated_at: string
+          urgency: string | null
           workspace_id: string
         }
         Insert: {
           ai_generated_at?: string | null
+          ai_model?: string | null
           ai_next_best_action?: string | null
           ai_summary?: string | null
           close_reason?: string | null
@@ -6785,10 +6788,12 @@ export type Database = {
           status?: Database["public"]["Enums"]["opportunity_status"]
           title?: string | null
           updated_at?: string
+          urgency?: string | null
           workspace_id: string
         }
         Update: {
           ai_generated_at?: string | null
+          ai_model?: string | null
           ai_next_best_action?: string | null
           ai_summary?: string | null
           close_reason?: string | null
@@ -6819,6 +6824,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["opportunity_status"]
           title?: string | null
           updated_at?: string
+          urgency?: string | null
           workspace_id?: string
         }
         Relationships: [
