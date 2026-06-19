@@ -26,6 +26,7 @@ interface ListItem {
 
 export function AddToListDialog({ open, onOpenChange, contactIds, onSuccess }: AddToListDialogProps) {
   const { user } = useAuth();
+  const { workspaceId } = useWorkspace();
   const [lists, setLists] = useState<ListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [adding, setAdding] = useState(false);
