@@ -89,8 +89,8 @@ export default function LinkedinInboxPage() {
                       contactId={t.contact_id ?? t.contacts?.id ?? null}
                       sourceThreadId={t.id}
                       sourceThreadType="linkedin"
-                      sourceCampaignId={t.linkedin_campaign_id ?? null}
-                      sourceCampaignType={t.linkedin_campaign_id ? "linkedin" : null}
+                      sourceCampaignId={t.campaign_id ?? null}
+                      sourceCampaignType={t.campaign_id ? "linkedin" : null}
                       sourceChannel="linkedin_reply"
                       defaultTitle={t.subject || t.preview || undefined}
                     />
