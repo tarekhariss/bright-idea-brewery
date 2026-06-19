@@ -60,6 +60,13 @@ export interface Opportunity {
   last_activity_at: string | null;
   closed_at: string | null;
   close_reason: string | null;
+  ai_summary: string | null;
+  ai_next_best_action: string | null;
+  ai_generated_at: string | null;
+  urgency: string | null;
+  icp_fit_score: number | null;
+  objections: string[] | null;
+  risk_flags: string[] | null;
   created_at: string;
   updated_at: string;
   contact?: { id: string; first_name: string | null; last_name: string | null; email: string | null } | null;
@@ -85,6 +92,8 @@ export interface PushToCrmPayload {
   note?: string | null;
   next_task?: { title: string; due_at?: string | null } | null;
   deal?: { create: boolean; value?: number | null; name?: string | null } | null;
+  /** Atomically links the new/updated opportunity to this existing deal (RPC-handled, workspace-scoped). */
+  link_deal_id?: string | null;
   force_create_new?: boolean;
 }
 
@@ -125,7 +134,9 @@ export function useOpportunities(opts?: { includeClosed?: boolean }) {
           `id, workspace_id, owner_id, contact_id, company_id, deal_id, pipeline_id, stage_id,
            status, priority, source_channel, source_campaign_type, source_campaign_id,
            source_thread_type, source_thread_id, source_message_id, title, intent_signal,
-           next_action_at, last_activity_at, closed_at, close_reason, created_at, updated_at,
+           next_action_at, last_activity_at, closed_at, close_reason,
+           ai_summary, ai_next_best_action, ai_generated_at, urgency, icp_fit_score, objections, risk_flags,
+           created_at, updated_at,
            contact:contacts(id, first_name, last_name, email),
            company:companies(id, name)`
         )
