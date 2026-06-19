@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCampaigns, useCreateCampaign, useUpdateCampaign, useDeleteCampaign } from "@/hooks/use-campaigns";
+import { ConfigRequiredBanner } from "@/components/config";
 import { cn } from "@/lib/utils";
 
 const statusBadge = (s: string) => {
@@ -80,6 +81,10 @@ export default function CampaignsPage() {
         <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={() => setAddOpen(true)}>
           <Plus className="h-3.5 w-3.5" /> New Campaign
         </Button>
+      </div>
+
+      <div className="px-6 pt-3">
+        <ConfigRequiredBanner capabilities={["email", "domains"]} title="Campaigns can't send yet" />
       </div>
 
       {/* Toolbar */}

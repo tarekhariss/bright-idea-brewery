@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useLinkedinActionQueue, useUpdateQueueAction, useDeleteQueueAction } from "@/hooks/use-linkedin-platform";
 import { useLinkedinAccounts } from "@/hooks/use-linkedin";
 import { useLinkedinCampaigns } from "@/hooks/use-linkedin-campaigns";
+import { ConfigRequiredBanner } from "@/components/config";
 
 const STATUS_OPTIONS = ["pending", "scheduled", "in_progress", "completed", "failed", "blocked", "paused"];
 const ACTION_OPTIONS = [
@@ -61,10 +62,7 @@ export default function LinkedinActionQueuePage() {
         </div>
       </div>
 
-      <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400 flex items-start gap-2">
-        <ShieldAlert className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-        <span>LinkedIn action execution is <b>pending activation</b>. Queued actions are persisted; nothing is currently being sent to LinkedIn.</span>
-      </div>
+      <ConfigRequiredBanner capabilities={["linkedin"]} title="No active LinkedIn account — queue won't drain" />
 
       <div className="grid grid-cols-7 gap-3">
         {STATUS_OPTIONS.map(s => (

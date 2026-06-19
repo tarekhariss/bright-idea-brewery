@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { useMailboxes, useDeleteMailbox, useUpdateMailbox } from "@/hooks/use-deliverability";
 import { EmailAccountDetailDrawer } from "@/components/engage/EmailAccountDetailDrawer";
+import { ConfigRequiredBanner } from "@/components/config";
 import { cn } from "@/lib/utils";
 
 const statusInfo: Record<string, { label: string; icon: any; cls: string }> = {
@@ -67,6 +68,12 @@ export default function EmailAccountsPage() {
           <Plus className="h-3.5 w-3.5" /> Connect Account
         </Button>
       </div>
+
+      <div className="px-6 pt-3">
+        <ConfigRequiredBanner capabilities={["domains"]} title="Add a verified sending domain to start sending" />
+      </div>
+
+
 
       {/* KPIs */}
       <div className="grid grid-cols-4 gap-3 border-b bg-card/30 px-6 py-3">

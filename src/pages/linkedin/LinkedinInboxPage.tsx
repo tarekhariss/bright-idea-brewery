@@ -5,6 +5,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useLinkedinInboxThreads, useLinkedinInboxMessages, useUpdateLinkedinThread } from "@/hooks/use-linkedin-campaigns";
+import { ConfigRequiredBanner } from "@/components/config";
 
 const CATEGORIES = [
   { value: "", label: "All" },
@@ -32,6 +33,11 @@ export default function LinkedinInboxPage() {
           <p className="text-[11px] text-muted-foreground">Replies from your LinkedIn campaigns.</p>
         </div>
       </header>
+
+      <div className="px-6 pt-3">
+        <ConfigRequiredBanner capabilities={["linkedin"]} title="LinkedIn Inbox is empty without a connected account" />
+      </div>
+
 
       <Tabs value={category || "all"} onValueChange={(v) => setCategory(v === "all" ? "" : v)} className="px-6 pt-3">
         <TabsList>

@@ -24,6 +24,7 @@ import {
   CATEGORY_META, PRIMARY_CATEGORIES, type ReplyCategory,
 } from "@/hooks/use-inbox-classification";
 import { format, formatDistanceToNow } from "date-fns";
+import { ConfigRequiredBanner } from "@/components/config";
 import { cn } from "@/lib/utils";
 
 const statusColor: Record<string, string> = {
@@ -109,6 +110,10 @@ export default function UniboxPage() {
             <TabsTrigger value="others" className="h-7 text-xs">Others</TabsTrigger>
           </TabsList>
         </Tabs>
+      </div>
+
+      <div className="px-6 pt-3">
+        <ConfigRequiredBanner capabilities={["email"]} title="Replies and threads need a connected inbox" />
       </div>
 
       {/* Filter bar */}

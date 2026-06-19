@@ -17,6 +17,7 @@ import { Progress } from "@/components/ui/progress";
 import {
   useLinkedinAccounts, useCreateLinkedinAccount, useUpdateLinkedinAccount, useDeleteLinkedinAccount,
 } from "@/hooks/use-linkedin";
+import { ConfigRequiredBanner } from "@/components/config";
 
 export default function LinkedInAccountsPage() {
   const navigate = useNavigate();
@@ -45,6 +46,7 @@ export default function LinkedInAccountsPage() {
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
+      <ConfigRequiredBanner capabilities={["linkedin"]} title="Connect a LinkedIn account to run outreach" />
       <div className="flex items-center justify-between">
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sky-500/10 text-sky-600">
