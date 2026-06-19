@@ -50,6 +50,14 @@ export default function OpportunitiesTable() {
           <Checkbox checked={includeClosed} onCheckedChange={(v) => setIncludeClosed(!!v)} />
           Include closed
         </label>
+        {queueLabel && (
+          <Badge variant="secondary" className="gap-1">
+            Queue: {queueLabel}
+            <button onClick={() => { params.delete("queue"); setParams(params); }} aria-label="Clear filter">
+              <X className="h-3 w-3" />
+            </button>
+          </Badge>
+        )}
       </div>
 
       <Card>
