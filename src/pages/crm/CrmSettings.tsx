@@ -94,6 +94,8 @@ export default function CrmSettingsPage() {
         </div>
       </div>
 
+      <CrmOpsPanel />
+
       <Card>
         <CardHeader><CardTitle className="text-base">Defaults</CardTitle></CardHeader>
         <CardContent className="space-y-4">
