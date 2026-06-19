@@ -70,24 +70,44 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json(405, { error: "Method not allowed" });
 
+  const t0 = Date.now();
+  const admin = createClient(SUPABASE_URL, SERVICE_KEY);
+  const cronHeader = req.headers.get("x-cron-secret");
+  const CRON_SECRET = Deno.env.get("CRON_SECRET");
+  const isCron = !!CRON_SECRET && cronHeader === CRON_SECRET;
+
+  const body = await req.json().catch(() => ({}));
+  const lookbackHours: number = Math.min(168, Math.max(1, Number(body.lookback_hours) || 24));
+
+  // Cron path: iterate all workspaces with auto_detect enabled
+  if (isCron) {
+    const { data: ws } = await admin.from("crm_settings").select("workspace_id").eq("auto_detect_positive_replies", true);
+    const out = [];
+    for (const w of ws ?? []) out.push(await runForWorkspace(admin, w.workspace_id, lookbackHours, null, t0));
+    return json(200, { ok: true, results: out });
+  }
+
   const authHeader = req.headers.get("Authorization") ?? "";
   if (!authHeader.startsWith("Bearer ")) return json(401, { error: "unauthorized" });
   const userClient = createClient(SUPABASE_URL, ANON_KEY, { global: { headers: { Authorization: authHeader } } });
   const { data: userData } = await userClient.auth.getUser();
   if (!userData?.user) return json(401, { error: "unauthorized" });
 
-  const body = await req.json().catch(() => ({}));
   const workspaceId: string = body.workspace_id;
-  const lookbackHours: number = Math.min(168, Math.max(1, Number(body.lookback_hours) || 24));
   if (!workspaceId) return json(400, { error: "workspace_id required" });
-
-  const admin = createClient(SUPABASE_URL, SERVICE_KEY);
   const { data: member } = await admin.from("workspace_members").select("id").eq("workspace_id", workspaceId).eq("user_id", userData.user.id).maybeSingle();
   if (!member) return json(403, { error: "forbidden" });
 
+  return json(200, await runForWorkspace(admin, workspaceId, lookbackHours, userData.user.id, t0));
+});
+
+async function runForWorkspace(admin: any, workspaceId: string, lookbackHours: number, callerId: string | null, t0: number) {
+  const stats = { scanned: 0, classified: 0, queued: 0, auto_pushed: 0, skipped: 0, errors: 0 };
   const { data: settings } = await admin.from("crm_settings").select("*").eq("workspace_id", workspaceId).maybeSingle();
   if (!settings?.auto_detect_positive_replies) {
-    return json(200, { skipped: true, reason: "auto_detect_disabled" });
+    await admin.from("crm_job_runs").insert({ workspace_id: workspaceId, job_name: "detect_replies", status: "skipped",
+      details: { reason: "auto_detect_disabled" }, duration_ms: Date.now() - t0 });
+    return { skipped: true, reason: "auto_detect_disabled", ...stats };
   }
   const threshold = Number(settings.positive_reply_confidence_threshold ?? 0.8);
   const reviewMode = settings.positive_reply_review_mode !== false;
