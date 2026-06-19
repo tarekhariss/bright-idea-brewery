@@ -71,11 +71,13 @@ export function AddToListDialog({ open, onOpenChange, contactIds, onSuccess }: A
 
   const createAndAdd = async () => {
     if (!user || !newName.trim()) return;
+    if (!workspaceId) { toast({ title: "Error", description: "No active workspace", variant: "destructive" }); return; }
     setAdding(true);
     const { data, error } = await supabase.from("lists").insert({
       name: newName.trim(),
       is_dynamic: false,
       created_by: user.id,
+      workspace_id: workspaceId,
     } as any).select("id").single();
     if (error || !data) {
       toast({ title: "Error", description: error?.message ?? "Failed to create list", variant: "destructive" });
