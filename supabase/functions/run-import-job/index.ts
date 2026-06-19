@@ -518,13 +518,14 @@ Deno.serve(async (req: Request) => {
       fieldReport[fieldKey] = { inserted: 0, blank: 0, target };
     }
 
-    let processedRows = 0;
-    let successRows = 0;
-    let insertedRows = 0;
-    let errorRows = 0;
-    let duplicateRows = 0;
-    let reviewRows = 0;
-    let batchIndex = 0;
+    // On resume, hydrate in-memory counters from persisted job state so progress doesn't reset.
+    let processedRows = isResume ? (job.processed_rows ?? 0) : 0;
+    let successRows = isResume ? (job.success_rows ?? 0) : 0;
+    let insertedRows = isResume ? (job.inserted_rows ?? 0) : 0;
+    let errorRows = isResume ? (job.error_rows ?? 0) : 0;
+    let duplicateRows = isResume ? (job.duplicate_rows ?? 0) : 0;
+    let reviewRows = isResume ? (job.review_rows ?? 0) : 0;
+    let batchIndex = isResume ? (prevDiag?.total_batches ?? 0) : 0;
     const wallClockStart = performance.now();
 
     // Main processing loop — fetch only PENDING rows, ordered by row_number
