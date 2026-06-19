@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { ChevronDown, Globe, Building2, Download, RefreshCw, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { pushToCrm } from "@/hooks/use-opportunities";
+import { BulkPushProgressBar, runBulkPush, initialBulkPushState, type BulkPushProgressState } from "@/components/crm/BulkPushProgress";
 
 interface Props {
   selectedIds: string[];
@@ -21,6 +22,7 @@ export function CompanyBulkActionsBar({ selectedIds, onDone }: Props) {
   const [action, setAction] = useState<ActionType>(null);
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
+  const [pushState, setPushState] = useState<BulkPushProgressState>(initialBulkPushState);
 
   const count = selectedIds.length;
   if (count === 0) return null;
@@ -114,7 +116,7 @@ export function CompanyBulkActionsBar({ selectedIds, onDone }: Props) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <Dialog open={action === "push_crm"} onOpenChange={(o) => !o && setAction(null)}>
+      <Dialog open={action === "push_crm"} onOpenChange={(o) => !o && !pushState.running && setAction(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Push to CRM</DialogTitle>
@@ -123,25 +125,21 @@ export function CompanyBulkActionsBar({ selectedIds, onDone }: Props) {
               Existing open opportunities will be updated, not duplicated.
             </DialogDescription>
           </DialogHeader>
+          {pushState.total > 0 && <BulkPushProgressBar state={pushState} />}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAction(null)}>Cancel</Button>
-            <Button disabled={busy || !workspaceId} onClick={async () => {
+            <Button variant="outline" onClick={() => setAction(null)} disabled={pushState.running}>Close</Button>
+            <Button disabled={busy || !workspaceId || pushState.running} onClick={async () => {
               if (!workspaceId) return;
               setBusy(true);
-              let created = 0, updated = 0, failed = 0;
-              for (const cid of selectedIds) {
-                const r = await pushToCrm(workspaceId, {
-                  company_id: cid,
-                  source_channel: "manual_push",
-                  status: "interested",
-                });
-                if (!r) failed++; else if (r.created) created++; else updated++;
-              }
+              const final = await runBulkPush(
+                workspaceId,
+                selectedIds.map((cid) => ({ company_id: cid, source_channel: "manual_push" as const, status: "interested" as const })),
+                setPushState,
+              );
               setBusy(false);
-              setAction(null);
-              toast.success(`CRM: ${created} created, ${updated} updated${failed ? `, ${failed} failed` : ""}`);
+              toast.success(`CRM: ${final.created} created, ${final.updated} updated${final.failed ? `, ${final.failed} failed` : ""}`);
               onDone();
-            }}>{busy ? "Pushing…" : "Push to CRM"}</Button>
+            }}>{pushState.running ? "Pushing…" : pushState.total > 0 ? "Run again" : "Push to CRM"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
