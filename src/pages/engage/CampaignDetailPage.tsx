@@ -86,6 +86,12 @@ export default function CampaignDetailPage() {
         </div>
       </div>
 
+      <div className="px-6 pt-3">
+        <ConfigRequiredBanner capabilities={["email", "domains"]} title="Campaign can't activate yet" />
+      </div>
+
+
+
       <CampaignSafetyDialog
         campaignId={id}
         open={safetyOpen}
