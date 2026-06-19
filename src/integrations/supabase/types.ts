@@ -2274,6 +2274,63 @@ export type Database = {
           },
         ]
       }
+      crm_settings: {
+        Row: {
+          ai_prompt_overrides: Json
+          auto_create_deal_on_proposal: boolean
+          auto_detect_positive_replies: boolean
+          created_at: string
+          default_owner_strategy: string
+          default_pipeline_id: string | null
+          default_stale_days: number
+          hide_closed_in_active_views: boolean
+          positive_reply_confidence_threshold: number
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          ai_prompt_overrides?: Json
+          auto_create_deal_on_proposal?: boolean
+          auto_detect_positive_replies?: boolean
+          created_at?: string
+          default_owner_strategy?: string
+          default_pipeline_id?: string | null
+          default_stale_days?: number
+          hide_closed_in_active_views?: boolean
+          positive_reply_confidence_threshold?: number
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          ai_prompt_overrides?: Json
+          auto_create_deal_on_proposal?: boolean
+          auto_detect_positive_replies?: boolean
+          created_at?: string
+          default_owner_strategy?: string
+          default_pipeline_id?: string | null
+          default_stale_days?: number
+          hide_closed_in_active_views?: boolean
+          positive_reply_confidence_threshold?: number
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_settings_default_pipeline_id_fkey"
+            columns: ["default_pipeline_id"]
+            isOneToOne: false
+            referencedRelation: "pipelines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_settings_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: true
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       custom_fields: {
         Row: {
           created_at: string | null
@@ -6661,6 +6718,325 @@ export type Database = {
           },
         ]
       }
+      opportunities: {
+        Row: {
+          ai_generated_at: string | null
+          ai_next_best_action: string | null
+          ai_summary: string | null
+          close_reason: string | null
+          closed_at: string | null
+          company_id: string | null
+          contact_id: string | null
+          created_at: string
+          created_by: string | null
+          deal_id: string | null
+          icp_fit_score: number | null
+          id: string
+          intent_signal: string | null
+          last_activity_at: string | null
+          next_action_at: string | null
+          objections: Json | null
+          owner_id: string | null
+          pipeline_id: string | null
+          priority: Database["public"]["Enums"]["opportunity_priority"]
+          risk_flags: Json | null
+          source_campaign_id: string | null
+          source_campaign_type: string | null
+          source_channel: Database["public"]["Enums"]["opportunity_source_channel"]
+          source_message_id: string | null
+          source_thread_id: string | null
+          source_thread_type: string | null
+          stage_id: string | null
+          stale_after_days: number | null
+          status: Database["public"]["Enums"]["opportunity_status"]
+          title: string | null
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          ai_generated_at?: string | null
+          ai_next_best_action?: string | null
+          ai_summary?: string | null
+          close_reason?: string | null
+          closed_at?: string | null
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          deal_id?: string | null
+          icp_fit_score?: number | null
+          id?: string
+          intent_signal?: string | null
+          last_activity_at?: string | null
+          next_action_at?: string | null
+          objections?: Json | null
+          owner_id?: string | null
+          pipeline_id?: string | null
+          priority?: Database["public"]["Enums"]["opportunity_priority"]
+          risk_flags?: Json | null
+          source_campaign_id?: string | null
+          source_campaign_type?: string | null
+          source_channel?: Database["public"]["Enums"]["opportunity_source_channel"]
+          source_message_id?: string | null
+          source_thread_id?: string | null
+          source_thread_type?: string | null
+          stage_id?: string | null
+          stale_after_days?: number | null
+          status?: Database["public"]["Enums"]["opportunity_status"]
+          title?: string | null
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          ai_generated_at?: string | null
+          ai_next_best_action?: string | null
+          ai_summary?: string | null
+          close_reason?: string | null
+          closed_at?: string | null
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          deal_id?: string | null
+          icp_fit_score?: number | null
+          id?: string
+          intent_signal?: string | null
+          last_activity_at?: string | null
+          next_action_at?: string | null
+          objections?: Json | null
+          owner_id?: string | null
+          pipeline_id?: string | null
+          priority?: Database["public"]["Enums"]["opportunity_priority"]
+          risk_flags?: Json | null
+          source_campaign_id?: string | null
+          source_campaign_type?: string | null
+          source_channel?: Database["public"]["Enums"]["opportunity_source_channel"]
+          source_message_id?: string | null
+          source_thread_id?: string | null
+          source_thread_type?: string | null
+          stage_id?: string | null
+          stale_after_days?: number | null
+          status?: Database["public"]["Enums"]["opportunity_status"]
+          title?: string | null
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opportunities_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunities_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunities_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunities_pipeline_id_fkey"
+            columns: ["pipeline_id"]
+            isOneToOne: false
+            referencedRelation: "pipelines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunities_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunities_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      opportunity_contacts: {
+        Row: {
+          added_at: string
+          added_by: string | null
+          contact_id: string
+          id: string
+          is_primary: boolean
+          opportunity_id: string
+          role: string | null
+          workspace_id: string
+        }
+        Insert: {
+          added_at?: string
+          added_by?: string | null
+          contact_id: string
+          id?: string
+          is_primary?: boolean
+          opportunity_id: string
+          role?: string | null
+          workspace_id: string
+        }
+        Update: {
+          added_at?: string
+          added_by?: string | null
+          contact_id?: string
+          id?: string
+          is_primary?: boolean
+          opportunity_id?: string
+          role?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opportunity_contacts_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_contacts_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_contacts_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      opportunity_notes: {
+        Row: {
+          author_id: string | null
+          body: string
+          created_at: string
+          id: string
+          opportunity_id: string
+          pinned: boolean
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          author_id?: string | null
+          body: string
+          created_at?: string
+          id?: string
+          opportunity_id: string
+          pinned?: boolean
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          author_id?: string | null
+          body?: string
+          created_at?: string
+          id?: string
+          opportunity_id?: string
+          pinned?: boolean
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opportunity_notes_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_notes_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      opportunity_status_history: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          from_stage_id: string | null
+          from_status: Database["public"]["Enums"]["opportunity_status"] | null
+          id: string
+          opportunity_id: string
+          reason: string | null
+          to_stage_id: string | null
+          to_status: Database["public"]["Enums"]["opportunity_status"]
+          workspace_id: string
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          from_stage_id?: string | null
+          from_status?: Database["public"]["Enums"]["opportunity_status"] | null
+          id?: string
+          opportunity_id: string
+          reason?: string | null
+          to_stage_id?: string | null
+          to_status: Database["public"]["Enums"]["opportunity_status"]
+          workspace_id: string
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          from_stage_id?: string | null
+          from_status?: Database["public"]["Enums"]["opportunity_status"] | null
+          id?: string
+          opportunity_id?: string
+          reason?: string | null
+          to_stage_id?: string | null
+          to_status?: Database["public"]["Enums"]["opportunity_status"]
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opportunity_status_history_from_stage_id_fkey"
+            columns: ["from_stage_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_status_history_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_status_history_to_stage_id_fkey"
+            columns: ["to_stage_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_status_history_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       personalization_variables: {
         Row: {
           company_id: string | null
@@ -9790,6 +10166,10 @@ export type Database = {
     }
     Functions: {
       assert_email_allowed: { Args: never; Returns: undefined }
+      assign_opportunity: {
+        Args: { _opportunity_id: string; _owner_id: string }
+        Returns: undefined
+      }
       bump_job_trace_counters: {
         Args: { _job_id: string; _kind: string }
         Returns: undefined
@@ -9955,6 +10335,7 @@ export type Database = {
         Args: { _enrollment_id: string }
         Returns: boolean
       }
+      ensure_crm_pipeline: { Args: { _workspace_id: string }; Returns: string }
       generate_workspace_slug: { Args: { p_name: string }; Returns: string }
       has_any_role: {
         Args: {
@@ -10135,6 +10516,7 @@ export type Database = {
         }[]
       }
       pick_campaign_mailbox: { Args: { _campaign_id: string }; Returns: string }
+      push_to_crm: { Args: { payload: Json }; Returns: Json }
       record_bounce: {
         Args: {
           _campaign_id?: string
@@ -10209,6 +10591,15 @@ export type Database = {
         Returns: Json
       }
       sweep_due_rechecks: { Args: { _limit?: number }; Returns: number }
+      transition_opportunity: {
+        Args: {
+          _new_stage_id?: string
+          _new_status?: Database["public"]["Enums"]["opportunity_status"]
+          _opportunity_id: string
+          _reason?: string
+        }
+        Returns: undefined
+      }
       user_workspace_ids: { Args: never; Returns: string[] }
       worker_heartbeat: {
         Args: {
@@ -10440,6 +10831,27 @@ export type Database = {
       mailbox_provider_type: "google" | "microsoft" | "smtp" | "other"
       meeting_status: "scheduled" | "completed" | "cancelled" | "no_show"
       merge_status: "candidate" | "merged" | "kept_separate" | "skipped"
+      opportunity_priority: "low" | "normal" | "high" | "urgent"
+      opportunity_source_channel:
+        | "email_reply"
+        | "linkedin_reply"
+        | "meeting_booked"
+        | "manual_push"
+        | "rfq"
+        | "prospect_search"
+        | "list"
+        | "import"
+        | "api"
+      opportunity_status:
+        | "interested"
+        | "qualified"
+        | "meeting_requested"
+        | "meeting_booked"
+        | "proposal_rfq"
+        | "won"
+        | "lost"
+        | "not_fit"
+        | "bad_timing"
       outreach_status:
         | "not_contacted"
         | "queued"
@@ -10902,6 +11314,29 @@ export const Constants = {
       mailbox_provider_type: ["google", "microsoft", "smtp", "other"],
       meeting_status: ["scheduled", "completed", "cancelled", "no_show"],
       merge_status: ["candidate", "merged", "kept_separate", "skipped"],
+      opportunity_priority: ["low", "normal", "high", "urgent"],
+      opportunity_source_channel: [
+        "email_reply",
+        "linkedin_reply",
+        "meeting_booked",
+        "manual_push",
+        "rfq",
+        "prospect_search",
+        "list",
+        "import",
+        "api",
+      ],
+      opportunity_status: [
+        "interested",
+        "qualified",
+        "meeting_requested",
+        "meeting_booked",
+        "proposal_rfq",
+        "won",
+        "lost",
+        "not_fit",
+        "bad_timing",
+      ],
       outreach_status: [
         "not_contacted",
         "queued",

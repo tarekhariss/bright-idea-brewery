@@ -80,6 +80,16 @@ import DuplicateReviewPage from "./pages/tools/DuplicateReviewPage";
 
 // Verification standalone module
 import { VerificationLayout } from "./components/verification/VerificationLayout";
+
+// CRM workspace (Phase 1)
+import { CrmLayout } from "./components/crm/CrmLayout";
+import CrmCommandCenter from "./pages/crm/CommandCenter";
+import OpportunityInbox from "./pages/crm/OpportunityInbox";
+import CrmPipelinePage from "./pages/crm/PipelinePage";
+import OpportunitiesTable from "./pages/crm/OpportunitiesTable";
+import OpportunityDetail from "./pages/crm/OpportunityDetail";
+import CrmSettingsPage from "./pages/crm/CrmSettings";
+import CrmComingSoon from "./pages/crm/CrmComingSoon";
 import VfDashboardPage from "./pages/verification/DashboardPage";
 import VfJobsPage from "./pages/verification/JobsPage";
 import VfQueuePage from "./pages/verification/QueueMonitorPage";
@@ -177,6 +187,10 @@ function VL({ children }: { children: React.ReactNode }) {
   return <ProtectedRoute><VerificationLayout>{children}</VerificationLayout></ProtectedRoute>;
 }
 
+function CL({ children }: { children: React.ReactNode }) {
+  return <ProtectedRoute><CrmLayout>{children}</CrmLayout></ProtectedRoute>;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -234,11 +248,25 @@ const App = () => (
             <Route path="/linkedin/analytics" element={<LL><LinkedinAnalyticsPage /></LL>} />
             <Route path="/linkedin/settings" element={<LL><LinkedinSettingsPage /></LL>} />
 
+            {/* CRM — standalone intelligent CRM workspace (Phase 1) */}
+            <Route path="/crm" element={<CL><CrmCommandCenter /></CL>} />
+            <Route path="/crm/inbox" element={<CL><OpportunityInbox /></CL>} />
+            <Route path="/crm/pipeline" element={<CL><CrmPipelinePage /></CL>} />
+            <Route path="/crm/opportunities" element={<CL><OpportunitiesTable /></CL>} />
+            <Route path="/crm/opportunities/:id" element={<CL><OpportunityDetail /></CL>} />
+            <Route path="/crm/accounts" element={<CL><CrmComingSoon title="Accounts" scope={["Account-centric view of opportunities", "Multi-stakeholder rollups", "Account scoring"]} /></CL>} />
+            <Route path="/crm/contacts" element={<CL><CrmComingSoon title="Contacts" scope={["CRM-styled contact directory", "Per-contact opportunity history"]} /></CL>} />
+            <Route path="/crm/deals" element={<CL><CrmComingSoon title="Deals" scope={["CRM-styled deals view linked to opportunities"]} /></CL>} />
+            <Route path="/crm/tasks" element={<CL><CrmComingSoon title="Tasks" scope={["Tasks scoped to CRM opportunities (Phase 1.5)"]} /></CL>} />
+            <Route path="/crm/notes" element={<CL><CrmComingSoon title="Notes" scope={["Global notes index across opportunities"]} /></CL>} />
+            <Route path="/crm/settings" element={<CL><CrmSettingsPage /></CL>} />
+
             {/* Deals */}
             <Route path="/deals" element={<PL><MeetingsPage /></PL>} />
             <Route path="/deals/meetings" element={<PL><MeetingsPage /></PL>} />
             <Route path="/deals/conversations" element={<PL><ConversationsPage /></PL>} />
             <Route path="/deals/deals" element={<PL><DealsPage /></PL>} />
+
 
             {/* Tools */}
             <Route path="/tools" element={<PL><WorkflowsListPage /></PL>} />

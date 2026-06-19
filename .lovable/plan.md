@@ -313,13 +313,22 @@ View modes: Table, Kanban (by stage or status), Calendar (by `next_action_at` / 
 
 ---
 
-## 17. Questions Before Implementation
+## 17. Phase 1 — Shipped
 
-1. **Pipeline model**: one dedicated "CRM pipeline" seeded per workspace, or reuse whichever pipelines already exist in `pipelines`/`pipeline_stages`? Recommendation: seed a default "CRM Opportunities" pipeline and let workspaces add more.
-2. **Opportunity ↔ Deal**: should creating an opportunity at status `proposal_rfq` auto-create a deal, or always require explicit linking? Recommendation: configurable in `crm_settings`, default = manual.
-3. **Auto positive-reply detection** (Phase 2): on by default or opt-in per workspace? Recommendation: opt-in with confidence threshold.
-4. **Terminal statuses in views**: hide `won/lost/not_fit/bad_timing` from active views by default? Recommendation: yes, with "Include closed" toggle.
-5. **Multi-contact opportunities**: allow from day one (`opportunity_contacts` shipped Phase 1) or defer to Phase 2? Recommendation: ship the table in Phase 1, UI for multi-stakeholder in Phase 2.
-6. **Owner default**: current user, round-robin, or campaign-owner inheritance? Recommendation: current user in Phase 1; rules in Phase 2.
+Final answers applied:
+- Default "CRM Opportunities" pipeline seeded per workspace via `ensure_crm_pipeline()`.
+- Opportunity ↔ Deal: manual by default (`crm_settings.auto_create_deal_on_proposal=false`), explicit "Create / link deal" in the Push to CRM modal.
+- Auto positive-reply detection: setting present but inert (opt-in, Phase 2).
+- Closed statuses hidden by default with "Include closed" toggle on table view.
+- `opportunity_contacts` table shipped; multi-stakeholder UI deferred to Phase 2.
+- Owner default = smart fallback (contact owner → company owner → current user) in `push_to_crm`.
 
-Awaiting your answers (or "use recommendations") before starting Phase 1 implementation.
+Built:
+- Migration: opportunities + opportunity_contacts + opportunity_notes + opportunity_status_history + crm_settings (RLS + GRANTs).
+- RPCs: `push_to_crm`, `transition_opportunity`, `assign_opportunity`, `ensure_crm_pipeline`.
+- `CrmLayout` + sidebar at `/crm`; AppSidebar entry added.
+- Pages: Command Center, Opportunity Inbox, Pipeline (drag Kanban), Opportunities table (with Include closed), Opportunity record (timeline + notes + status/stage controls), CRM Settings.
+- Coming-soon placeholders for `/crm/accounts`, `/crm/contacts`, `/crm/deals`, `/crm/tasks`, `/crm/notes`.
+- Shared `PushToCrmDialog` + `PushToCrmButton`; wired into Contact Detail and Company Detail header.
+- Push-to-CRM entry points pending for Phase 1.5: Unibox thread header, Engage / LinkedIn campaign lead rows, LinkedIn inbox, Prospect Search row + bulk, People / Companies / Lists row + bulk.
+
