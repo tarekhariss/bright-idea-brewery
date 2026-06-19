@@ -69,19 +69,22 @@ export default function OpportunityInbox() {
             <li key={o.id}>
               <Link to={`/crm/opportunities/${o.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-accent/40 transition-colors">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <div className="font-medium truncate">
                       {o.title || `${o.contact?.first_name ?? ""} ${o.contact?.last_name ?? ""}`.trim() || o.company?.name || "Untitled"}
                     </div>
                     <Badge variant="outline" className="text-[10px]">{o.status.replace("_", " ")}</Badge>
                     {o.priority !== "normal" && <Badge variant="secondary" className="text-[10px]">{o.priority}</Badge>}
+                    {o.deal_id && <Badge variant="outline" className="text-[10px]">deal</Badge>}
                   </div>
                   <div className="text-xs text-muted-foreground truncate">
-                    {o.contact?.email ?? ""} · {o.company?.name ?? ""} · via {o.source_channel}
+                    {o.contact?.email ?? "—"} · {o.company?.name ?? "—"} · via {o.source_channel}
+                    {o.owner?.full_name || o.owner?.email ? ` · owner ${o.owner.full_name ?? o.owner.email}` : ""}
                   </div>
                 </div>
-                <div className="text-xs text-muted-foreground whitespace-nowrap">
-                  {o.last_activity_at ? new Date(o.last_activity_at).toLocaleDateString() : ""}
+                <div className="text-xs text-right text-muted-foreground whitespace-nowrap">
+                  <div>{o.last_activity_at ? `Last ${new Date(o.last_activity_at).toLocaleDateString()}` : ""}</div>
+                  {o.next_action_at && <div className="text-primary">Next {new Date(o.next_action_at).toLocaleDateString()}</div>}
                 </div>
               </Link>
             </li>
