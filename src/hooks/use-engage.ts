@@ -230,22 +230,10 @@ export function useQueueEmail() {
   });
 }
 
-export function useMockSendEmail() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (emailId: string) => {
-      await from("emails").update({ status: "processing" }).eq("id", emailId);
-      await from("email_events").insert({ email_id: emailId, event_type: "processing" });
-      const now = new Date().toISOString();
-      await from("emails").update({ status: "sent_mock", sent_at: now, updated_at: now }).eq("id", emailId);
-      await from("email_events").insert({ email_id: emailId, event_type: "sent_mock", details: { mock: true, sent_at: now } });
-      await from("message_queue").update({ status: "completed", completed_at: now }).eq("reference_id", emailId).eq("reference_type", "email");
-      await from("system_activity_log").insert({ action: "email_sent_mock", entity_type: "email", entity_id: emailId, details: { mock: true } });
-    },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["emails"] }); toast.success("Email sent (mock)"); },
-    onError: (e: any) => toast.error(e.message),
-  });
-}
+// Removed: useMockSendEmail. It used to flip emails to status "sent_mock" and toast
+// "Email sent (mock)" without touching SMTP — i.e. fake success. Removed in the P1+P2
+// honesty pass. Use useSendEmail() in @/hooks/use-email-admin which invokes the real
+// send-email edge function and only resolves on actual SMTP/OAuth dispatch.
 
 // ── Tasks ──
 export function useTasks() {

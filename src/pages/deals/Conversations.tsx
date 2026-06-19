@@ -7,10 +7,17 @@ export default function ConversationsPage() {
       icon={MessageSquare}
       title="Conversations"
       description="View threaded conversations across email, LinkedIn, and other channels with full context."
+      comingSoon
+      comingSoonScope={[
+        "Unified email + LinkedIn thread view",
+        "Contact and deal context per thread",
+        "Inline reply via connected mailbox or LinkedIn account",
+      ]}
       emptyState={{
         icon: MessageSquare,
         title: "No conversations yet",
-        description: "When prospects reply to your outreach, conversations will appear here as unified threads with full message history and context.",
+        description:
+          "Today, email replies live in Engage → Unibox and LinkedIn replies live in LinkedIn → Inbox. This unified view is part of the planned CRM module.",
       }}
     />
   );

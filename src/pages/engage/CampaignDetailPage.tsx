@@ -15,6 +15,7 @@ import { CampaignSequencesTab } from "@/components/engage/campaign/CampaignSeque
 import { CampaignScheduleTab } from "@/components/engage/campaign/CampaignScheduleTab";
 import { CampaignOptionsTab } from "@/components/engage/campaign/CampaignOptionsTab";
 import { CampaignSafetyDialog } from "@/components/engage/campaign/CampaignSafetyDialog";
+import { ConfigRequiredBanner } from "@/components/config";
 import { cn } from "@/lib/utils";
 
 const statusBadge = (s: string) => {
@@ -84,6 +85,12 @@ export default function CampaignDetailPage() {
           )}
         </div>
       </div>
+
+      <div className="px-6 pt-3">
+        <ConfigRequiredBanner capabilities={["email", "domains"]} title="Campaign can't activate yet" />
+      </div>
+
+
 
       <CampaignSafetyDialog
         campaignId={id}

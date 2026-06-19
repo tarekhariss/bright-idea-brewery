@@ -26,6 +26,7 @@ import { useQuery } from "@tanstack/react-query";
 import { LinkedinWorkflowBuilder } from "@/components/linkedin/LinkedinWorkflowBuilder";
 import { CampaignSendersTab } from "@/components/linkedin/CampaignSendersTab";
 import { LaunchCampaignDialog } from "@/components/linkedin/LaunchCampaignDialog";
+import { ConfigRequiredBanner } from "@/components/config";
 import { cn } from "@/lib/utils";
 
 export default function LinkedinCampaignDetailPage() {
@@ -54,6 +55,12 @@ export default function LinkedinCampaignDetailPage() {
           <Rocket className="h-3.5 w-3.5" /> Launch
         </Button>
       </header>
+
+      <div className="px-6 pt-3">
+        <ConfigRequiredBanner capabilities={["linkedin"]} title="Connect an active LinkedIn account before launch" />
+      </div>
+
+
 
       {/* 4-step creation flow */}
       <CreationStepper campaignId={campaign.id} active={tab} onChange={setTab} />
