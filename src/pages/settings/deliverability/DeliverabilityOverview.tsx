@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSendingDomains } from "@/hooks/use-deliverability";
 import { useMailboxes } from "@/hooks/use-deliverability";
+import { ConfigRequiredBanner } from "@/components/config";
 
 interface SetupStep {
   title: string;
@@ -51,6 +52,7 @@ export default function DeliverabilityOverview() {
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
+      <ConfigRequiredBanner capabilities={["domains", "email"]} title="Deliverability suite needs setup" />
       <div className="flex items-start gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
           <Server className="h-5 w-5" />
