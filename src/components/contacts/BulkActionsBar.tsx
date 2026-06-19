@@ -8,6 +8,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ListPlus, ChevronDown, Shield, ShieldOff, Tag, UserPlus, RefreshCw, FileText, Sparkles } from "lucide-react";
 import { pushToCrm } from "@/hooks/use-opportunities";
+import { BulkPushProgressBar, runBulkPush, initialBulkPushState, type BulkPushProgressState } from "@/components/crm/BulkPushProgress";
 import { toast } from "sonner";
 import type { LifecycleStatus, OutreachStatus } from "@/integrations/supabase/db-types";
 
@@ -38,6 +39,7 @@ export function BulkActionsBar({ selectedIds, onDone, onOpenAddToList }: BulkAct
   const [action, setAction] = useState<ActionType>(null);
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
+  const [pushState, setPushState] = useState<BulkPushProgressState>(initialBulkPushState);
 
   const count = selectedIds.length;
   if (count === 0) return null;
@@ -203,7 +205,7 @@ export function BulkActionsBar({ selectedIds, onDone, onOpenAddToList }: BulkAct
       </Dialog>
 
       {/* Push to CRM confirm */}
-      <Dialog open={action === "push_crm"} onOpenChange={(o) => !o && setAction(null)}>
+      <Dialog open={action === "push_crm"} onOpenChange={(o) => !o && !pushState.running && setAction(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Push to CRM</DialogTitle>
@@ -212,29 +214,25 @@ export function BulkActionsBar({ selectedIds, onDone, onOpenAddToList }: BulkAct
               Dedupe rules apply (existing open opportunities are updated, not duplicated).
             </DialogDescription>
           </DialogHeader>
+          {pushState.total > 0 && <BulkPushProgressBar state={pushState} />}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAction(null)}>Cancel</Button>
-            <Button disabled={busy || !workspaceId} onClick={async () => {
+            <Button variant="outline" onClick={() => setAction(null)} disabled={pushState.running}>Close</Button>
+            <Button disabled={busy || !workspaceId || pushState.running} onClick={async () => {
               if (!workspaceId) return;
               setBusy(true);
-              let created = 0, updated = 0, failed = 0;
-              for (const cid of selectedIds) {
-                const r = await pushToCrm(workspaceId, {
-                  contact_id: cid,
-                  source_channel: "manual_push",
-                  status: "interested",
-                  priority: "normal",
-                });
-                if (!r) failed++;
-                else if (r.created) created++;
-                else updated++;
-              }
+              const final = await runBulkPush(
+                workspaceId,
+                selectedIds.map((cid) => ({
+                  contact_id: cid, source_channel: "manual_push" as const,
+                  status: "interested" as const, priority: "normal" as const,
+                })),
+                setPushState,
+              );
               setBusy(false);
-              setAction(null);
-              toast.success(`CRM: ${created} created, ${updated} updated${failed ? `, ${failed} failed` : ""}`);
+              toast.success(`CRM: ${final.created} created, ${final.updated} updated${final.failed ? `, ${final.failed} failed` : ""}`);
               onDone();
             }}>
-              {busy ? "Pushing…" : "Push to CRM"}
+              {pushState.running ? "Pushing…" : pushState.total > 0 ? "Run again" : "Push to CRM"}
             </Button>
           </DialogFooter>
         </DialogContent>

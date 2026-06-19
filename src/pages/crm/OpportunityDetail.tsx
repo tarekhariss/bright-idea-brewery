@@ -1,14 +1,19 @@
 import { useParams, Link } from "react-router-dom";
 import { useState } from "react";
-import { ArrowLeft, User, Building2, Sparkles, MessageSquare, Clock } from "lucide-react";
+import { ArrowLeft, User, Building2, Sparkles, MessageSquare, Clock, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { supabase } from "@/integrations/supabase/client";
 import { useOpportunityDetail } from "@/hooks/use-opportunity-detail";
 import { useOpportunities, type OpportunityStatus } from "@/hooks/use-opportunities";
+import { useCrmSettings } from "@/hooks/use-crm-settings";
+import { NextBestActionCard } from "@/components/crm/NextBestActionCard";
+import { StaleBadge } from "@/components/crm/StaleBadge";
 
 const STATUSES: OpportunityStatus[] = [
   "interested", "qualified", "meeting_requested", "meeting_booked",
@@ -19,7 +24,37 @@ export default function OpportunityDetail() {
   const { id } = useParams<{ id: string }>();
   const { opportunity, notes, timeline, loading, addNote, reload } = useOpportunityDetail(id);
   const { stages, transition } = useOpportunities({ includeClosed: true });
+  const { staleDays } = useCrmSettings();
   const [note, setNote] = useState("");
+  const [genLoading, setGenLoading] = useState(false);
+
+  async function generateSummary() {
+    if (!id) return;
+    setGenLoading(true);
+    try {
+      const { data, error } = await (supabase as any).functions.invoke("crm-ai-summary", {
+        body: { opportunity_id: id },
+      });
+      if (error) {
+        const ctx: any = (error as any).context;
+        const status = ctx?.status ?? ctx?.statusCode;
+        const message = ctx?.body?.message ?? ctx?.body?.error ?? error.message ?? "AI request failed";
+        if (status === 503) toast.error("AI is not configured for this workspace. Showing rule-based suggestions instead.");
+        else if (status === 429) toast.error("AI is rate-limited. Try again in a moment.");
+        else if (status === 402) toast.error("AI credits exhausted. Add credits to continue.");
+        else toast.error(`AI summary failed: ${message}`);
+        return;
+      }
+      if (data?.error) {
+        toast.error(`AI summary failed: ${data.message ?? data.error}`);
+        return;
+      }
+      toast.success("AI summary updated");
+      await reload();
+    } finally {
+      setGenLoading(false);
+    }
+  }
 
   if (loading) return <div className="p-6 text-sm text-muted-foreground">Loading…</div>;
   if (!opportunity) {
@@ -65,6 +100,13 @@ export default function OpportunityDetail() {
               </Link>
             )}
             <Badge variant="outline">{opportunity.source_channel}</Badge>
+            <StaleBadge opportunity={opportunity} staleDays={staleDays} />
+            {opportunity.urgency && opportunity.urgency !== "normal" && (
+              <Badge variant="secondary" className="capitalize">{opportunity.urgency} urgency</Badge>
+            )}
+            {typeof opportunity.icp_fit_score === "number" && (
+              <Badge variant="outline">ICP {opportunity.icp_fit_score}</Badge>
+            )}
           </div>
         </div>
 
@@ -98,6 +140,43 @@ export default function OpportunityDetail() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-4">
+          <NextBestActionCard opportunity={opportunity} staleDays={staleDays} />
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" /> AI Opportunity Summary
+              </CardTitle>
+              <Button size="sm" variant="outline" onClick={generateSummary} disabled={genLoading}>
+                <RefreshCw className={`h-3.5 w-3.5 mr-1 ${genLoading ? "animate-spin" : ""}`} />
+                {opportunity.ai_summary ? (genLoading ? "Refreshing…" : "Refresh") : (genLoading ? "Generating…" : "Generate")}
+              </Button>
+            </CardHeader>
+            <CardContent className="pt-0 text-sm space-y-2">
+              {opportunity.ai_summary ? (
+                <>
+                  <div className="whitespace-pre-wrap">{opportunity.ai_summary}</div>
+                  {opportunity.ai_generated_at && (
+                    <div className="text-[11px] text-muted-foreground">
+                      Generated {new Date(opportunity.ai_generated_at).toLocaleString()}
+                    </div>
+                  )}
+                  {opportunity.risk_flags && opportunity.risk_flags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 pt-1">
+                      {opportunity.risk_flags.map((r, i) => (
+                        <Badge key={i} variant="outline" className="text-[10px] border-red-500/40 text-red-700 dark:text-red-300">{r}</Badge>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-muted-foreground">
+                  No AI summary yet. Click <strong>Generate</strong> to summarise this opportunity, suggest objections, and score ICP fit.
+                  Rule-based next-best-action above always works without AI.
+                </div>
+              )}
+            </CardContent>
+          </Card>
           <Tabs defaultValue="timeline">
             <TabsList>
               <TabsTrigger value="timeline"><Clock className="h-3.5 w-3.5 mr-1" /> Timeline</TabsTrigger>

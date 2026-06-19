@@ -6,10 +6,13 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useOpportunities } from "@/hooks/use-opportunities";
+import { useCrmSettings } from "@/hooks/use-crm-settings";
+import { StaleBadge } from "@/components/crm/StaleBadge";
 
 export default function OpportunitiesTable() {
   const [includeClosed, setIncludeClosed] = useState(false);
   const { opportunities, loading } = useOpportunities({ includeClosed });
+  const { staleDays } = useCrmSettings();
   const [q, setQ] = useState("");
 
   const rows = useMemo(() => {
@@ -74,7 +77,7 @@ export default function OpportunitiesTable() {
                     {`${o.contact?.first_name ?? ""} ${o.contact?.last_name ?? ""}`.trim() || o.contact?.email || "—"}
                   </td>
                   <td className="px-3 py-2 text-muted-foreground">{o.company?.name ?? "—"}</td>
-                  <td className="px-3 py-2"><Badge variant="outline">{o.status.replace("_", " ")}</Badge></td>
+                  <td className="px-3 py-2"><div className="flex items-center gap-1"><Badge variant="outline">{o.status.replace("_", " ")}</Badge><StaleBadge opportunity={o} staleDays={staleDays} compact /></div></td>
                   <td className="px-3 py-2"><Badge variant="secondary">{o.priority}</Badge></td>
                   <td className="px-3 py-2 text-muted-foreground">{o.source_channel}</td>
                   <td className="px-3 py-2 text-muted-foreground">{o.owner?.full_name ?? o.owner?.email ?? "—"}</td>
