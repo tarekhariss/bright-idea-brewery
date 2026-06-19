@@ -259,8 +259,10 @@ const App = () => (
             {/* CRM — standalone intelligent CRM workspace (Phase 1) */}
             <Route path="/crm" element={<CL><CrmCommandCenter /></CL>} />
             <Route path="/crm/inbox" element={<CL><OpportunityInbox /></CL>} />
+            <Route path="/crm/queues" element={<CL><SmartQueues /></CL>} />
             <Route path="/crm/pipeline" element={<CL><CrmPipelinePage /></CL>} />
             <Route path="/crm/opportunities" element={<CL><OpportunitiesTable /></CL>} />
+            <Route path="/crm/reports" element={<CL><CrmReports /></CL>} />
             <Route path="/crm/opportunities/:id" element={<CL><OpportunityDetail /></CL>} />
             <Route path="/crm/accounts" element={<CL><CrmAccounts /></CL>} />
             <Route path="/crm/contacts" element={<CL><CrmContacts /></CL>} />
