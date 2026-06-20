@@ -175,7 +175,7 @@ const AUTO_MAP_HINTS: Record<string, string[]> = {
   address: ["address", "street address", "street"],
   postal_code: ["postal code", "zip", "zip code", "postcode"],
   timezone: ["timezone", "time zone", "tz"],
-  company_name_raw: ["company", "company name", "organization", "organisation", "account name", "employer", "company name for emails"],
+  company_name_raw: ["company", "company name", "organization", "organisation", "account name", "employer"],
   domain: ["domain", "company domain", "website domain", "primary domain", "email domain"],
   website: ["website", "company website", "url", "organization website", "company url", "company website url"],
   industry: ["industry", "company industry", "vertical"],
