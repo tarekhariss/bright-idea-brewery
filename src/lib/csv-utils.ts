@@ -392,60 +392,70 @@ export function normalizeRow(
 ): NormalizationResult {
   const normalized: Record<string, unknown> = {};
   const changes: NormalizationChange[] = [];
+  const customFields: Record<string, string> = {};
+  const originals: Record<string, string> = {};
+  const invalidFields: Record<string, string> = {};
 
-  function track(field: string, original: string, result: string, rule: string) {
-    if (original !== result) {
-      changes.push({ field, original, normalized: result, rule });
+  // 1) Preserve EVERY unmapped column as a custom field (raw value)
+  for (const [csvCol, rawVal] of Object.entries(raw)) {
+    if (!mapping[csvCol]) {
+      const trimmed = (rawVal ?? "").trim();
+      if (trimmed && !isEmptyLike(trimmed)) customFields[csvCol] = trimmed;
     }
-    return result;
   }
 
+  // 2) Process each mapped column
   for (const [csvCol, fieldKey] of Object.entries(mapping)) {
     const rawVal = raw[csvCol] ?? "";
     const field = MAPPABLE_FIELDS.find((f) => f.key === fieldKey);
 
-    // Whitespace trim
-    let val = rawVal.trim();
-    if (rawVal !== val && rawVal.length > 0) {
-      changes.push({ field: fieldKey, original: rawVal, normalized: val, rule: "Whitespace trimmed" });
-    }
+    let val = rawVal.trim().replace(/\s+/g, " ");
+    if (isEmptyLike(val)) { normalized[fieldKey] = null; continue; }
 
-    // Collapse internal whitespace
-    const collapsed = val.replace(/\s+/g, " ");
-    if (collapsed !== val) {
-      changes.push({ field: fieldKey, original: val, normalized: collapsed, rule: "Whitespace collapsed" });
-      val = collapsed;
-    }
+    originals[fieldKey] = rawVal;
 
-    // Empty to null
-    if (isEmptyLike(val)) {
+    if (!field) { normalized[fieldKey] = val; continue; }
+
+    // Validate first — if invalid for this field type, do NOT apply field-specific
+    // normalization (avoids turning "bakery and confectionery ingredients" into a
+    // "normalized email"). Record as invalid so the UI can warn.
+    if (!isValidForField(fieldKey, val)) {
+      invalidFields[fieldKey] = val;
+      // Still preserve the raw value in _invalid_values for auditing, but don't write
+      // a garbage normalized value into the standard column.
       normalized[fieldKey] = null;
       continue;
     }
 
-    if (!field) { normalized[fieldKey] = val; continue; }
+    let next = val;
+    let rule: string | null = null;
 
-    // Field-specific normalization
-    if (fieldKey === "email" || fieldKey === "secondary_email" || fieldKey === "tertiary_email") {
-      val = track(fieldKey, val, normalizeEmail(val), "Email normalized");
+    if (fieldKey === "email" || fieldKey === "secondary_email" || fieldKey === "tertiary_email" || fieldKey === "personal_email") {
+      next = normalizeEmail(val); rule = "Email normalized";
     } else if (fieldKey === "linkedin_url" || fieldKey === "company_linkedin_url") {
-      val = track(fieldKey, val, normalizeLinkedIn(val), "LinkedIn URL standardized");
+      next = normalizeLinkedIn(val); rule = "LinkedIn URL standardized";
     } else if (fieldKey === "domain") {
-      val = track(fieldKey, val, normalizeDomain(val), "Domain cleaned");
+      next = normalizeDomain(val); rule = "Domain cleaned";
     } else if (fieldKey === "website") {
-      val = track(fieldKey, val, normalizeWebsite(val), "Website standardized");
+      next = normalizeWebsite(val); rule = "Website standardized";
     } else if (fieldKey.includes("phone")) {
-      val = track(fieldKey, val, normalizePhone(val), "Phone normalized");
+      next = normalizePhone(val); rule = "Phone normalized";
     } else if (fieldKey === "company_name_raw") {
-      // Keep original but also store a normalized version
       const normName = normalizeCompanyName(val);
-      if (normName !== val.toLowerCase()) {
+      // Only record a change when the cleaned form actually differs in a meaningful way.
+      if (normName && normName !== val.toLowerCase()) {
         changes.push({ field: fieldKey, original: val, normalized: normName, rule: "Company name standardized" });
       }
+      // Keep the original-cased name in the standard column.
     } else if (fieldKey === "country" || fieldKey === "city" || fieldKey === "state" ||
                fieldKey === "company_city" || fieldKey === "company_state" || fieldKey === "company_country") {
-      val = track(fieldKey, val, titleCase(val), "Location title-cased");
+      next = titleCase(val); rule = "Location title-cased";
     }
+
+    if (rule && next !== val) {
+      changes.push({ field: fieldKey, original: val, normalized: next, rule });
+    }
+    val = next;
 
     // Type casting
     if (field.type === "number") {
@@ -461,8 +471,88 @@ export function normalizeRow(
     normalized[fieldKey] = val;
   }
 
+  if (Object.keys(customFields).length > 0) normalized._custom_fields = customFields;
+  if (Object.keys(originals).length > 0) normalized._original_values = originals;
+  if (Object.keys(invalidFields).length > 0) normalized._invalid_values = invalidFields;
+
   return { normalized, changes };
 }
+
+// ─── Column-level analysis for the import preview ───────────────────────────────
+
+export interface ColumnAnalysis {
+  csvColumn: string;
+  mappedField: string | null;
+  fieldLabel: string | null;
+  confidence: number | null;
+  storedAs: "standard_field" | "custom_field" | "skipped";
+  sampleOriginal: string[];
+  sampleNormalized: string[];
+  changedRows: number;
+  invalidRows: number;
+  warning: string | null;
+}
+
+export function analyzeColumns(
+  parsed: ParsedCSV,
+  mapping: Record<string, string>,
+  sampleSize = 50
+): ColumnAnalysis[] {
+  const rows = parsed.rows.slice(0, sampleSize);
+  return parsed.headers.map((header) => {
+    const fieldKey = mapping[header] || null;
+    const field = fieldKey ? MAPPABLE_FIELDS.find((f) => f.key === fieldKey) : undefined;
+    const claimedReuse = new Set<string>(Object.values(mapping).filter((v) => v && v !== fieldKey));
+    const suggestion = !fieldKey ? suggestFieldForHeader(header, claimedReuse) : null;
+
+    const sampleOriginal: string[] = [];
+    const sampleNormalized: string[] = [];
+    let changedRows = 0;
+    let invalidRows = 0;
+    let nonEmpty = 0;
+
+    for (const row of rows) {
+      const rawVal = (row[header] ?? "").trim();
+      if (!rawVal || isEmptyLike(rawVal)) continue;
+      nonEmpty++;
+      if (sampleOriginal.length < 3) sampleOriginal.push(rawVal);
+
+      if (!fieldKey) continue;
+
+      if (!isValidForField(fieldKey, rawVal)) {
+        invalidRows++;
+        continue;
+      }
+      // Apply just this column's normalization
+      const single = normalizeRow({ [header]: rawVal }, { [header]: fieldKey });
+      const out = single.normalized[fieldKey];
+      const outStr = out == null ? "" : Array.isArray(out) ? out.join(", ") : String(out);
+      if (outStr && outStr !== rawVal) {
+        changedRows++;
+        if (sampleNormalized.length < 3) sampleNormalized.push(outStr);
+      }
+    }
+
+    let warning: string | null = null;
+    if (fieldKey && nonEmpty > 0 && invalidRows / nonEmpty >= 0.5) {
+      warning = `This column does not look like ${field?.label ?? fieldKey} data — ${invalidRows} of ${nonEmpty} sampled values failed validation.`;
+    }
+
+    return {
+      csvColumn: header,
+      mappedField: fieldKey,
+      fieldLabel: field?.label ?? null,
+      confidence: fieldKey ? (suggestion?.confidence ?? null) : null,
+      storedAs: fieldKey ? "standard_field" : (nonEmpty > 0 ? "custom_field" : "skipped"),
+      sampleOriginal,
+      sampleNormalized,
+      changedRows,
+      invalidRows,
+      warning,
+    };
+  });
+}
+
 
 // ─── Advanced Duplicate Detection ───────────────────────────────────────────────
 
