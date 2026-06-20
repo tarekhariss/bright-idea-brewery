@@ -384,7 +384,7 @@ export default function ImportWizardPage() {
     } finally {
       setSubmitting(false);
     }
-  }, [parsed, file, user, workspaceId, columnMapping, dupStrategy, importSettings, unmappedHeaders, navigate]);
+  }, [parsed, file, user, workspaceId, columnMapping, dupStrategy, importSettings, customFieldHeaders, excludedHeaders, navigate]);
 
   // ─── Step transitions ─────────────────────────────────────────────────────────
 
