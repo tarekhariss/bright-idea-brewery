@@ -118,16 +118,34 @@ function isValidForField(fieldKey: string, v: string): boolean {
   return true;
 }
 
+/**
+ * Decide whether an unmapped CSV header is company-level or contact-level so we
+ * can preserve it in the right .custom_fields bucket. Conservative: defaults to
+ * contact when unsure (matches the spec).
+ */
+function classifyCustomFieldScope(header: string): "contact" | "company" {
+  const h = header.toLowerCase().trim().replace(/[_\-\/\\.]+/g, " ").replace(/\s+/g, " ");
+  // Strong company prefixes
+  if (/^(company|organization|organisation|org|account|employer|firm|business)\b/.test(h)) return "company";
+  // Common company-side topical words anywhere in header
+  if (/\b(employees|headcount|revenue|funding|founded|industry|sic|naics|ticker|hq|headquarters|domain|website|technologies|tech stack|specialties|segments|territories)\b/.test(h)) return "company";
+  return "contact";
+}
+
 function normalizeRow(raw: Record<string, string>, mapping: Record<string, string>) {
   const normalized: Record<string, unknown> = {};
-  const customFields: Record<string, string> = {};
+  const contactCustom: Record<string, string> = {};
+  const companyCustom: Record<string, string> = {};
   const invalidFields: Record<string, string> = {};
 
-  // Preserve EVERY unmapped column as a custom field (raw, trimmed)
+  // Preserve EVERY unmapped column as a custom field, routed by header semantics.
   for (const [csvCol, rawVal] of Object.entries(raw)) {
     if (!mapping[csvCol]) {
       const t = (rawVal ?? "").trim();
-      if (t && !isEmptyLike(t)) customFields[csvCol] = t;
+      if (!t || isEmptyLike(t)) continue;
+      const scope = classifyCustomFieldScope(csvCol);
+      if (scope === "company") companyCustom[csvCol] = t;
+      else contactCustom[csvCol] = t;
     }
   }
 
@@ -136,7 +154,6 @@ function normalizeRow(raw: Record<string, string>, mapping: Record<string, strin
     let val = rawVal.trim().replace(/\s+/g, " ");
     if (isEmptyLike(val)) { normalized[fieldKey] = null; continue; }
 
-    // Type-safe gating: only normalize when value looks valid for the target field.
     if (!isValidForField(fieldKey, val)) {
       invalidFields[fieldKey] = val;
       normalized[fieldKey] = null;
@@ -155,10 +172,12 @@ function normalizeRow(raw: Record<string, string>, mapping: Record<string, strin
     normalized[fieldKey] = val;
   }
 
-  if (Object.keys(customFields).length > 0) (normalized as any)._custom_fields = customFields;
+  if (Object.keys(contactCustom).length > 0) (normalized as any)._contact_custom_fields = contactCustom;
+  if (Object.keys(companyCustom).length > 0) (normalized as any)._company_custom_fields = companyCustom;
   if (Object.keys(invalidFields).length > 0) (normalized as any)._invalid_values = invalidFields;
   return normalized;
 }
+
 
 
 function buildContactIndex(contacts: ExistingContact[]) {
