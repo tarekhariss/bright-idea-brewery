@@ -81,9 +81,15 @@ Deno.serve(async (req: Request) => {
 
     const table = job.entity_type === "contact" ? "contacts" : "companies";
     const columns = job.selected_columns as string[];
-    const selectStr = columns.join(",");
 
-    // Build CSV header
+    // Resolve pseudo-column: company_custom_fields (joined from companies on contact exports)
+    const wantsCompanyCustomFields = job.entity_type === "contact" && columns.includes("company_custom_fields");
+    const dbCols = columns.filter((c) => c !== "company_custom_fields");
+    const selectStr = wantsCompanyCustomFields
+      ? `${dbCols.join(",")},companies:companies!contacts_company_id_fkey(custom_fields)`
+      : dbCols.join(",");
+
+    // Build CSV header (use the user-selected labels, including the pseudo column)
     const csvParts: string[] = [columns.join(",")];
     let processedRows = 0;
     let offset = 0;
@@ -113,9 +119,14 @@ Deno.serve(async (req: Request) => {
 
       for (const row of rows) {
         const vals = columns.map((col) => {
-          const v = (row as any)[col];
+          let v: unknown;
+          if (col === "company_custom_fields") v = (row as any)?.companies?.custom_fields ?? null;
+          else if (col === "custom_fields") v = (row as any)?.custom_fields ?? null;
+          else v = (row as any)[col];
           if (v === null || v === undefined) return "";
-          const str = Array.isArray(v) ? v.join("; ") : String(v);
+          const str = typeof v === "object" && !Array.isArray(v)
+            ? JSON.stringify(v)
+            : Array.isArray(v) ? v.join("; ") : String(v);
           return str.includes(",") || str.includes('"') || str.includes("\n")
             ? `"${str.replace(/"/g, '""')}"`
             : str;
@@ -133,6 +144,7 @@ Deno.serve(async (req: Request) => {
 
       if (rows.length < BATCH_SIZE) hasMore = false;
     }
+
 
     const csvContent = csvParts.join("\n");
     const fileName = job.file_name || `export_${job_id}.csv`;
