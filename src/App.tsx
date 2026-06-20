@@ -321,6 +321,7 @@ const App = () => (
             <Route path="/verification/admin" element={<VL><VfAdminPage /></VL>} />
             <Route path="/verification/ai" element={<VL><VfAIPage /></VL>} />
             <Route path="/verification/operations" element={<VL><VfOperationsPage /></VL>} />
+            <Route path="/verification/email-memory" element={<VL><VfEmailMemoryPage /></VL>} />
 
 
             {/* Records (reuse existing) */}
