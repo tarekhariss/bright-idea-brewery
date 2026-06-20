@@ -686,15 +686,18 @@ Deno.serve(async (req: Request) => {
           };
           const companyData: Record<string, unknown> = {};
           let hasCompanyFields = false;
-          const customFields = (normalized as any)._custom_fields ?? null;
+          const contactCustom = (normalized as any)._contact_custom_fields ?? null;
+          const companyCustom = (normalized as any)._company_custom_fields ?? null;
           for (const [key, value] of Object.entries(normalized)) {
-            if (key.startsWith("_")) continue; // skip _custom_fields / _original_values / _invalid_values
+            if (key.startsWith("_")) continue;
             if (value === null || value === undefined) continue;
             if (CONTACT_FIELDS.has(key)) contact[key] = value;
             if (COMPANY_FIELDS.has(key)) { companyData[key] = value; hasCompanyFields = true; }
           }
-          if (customFields && typeof customFields === "object" && Object.keys(customFields).length > 0) {
-            contact.custom_fields = customFields;
+          if (contactCustom && Object.keys(contactCustom).length > 0) contact.custom_fields = contactCustom;
+          if (companyCustom && Object.keys(companyCustom).length > 0) {
+            companyData.custom_fields = companyCustom;
+            hasCompanyFields = true;
           }
           if (!contact.city && normalized.company_city) contact.city = normalized.company_city;
           if (!contact.state && normalized.company_state) contact.state = normalized.company_state;
@@ -705,7 +708,6 @@ Deno.serve(async (req: Request) => {
           const matchedCompanyId = rowUpdate.company_id ?? (companyKey ? companyCache.get(companyKey) : null);
           if (matchedCompanyId) { contact.company_id = matchedCompanyId; rowUpdate.company_id = matchedCompanyId; }
 
-
           if (companyName && hasCompanyFields && !rowUpdate.company_id) {
             pendingContacts.push({ rowId: row.id, rowUpdate, contact, companyData, companyKey, companyName });
           } else if (contact.email || contact.first_name || contact.last_name) {
@@ -713,9 +715,29 @@ Deno.serve(async (req: Request) => {
           } else {
             rowUpdate.status = "error"; rowUpdate.error_message = "Missing required identity fields";
           }
+        } else if (rowAction.action === "update_missing_fields" && dupDetail.matchedContactId) {
+          // Merge import data into the existing contact WITHOUT overwriting non-empty values.
+          // Custom fields are merged key-by-key (existing wins on conflict).
+          const contactPatch: Record<string, unknown> = {};
+          for (const [key, value] of Object.entries(normalized)) {
+            if (key.startsWith("_")) continue;
+            if (value === null || value === undefined || value === "") continue;
+            if (CONTACT_FIELDS.has(key)) contactPatch[key] = value;
+          }
+          const newContactCustom = (normalized as any)._contact_custom_fields ?? {};
+          const newCompanyCustom = (normalized as any)._company_custom_fields ?? {};
+
+          mergeUpdates.push({
+            contactId: dupDetail.matchedContactId,
+            companyId: dupDetail.matchedCompanyId,
+            patch: contactPatch,
+            contactCustom: newContactCustom,
+            companyCustom: newCompanyCustom,
+          });
         }
         rowUpdates.push(rowUpdate);
       }
+
 
       // Company creation (batch)
       const companyStart = performance.now();
