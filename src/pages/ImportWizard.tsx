@@ -163,7 +163,9 @@ export default function ImportWizardPage() {
     if (!parsed) return;
     const preview = parsed.rows.slice(0, 20).map((row) => normalizeRow(row, columnMapping));
     setNormPreview(preview);
+    setColumnAnalysis(analyzeColumns(parsed, columnMapping, 50));
   }, [parsed, columnMapping]);
+
 
   // ─── Step 4: Duplicate detection ──────────────────────────────────────────────
 
