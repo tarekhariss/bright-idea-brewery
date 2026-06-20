@@ -35,7 +35,8 @@ type ImportSettings = {
   duplicate_strategy: string; skip_exact_duplicates: boolean;
   update_missing_fields: boolean; review_likely_duplicates: boolean;
   review_company_conflicts: boolean; create_if_no_strong_match: boolean;
-  unmapped_columns: string[]; import_tag: string; source: string; list_id: string | null;
+  unmapped_columns: string[]; excluded_columns?: string[];
+  import_tag: string; source: string; list_id: string | null;
 };
 
 function nowIso() { return new Date().toISOString(); }
