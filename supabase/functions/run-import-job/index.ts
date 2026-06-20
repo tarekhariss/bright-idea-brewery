@@ -749,13 +749,19 @@ Deno.serve(async (req: Request) => {
             if (COMPANY_FIELDS.has(key)) { companyData[key] = value; hasCompanyFields = true; }
           }
           if (contactCustom && Object.keys(contactCustom).length > 0) contact.custom_fields = contactCustom;
+          // Promote a well-known company alias header into the dedicated column when present.
+          if (companyCustom && companyCustom["Company Name for Emails"]) {
+            (companyData as any).company_name_for_emails = companyCustom["Company Name for Emails"];
+            delete companyCustom["Company Name for Emails"];
+            hasCompanyFields = true;
+          }
           if (companyCustom && Object.keys(companyCustom).length > 0) {
             companyData.custom_fields = companyCustom;
             hasCompanyFields = true;
           }
-          if (!contact.city && normalized.company_city) contact.city = normalized.company_city;
-          if (!contact.state && normalized.company_state) contact.state = normalized.company_state;
-          if (!contact.country && normalized.company_country) contact.country = normalized.company_country;
+          // NOTE: Do NOT copy company_city/state/country onto the contact. Those are
+          // company-level signals and belong on the company row only; the contact's
+          // own city/state/country must come from the CSV's person-level fields.
 
           // Derive a strong company identity. Domain wins; fall back to name.
           const domainKey = deriveRowDomain(normalized as any);
@@ -830,10 +836,12 @@ Deno.serve(async (req: Request) => {
           const toCreate = Array.from(uniqueCompanies.values()).map((val) => {
             const cd = { ...val.companyData };
             delete (cd as any).__derivedName;
+            // normalized_name AND normalized_domain are GENERATED columns — never
+            // include them in the insert payload or Postgres rejects the row.
+            delete (cd as any).normalized_name;
+            delete (cd as any).normalized_domain;
             return {
               name: val.companyName,
-              normalized_name: val.nameKey || normalizeCompanyName(val.companyName),
-              // normalized_domain is GENERATED — don't set it directly
               workspace_id: job.workspace_id ?? null, created_by: userId,
               ...cd,
             };

@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import type { FilterDefinition } from "@/lib/advanced-filter-types";
-import { applyAdvancedFilters } from "@/lib/advanced-filter-engine";
+import { applyAdvancedFilters, hasCompanyTableFilter } from "@/lib/advanced-filter-engine";
 import { useDebounce } from "./use-debounce";
 import { useState, useCallback } from "react";
 import { createEmptyFilterDefinition } from "@/lib/advanced-filter-types";
@@ -61,11 +61,23 @@ export function useProspectSearch(options: ProspectSearchOptions) {
 
       const listIds = await resolveListFilters(options.filterDefinition);
 
+      // When a contact search uses a company-level filter, force an inner join on
+      // the companies relationship so the parent contact rows are actually filtered
+      // (PostgREST embedded filters otherwise leave the parent row in the result set
+      // with `companies: null`).
+      const needsCompanyJoin = options.entityType === "contact" && hasCompanyTableFilter(options.filterDefinition);
+      const companyEmbed = needsCompanyJoin
+        ? "companies!inner(name,industry,employee_count,employee_range,domain,website,annual_revenue,revenue_range,funding_stage,headquarters,company_city,company_state,company_country,company_linkedin_url,keywords,custom_fields,company_name_for_emails)"
+        : "companies(name,industry,employee_count,employee_range,domain,website,annual_revenue,revenue_range,funding_stage,headquarters,company_city,company_state,company_country,company_linkedin_url,keywords,custom_fields,company_name_for_emails)";
+
       // Build count query
-      let countQuery = db().from(table).select("*", { count: "exact", head: true });
+      let countQuery = db().from(table).select(
+        options.entityType === "contact" && needsCompanyJoin ? `id, ${companyEmbed}` : "*",
+        { count: "exact", head: true }
+      );
       countQuery = applyOwnershipFilter(countQuery, workspaceId, user!.id);
       countQuery = applySearchFilter(countQuery, options.entityType, debouncedSearch);
-      countQuery = applyAdvancedFilters(countQuery, options.filterDefinition);
+      countQuery = applyAdvancedFilters(countQuery, options.filterDefinition, options.entityType);
       countQuery = applyListIds(countQuery, listIds);
       if (options.sourceFile) countQuery = countQuery.eq("source_file", options.sourceFile);
       if (options.importTag) countQuery = countQuery.eq("import_tag", options.importTag);
@@ -76,15 +88,15 @@ export function useProspectSearch(options: ProspectSearchOptions) {
       let dataQuery = db()
         .from(table)
         .select(options.entityType === "contact"
-          ? "id,first_name,last_name,email,job_title,company_name_raw,company_id,email_validity_status,phone_status,phone,mobile_phone,corporate_phone,work_direct_phone,country,city,state,lifecycle_status,outreach_status,owner_id,linkedin_url,seniority_level,department,source,data_quality_score,last_contacted_at,created_at,updated_at,headline,persona,address,postal_code,timezone,bio,skills,languages,years_experience,current_role_start_date,personal_email,secondary_email,companies(name,industry,employee_count,employee_range,domain,website,annual_revenue,revenue_range,funding_stage,headquarters)"
-          : "id,name,domain,website,industry,employee_count,employee_range,revenue_range,annual_revenue,funding_stage,total_funding,country,city,state,headquarters,technologies,keywords,owner_id,data_quality_score,linkedin_url,created_at,updated_at,description,founded_year,company_type,stock_ticker,facebook_url,twitter_url"
+          ? `id,first_name,last_name,email,job_title,company_name_raw,company_id,email_validity_status,phone_status,phone,mobile_phone,corporate_phone,work_direct_phone,country,city,state,lifecycle_status,outreach_status,owner_id,linkedin_url,seniority_level,department,source,data_quality_score,last_contacted_at,created_at,updated_at,headline,persona,address,postal_code,timezone,bio,skills,languages,years_experience,current_role_start_date,personal_email,secondary_email,${companyEmbed}`
+          : "id,name,domain,website,industry,employee_count,employee_range,revenue_range,annual_revenue,funding_stage,total_funding,country,city,state,headquarters,technologies,keywords,owner_id,data_quality_score,linkedin_url,created_at,updated_at,description,founded_year,company_type,stock_ticker,facebook_url,twitter_url,company_city,company_state,company_country,company_linkedin_url,company_name_for_emails,custom_fields,normalized_domain"
         )
         .range(from, to)
         .order(options.sortBy, { ascending: options.sortDirection === "asc" });
 
       dataQuery = applyOwnershipFilter(dataQuery, workspaceId, user!.id);
       dataQuery = applySearchFilter(dataQuery, options.entityType, debouncedSearch);
-      dataQuery = applyAdvancedFilters(dataQuery, options.filterDefinition);
+      dataQuery = applyAdvancedFilters(dataQuery, options.filterDefinition, options.entityType);
       dataQuery = applyListIds(dataQuery, listIds);
       if (options.sourceFile) dataQuery = dataQuery.eq("source_file", options.sourceFile);
       if (options.importTag) dataQuery = dataQuery.eq("import_tag", options.importTag);
