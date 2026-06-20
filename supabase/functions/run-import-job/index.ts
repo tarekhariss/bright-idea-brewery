@@ -114,7 +114,7 @@ function isValidForField(fieldKey: string, v: string): boolean {
   if (fieldKey === "website") return URL_RE.test(v.trim().replace(/\s+/g, ""));
   if (fieldKey === "domain") return DOMAIN_RE.test(v.trim().replace(/^https?:\/\//i, "").replace(/^www\./i, "").split("/")[0]);
   if (fieldKey.includes("phone")) return (v.match(/\d/g)?.length ?? 0) >= 7;
-  if (fieldKey === "company_name_raw") return v.length <= 120 && !/[.!?]+$/.test(v.trim());
+  if (fieldKey === "company_name_raw") { const t = v.trim(); return t.length <= 120 && !/[!?]$/.test(t) && t.split(/\s+/).length <= 20; }
   return true;
 }
 
