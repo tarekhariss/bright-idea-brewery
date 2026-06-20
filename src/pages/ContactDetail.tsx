@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, ArrowLeft, Mail, Phone, Linkedin, MapPin, Building2, Calendar, Shield, ExternalLink, User, UserPlus, Brain, TrendingUp } from "lucide-react";
 import { LifecycleBadge, OutreachBadge, EmailValidityBadge, QualityScoreBadge, DncBadge } from "@/components/data-table/StatusBadge";
+import { CanonicalStatusBadge, ModifierChips } from "@/components/email-memory/CanonicalEmailBadges";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { PushToCrmButton } from "@/components/crm/PushToCrmButton";
