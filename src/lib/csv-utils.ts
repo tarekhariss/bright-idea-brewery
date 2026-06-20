@@ -489,9 +489,11 @@ export function normalizeRow(
     normalized[fieldKey] = val;
   }
 
-  if (Object.keys(customFields).length > 0) normalized._custom_fields = customFields;
+  if (Object.keys(contactCustom).length > 0) normalized._contact_custom_fields = contactCustom;
+  if (Object.keys(companyCustom).length > 0) normalized._company_custom_fields = companyCustom;
   if (Object.keys(originals).length > 0) normalized._original_values = originals;
   if (Object.keys(invalidFields).length > 0) normalized._invalid_values = invalidFields;
+
 
   return { normalized, changes };
 }
