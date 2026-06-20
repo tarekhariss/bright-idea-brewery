@@ -17,6 +17,8 @@ import { format } from "date-fns";
 import type { LifecycleStatus } from "@/integrations/supabase/db-types";
 import type { FilterDefinition } from "@/lib/advanced-filter-types";
 import { toast } from "@/hooks/use-toast";
+import { DatasetReadinessWidget } from "@/components/lists/DatasetReadinessWidget";
+import { SegmentPerformanceCard } from "@/components/lists/SegmentPerformanceCard";
 
 const db = () => supabase as any;
 
@@ -228,6 +230,13 @@ export default function ListDetailPage() {
               </CardContent>
             </Card>
           )}
+
+          {/* Intelligence v2 widgets */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <DatasetReadinessWidget listId={list.id} />
+            <SegmentPerformanceCard listId={list.id} />
+          </div>
+
 
           {/* Contacts table */}
           <div className="rounded-lg border bg-card">
