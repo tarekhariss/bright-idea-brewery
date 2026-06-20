@@ -498,13 +498,14 @@ export default function ImportWizardPage() {
                 <div>
                   <CardTitle className="text-lg">Map Columns</CardTitle>
                   <CardDescription>
-                    Map your CSV columns to database fields. {mappedFieldCount} of {parsed.headers.length} mapped.
+                    Auto-mapped {mappedFieldCount} of {parsed.headers.length} columns. Unmapped columns are still saved as custom fields — you don't have to map every one.
                   </CardDescription>
                 </div>
-                <Badge variant="outline" className="text-xs">
-                  {unmappedHeaders.length} unmapped → stored as metadata
+                <Badge variant="outline" className="text-xs bg-primary/5 text-primary border-primary/20">
+                  {unmappedHeaders.length} → custom fields
                 </Badge>
               </div>
+
 
               <Progress value={(mappedFieldCount / parsed.headers.length) * 100} className="h-2" />
 
