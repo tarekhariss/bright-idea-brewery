@@ -79,12 +79,12 @@ const CONTACT_COLUMNS: ColDef[] = [
   },
   {
     key: "email_validity_status", label: "Email", sortable: true,
-    render: (r) => {
-      const s = r.email_validity_status;
-      if (!s) return <span className="text-xs text-muted-foreground">—</span>;
-      const color = s === "valid" ? "bg-primary/10 text-primary" : s === "invalid" ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground";
-      return <Badge variant="outline" className={`text-[10px] ${color}`}>{s}</Badge>;
-    },
+    render: (r) => (
+      <div className="flex flex-col gap-0.5">
+        <CanonicalStatusBadge contact={r} size="xs" />
+        <ModifierChips contact={r} max={2} />
+      </div>
+    ),
   },
   {
     key: "phone_status", label: "Phone", sortable: true,
