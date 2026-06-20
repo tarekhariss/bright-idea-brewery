@@ -10946,6 +10946,13 @@ export type Database = {
         }
         Returns: undefined
       }
+      ingest_email_status_history_batch: {
+        Args: { rows: Json }
+        Returns: {
+          duplicate_count: number
+          inserted_count: number
+        }[]
+      }
       intelligence_rollup: { Args: never; Returns: Json }
       is_email_allowed: { Args: { p_email: string }; Returns: boolean }
       is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
