@@ -668,8 +668,22 @@ export default function ImportWizardPage() {
                 const totalChanged = columnAnalysis.reduce((s, c) => s + c.changedRows, 0);
                 const totalInvalid = columnAnalysis.reduce((s, c) => s + c.invalidRows, 0);
 
+                const excludedCount = columnAnalysis.filter((c) => c.storedAs === "excluded").length;
+                const importedCount = columnAnalysis.length - excludedCount;
                 return (
                   <div className="space-y-4">
+                    <div className="rounded-md bg-emerald-500/5 border border-emerald-200 p-3 text-sm">
+                      <p className="font-medium text-emerald-800">
+                        {importedCount} of {columnAnalysis.length} columns will be imported
+                        {" — "}
+                        {standardCount} standard{" · "}{customCount} custom
+                        {excludedCount > 0 && <> · {excludedCount} excluded</>}
+                      </p>
+                      <p className="text-xs text-emerald-700/80 mt-0.5">
+                        No column is skipped by default. Anything not mapped to a standard field is saved to <code>contacts.custom_fields</code> or <code>companies.custom_fields</code>.
+                      </p>
+                    </div>
+
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                       <Card><CardContent className="p-3 text-center">
                         <p className="text-2xl font-bold text-foreground">{standardCount}</p>
@@ -693,7 +707,7 @@ export default function ImportWizardPage() {
                       <div className="flex items-start gap-2 p-3 rounded-md bg-primary/5 border border-primary/20 text-sm">
                         <Sparkles className="h-4 w-4 text-primary shrink-0 mt-0.5" />
                         <div>
-                          <p className="font-medium">{customCount} unmapped {customCount === 1 ? "column" : "columns"} will be preserved as custom fields.</p>
+                          <p className="font-medium">{customCount} {customCount === 1 ? "column is" : "columns are"} preserved as custom fields.</p>
                           <p className="text-xs text-muted-foreground mt-0.5">
                             {contactCustomCount > 0 && <>{contactCustomCount} stored on <code>contacts.custom_fields</code>. </>}
                             {companyCustomCount > 0 && <>{companyCustomCount} stored on <code>companies.custom_fields</code>. </>}
@@ -702,6 +716,8 @@ export default function ImportWizardPage() {
                         </div>
                       </div>
                     )}
+
+
 
 
                     {warningCount > 0 && (
