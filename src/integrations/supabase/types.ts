@@ -2067,8 +2067,19 @@ export type Database = {
           do_not_contact: boolean
           education: Json | null
           email: string | null
+          email_canonical_status: Database["public"]["Enums"]["email_canonical_status"]
           email_confidence: number | null
+          email_is_catch_all: boolean
+          email_is_disposable: boolean
+          email_is_free_email: boolean
+          email_is_mx_missing: boolean
+          email_is_role_based: boolean
+          email_is_syntax_invalid: boolean
+          email_is_temporary_failure: boolean
           email_normalized: string | null
+          email_status_source: string | null
+          email_status_updated_at: string | null
+          email_status_verified_at: string | null
           email_validity_status: Database["public"]["Enums"]["email_validity"]
           enrichment_data: Json | null
           enrichment_source: string | null
@@ -2139,8 +2150,19 @@ export type Database = {
           do_not_contact?: boolean
           education?: Json | null
           email?: string | null
+          email_canonical_status?: Database["public"]["Enums"]["email_canonical_status"]
           email_confidence?: number | null
+          email_is_catch_all?: boolean
+          email_is_disposable?: boolean
+          email_is_free_email?: boolean
+          email_is_mx_missing?: boolean
+          email_is_role_based?: boolean
+          email_is_syntax_invalid?: boolean
+          email_is_temporary_failure?: boolean
           email_normalized?: string | null
+          email_status_source?: string | null
+          email_status_updated_at?: string | null
+          email_status_verified_at?: string | null
           email_validity_status?: Database["public"]["Enums"]["email_validity"]
           enrichment_data?: Json | null
           enrichment_source?: string | null
@@ -2211,8 +2233,19 @@ export type Database = {
           do_not_contact?: boolean
           education?: Json | null
           email?: string | null
+          email_canonical_status?: Database["public"]["Enums"]["email_canonical_status"]
           email_confidence?: number | null
+          email_is_catch_all?: boolean
+          email_is_disposable?: boolean
+          email_is_free_email?: boolean
+          email_is_mx_missing?: boolean
+          email_is_role_based?: boolean
+          email_is_syntax_invalid?: boolean
+          email_is_temporary_failure?: boolean
           email_normalized?: string | null
+          email_status_source?: string | null
+          email_status_updated_at?: string | null
+          email_status_verified_at?: string | null
           email_validity_status?: Database["public"]["Enums"]["email_validity"]
           enrichment_data?: Json | null
           enrichment_source?: string | null
@@ -3561,6 +3594,95 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "email_reputation_history_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_status_history: {
+        Row: {
+          canonical_status: Database["public"]["Enums"]["email_canonical_status"]
+          created_at: string
+          created_by: string | null
+          domain: string | null
+          id: string
+          import_job_id: string | null
+          is_catch_all: boolean
+          is_disposable: boolean
+          is_free_email: boolean
+          is_mx_missing: boolean
+          is_role_based: boolean
+          is_syntax_invalid: boolean
+          is_temporary_failure: boolean
+          mx_record: string | null
+          normalized_email: string
+          provider: string | null
+          provider_status: string | null
+          raw_payload: Json
+          reason: string | null
+          smtp_code: string | null
+          source: string
+          verification_job_id: string | null
+          verified_at: string
+          workspace_id: string
+        }
+        Insert: {
+          canonical_status: Database["public"]["Enums"]["email_canonical_status"]
+          created_at?: string
+          created_by?: string | null
+          domain?: string | null
+          id?: string
+          import_job_id?: string | null
+          is_catch_all?: boolean
+          is_disposable?: boolean
+          is_free_email?: boolean
+          is_mx_missing?: boolean
+          is_role_based?: boolean
+          is_syntax_invalid?: boolean
+          is_temporary_failure?: boolean
+          mx_record?: string | null
+          normalized_email: string
+          provider?: string | null
+          provider_status?: string | null
+          raw_payload?: Json
+          reason?: string | null
+          smtp_code?: string | null
+          source: string
+          verification_job_id?: string | null
+          verified_at?: string
+          workspace_id: string
+        }
+        Update: {
+          canonical_status?: Database["public"]["Enums"]["email_canonical_status"]
+          created_at?: string
+          created_by?: string | null
+          domain?: string | null
+          id?: string
+          import_job_id?: string | null
+          is_catch_all?: boolean
+          is_disposable?: boolean
+          is_free_email?: boolean
+          is_mx_missing?: boolean
+          is_role_based?: boolean
+          is_syntax_invalid?: boolean
+          is_temporary_failure?: boolean
+          mx_record?: string | null
+          normalized_email?: string
+          provider?: string | null
+          provider_status?: string | null
+          raw_payload?: Json
+          reason?: string | null
+          smtp_code?: string | null
+          source?: string
+          verification_job_id?: string | null
+          verified_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_status_history_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -10218,6 +10340,71 @@ export type Database = {
           },
         ]
       }
+      verification_status_map: {
+        Row: {
+          canonical_status: Database["public"]["Enums"]["email_canonical_status"]
+          created_at: string
+          id: string
+          is_catch_all: boolean
+          is_disposable: boolean
+          is_free_email: boolean
+          is_global: boolean
+          is_mx_missing: boolean
+          is_role_based: boolean
+          is_syntax_invalid: boolean
+          is_temporary_failure: boolean
+          notes: string | null
+          provider: string
+          provider_status: string
+          updated_at: string
+          workspace_id: string | null
+        }
+        Insert: {
+          canonical_status: Database["public"]["Enums"]["email_canonical_status"]
+          created_at?: string
+          id?: string
+          is_catch_all?: boolean
+          is_disposable?: boolean
+          is_free_email?: boolean
+          is_global?: boolean
+          is_mx_missing?: boolean
+          is_role_based?: boolean
+          is_syntax_invalid?: boolean
+          is_temporary_failure?: boolean
+          notes?: string | null
+          provider: string
+          provider_status: string
+          updated_at?: string
+          workspace_id?: string | null
+        }
+        Update: {
+          canonical_status?: Database["public"]["Enums"]["email_canonical_status"]
+          created_at?: string
+          id?: string
+          is_catch_all?: boolean
+          is_disposable?: boolean
+          is_free_email?: boolean
+          is_global?: boolean
+          is_mx_missing?: boolean
+          is_role_based?: boolean
+          is_syntax_invalid?: boolean
+          is_temporary_failure?: boolean
+          notes?: string | null
+          provider?: string
+          provider_status?: string
+          updated_at?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "verification_status_map_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       verification_workers: {
         Row: {
           avg_latency_ms: number | null
@@ -10407,6 +10594,7 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           id: string
+          intelligence_v2: boolean
           logo_url: string | null
           name: string
           settings: Json | null
@@ -10417,6 +10605,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           id?: string
+          intelligence_v2?: boolean
           logo_url?: string | null
           name: string
           settings?: Json | null
@@ -10427,6 +10616,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           id?: string
+          intelligence_v2?: boolean
           logo_url?: string | null
           name?: string
           settings?: Json | null
@@ -10667,6 +10857,23 @@ export type Database = {
         Args: { _banner: string; _mx: string }
         Returns: string
       }
+      email_status_current: {
+        Args: { p_email: string; p_workspace_id: string }
+        Returns: {
+          canonical_status: Database["public"]["Enums"]["email_canonical_status"]
+          is_catch_all: boolean
+          is_disposable: boolean
+          is_free_email: boolean
+          is_mx_missing: boolean
+          is_role_based: boolean
+          is_syntax_invalid: boolean
+          is_temporary_failure: boolean
+          normalized_email: string
+          observation_count: number
+          source: string
+          verified_at: string
+        }[]
+      }
       enqueue_recovery: {
         Args: {
           _reason: string
@@ -10879,6 +11086,10 @@ export type Database = {
       }
       pick_campaign_mailbox: { Args: { _campaign_id: string }; Returns: string }
       push_to_crm: { Args: { payload: Json }; Returns: Json }
+      recompute_email_status_projection: {
+        Args: { p_normalized_email: string; p_workspace_id: string }
+        Returns: undefined
+      }
       record_bounce: {
         Args: {
           _campaign_id?: string
@@ -11075,6 +11286,15 @@ export type Database = {
       dns_record_status: "pending" | "pass" | "fail"
       domain_status: "pending" | "verified" | "failed"
       duplicate_group_status: "pending" | "reviewing" | "resolved" | "dismissed"
+      email_canonical_status:
+        | "valid"
+        | "valid_catch_all"
+        | "risky"
+        | "unknown"
+        | "invalid"
+        | "bounced"
+        | "suppressed"
+        | "unverified"
       email_status:
         | "draft"
         | "queued"
@@ -11543,6 +11763,16 @@ export const Constants = {
       dns_record_status: ["pending", "pass", "fail"],
       domain_status: ["pending", "verified", "failed"],
       duplicate_group_status: ["pending", "reviewing", "resolved", "dismissed"],
+      email_canonical_status: [
+        "valid",
+        "valid_catch_all",
+        "risky",
+        "unknown",
+        "invalid",
+        "bounced",
+        "suppressed",
+        "unverified",
+      ],
       email_status: [
         "draft",
         "queued",
