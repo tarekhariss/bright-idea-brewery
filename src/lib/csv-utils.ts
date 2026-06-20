@@ -244,10 +244,16 @@ export function suggestFieldForHeader(header: string, claimed: Set<string> = new
       }
     }
   }
+  // Fallback: substring match — but only on word boundaries (so "email" does NOT
+  // claim "Company Name for Emails") AND only for multi-token hints (so a single
+  // generic word can't outrank a more specific header).
   for (const [fieldKey, hints] of Object.entries(AUTO_MAP_HINTS)) {
     if (claimed.has(fieldKey)) continue;
     for (const h of hints) {
-      if (h.length >= 5 && norm.includes(h)) {
+      if (h.length < 5) continue;
+      if (!h.includes(" ")) continue; // skip single-word hints in this pass
+      const re = new RegExp(`(^|\\s)${h.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")}(\\s|$)`);
+      if (re.test(norm)) {
         return { field: fieldKey, confidence: 70, reason: "contains" };
       }
     }
