@@ -386,23 +386,41 @@ function titleCase(val: string): string {
     .replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase());
 }
 
+/**
+ * Decide whether an unmapped CSV header should be stored on the contact's
+ * custom_fields or the company's custom_fields. Conservative: defaults to
+ * contact-scope when unsure.
+ */
+export function classifyCustomFieldScope(header: string): "contact" | "company" {
+  const h = header.toLowerCase().trim().replace(/[_\-\/\\.]+/g, " ").replace(/\s+/g, " ");
+  if (/^(company|organization|organisation|org|account|employer|firm|business)\b/.test(h)) return "company";
+  if (/\b(employees|headcount|revenue|funding|founded|industry|sic|naics|ticker|hq|headquarters|domain|website|technologies|tech stack|specialties|segments|territories)\b/.test(h)) return "company";
+  return "contact";
+}
+
 export function normalizeRow(
   raw: Record<string, string>,
   mapping: Record<string, string>
 ): NormalizationResult {
   const normalized: Record<string, unknown> = {};
   const changes: NormalizationChange[] = [];
-  const customFields: Record<string, string> = {};
+  const contactCustom: Record<string, string> = {};
+  const companyCustom: Record<string, string> = {};
   const originals: Record<string, string> = {};
   const invalidFields: Record<string, string> = {};
 
-  // 1) Preserve EVERY unmapped column as a custom field (raw value)
+  // 1) Preserve EVERY unmapped column as a custom field, routed by header semantics.
   for (const [csvCol, rawVal] of Object.entries(raw)) {
     if (!mapping[csvCol]) {
       const trimmed = (rawVal ?? "").trim();
-      if (trimmed && !isEmptyLike(trimmed)) customFields[csvCol] = trimmed;
+      if (!trimmed || isEmptyLike(trimmed)) continue;
+      const scope = classifyCustomFieldScope(csvCol);
+      if (scope === "company") companyCustom[csvCol] = trimmed;
+      else contactCustom[csvCol] = trimmed;
     }
   }
+
+
 
   // 2) Process each mapped column
   for (const [csvCol, fieldKey] of Object.entries(mapping)) {
