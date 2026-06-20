@@ -55,6 +55,7 @@ const sections: NavSection[] = [
     items: [
       { title: "Imports", url: "/verification/imports", icon: Upload },
       { title: "Historical Datasets", url: "/verification/historical-imports", icon: Database },
+      { title: "Email Memory", url: "/verification/email-memory", icon: Sparkles },
       { title: "History", url: "/verification/history", icon: History },
       { title: "Suppression", url: "/verification/suppression", icon: ShieldCheck },
     ],
