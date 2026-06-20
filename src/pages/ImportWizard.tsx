@@ -536,8 +536,9 @@ export default function ImportWizardPage() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="__unmapped__">
-                            <span className="text-muted-foreground">— Skip / Unmapped —</span>
+                            <span className="text-muted-foreground">— Save as custom field —</span>
                           </SelectItem>
+
                           {Object.entries(
                             MAPPABLE_FIELDS.reduce((acc, f) => {
                               (acc[f.group] ??= []).push(f);
