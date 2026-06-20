@@ -35,7 +35,8 @@ type ImportSettings = {
   duplicate_strategy: string; skip_exact_duplicates: boolean;
   update_missing_fields: boolean; review_likely_duplicates: boolean;
   review_company_conflicts: boolean; create_if_no_strong_match: boolean;
-  unmapped_columns: string[]; import_tag: string; source: string; list_id: string | null;
+  unmapped_columns: string[]; excluded_columns?: string[];
+  import_tag: string; source: string; list_id: string | null;
 };
 
 function nowIso() { return new Date().toISOString(); }
@@ -126,28 +127,28 @@ function isValidForField(fieldKey: string, v: string): boolean {
  */
 function classifyCustomFieldScope(header: string): "contact" | "company" {
   const h = header.toLowerCase().trim().replace(/[_\-\/\\.]+/g, " ").replace(/\s+/g, " ");
-  // Strong company prefixes
   if (/^(company|organization|organisation|org|account|employer|firm|business)\b/.test(h)) return "company";
-  // Common company-side topical words anywhere in header
-  if (/\b(employees|headcount|revenue|funding|founded|industry|sic|naics|ticker|hq|headquarters|domain|website|technologies|tech stack|specialties|segments|territories)\b/.test(h)) return "company";
+  if (/^(contact|person|lead|prospect|recipient|attendee)\b/.test(h)) return "contact";
+  if (/\b(employees|headcount|revenue|funding|founded|industry|sic|naics|ticker|hq|headquarters|domain|website|technologies|tech stack|specialties|segments|territories|name for emails)\b/.test(h)) return "company";
   return "contact";
 }
 
-function normalizeRow(raw: Record<string, string>, mapping: Record<string, string>) {
+function normalizeRow(raw: Record<string, string>, mapping: Record<string, string>, excluded: Set<string> = new Set()) {
   const normalized: Record<string, unknown> = {};
   const contactCustom: Record<string, string> = {};
   const companyCustom: Record<string, string> = {};
   const invalidFields: Record<string, string> = {};
 
-  // Preserve EVERY unmapped column as a custom field, routed by header semantics.
+  // Preserve EVERY unmapped (and not user-excluded) column as a custom field,
+  // routed by header semantics. Nothing is silently dropped.
   for (const [csvCol, rawVal] of Object.entries(raw)) {
-    if (!mapping[csvCol]) {
-      const t = (rawVal ?? "").trim();
-      if (!t || isEmptyLike(t)) continue;
-      const scope = classifyCustomFieldScope(csvCol);
-      if (scope === "company") companyCustom[csvCol] = t;
-      else contactCustom[csvCol] = t;
-    }
+    if (mapping[csvCol]) continue;
+    if (excluded.has(csvCol)) continue;
+    const t = (rawVal ?? "").trim();
+    if (!t || isEmptyLike(t)) continue;
+    const scope = classifyCustomFieldScope(csvCol);
+    if (scope === "company") companyCustom[csvCol] = t;
+    else contactCustom[csvCol] = t;
   }
 
   for (const [csvCol, fieldKey] of Object.entries(mapping)) {
@@ -693,7 +694,8 @@ Deno.serve(async (req: Request) => {
 
       // Normalize + dedup
       const normalizeStart = performance.now();
-      const normalizedRows = pendingRows.map((row: any) => normalizeRow(row.raw_data ?? {}, mapping));
+      const excludedSet = new Set<string>(Array.isArray(settings.excluded_columns) ? settings.excluded_columns : []);
+      const normalizedRows = pendingRows.map((row: any) => normalizeRow(row.raw_data ?? {}, mapping, excludedSet));
       const duplicateDetails = checkDuplicatesAdvanced(normalizedRows, contactIndex, companyIndex);
       const normalizeMs = Math.round(performance.now() - normalizeStart);
 

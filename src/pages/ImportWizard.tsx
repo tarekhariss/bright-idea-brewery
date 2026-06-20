@@ -48,6 +48,7 @@ import {
   MAPPABLE_FIELDS,
   normalizeRow,
   analyzeColumns,
+  classifyCustomFieldScope,
   checkDuplicatesAdvanced,
   buildContactIndex,
   buildCompanyIndex,
@@ -109,6 +110,10 @@ export default function ImportWizardPage() {
 
   // Step 2 state
   const [columnMapping, setColumnMapping] = useState<Record<string, string>>({});
+  // Headers the user explicitly marked as "Exclude from import". Empty by default —
+  // nothing is ever skipped unless the user intentionally chooses to exclude it.
+  const [excludedColumns, setExcludedColumns] = useState<Set<string>>(new Set());
+
 
   // Step 3 state
   const [normPreview, setNormPreview] = useState<NormalizationResult[]>([]);
@@ -161,10 +166,11 @@ export default function ImportWizardPage() {
 
   const runNormalization = useCallback(() => {
     if (!parsed) return;
-    const preview = parsed.rows.slice(0, 20).map((row) => normalizeRow(row, columnMapping));
+    const preview = parsed.rows.slice(0, 20).map((row) => normalizeRow(row, columnMapping, excludedColumns));
     setNormPreview(preview);
-    setColumnAnalysis(analyzeColumns(parsed, columnMapping, 50));
-  }, [parsed, columnMapping]);
+    setColumnAnalysis(analyzeColumns(parsed, columnMapping, 50, excludedColumns));
+  }, [parsed, columnMapping, excludedColumns]);
+
 
 
   // ─── Step 4: Duplicate detection ──────────────────────────────────────────────
@@ -200,7 +206,13 @@ export default function ImportWizardPage() {
   // ─── Step 5: Confirm and create ───────────────────────────────────────────────
 
   const mappedFieldCount = Object.values(columnMapping).filter(Boolean).length;
-  const unmappedHeaders = parsed?.headers.filter((h) => !columnMapping[h]) ?? [];
+  // Headers that aren't mapped to a standard field AND aren't user-excluded.
+  // These are preserved as contact/company custom fields — NOT skipped.
+  const customFieldHeaders = parsed?.headers.filter(
+    (h) => !columnMapping[h] && !excludedColumns.has(h)
+  ) ?? [];
+  const excludedHeaders = parsed?.headers.filter((h) => excludedColumns.has(h)) ?? [];
+
 
   const handleConfirmImport = useCallback(async () => {
     if (!parsed || !file || !user) return;
@@ -217,8 +229,12 @@ export default function ImportWizardPage() {
       const settings: Record<string, unknown> = {
         ...importSettings,
         duplicate_strategy: dupStrategy,
-        unmapped_columns: unmappedHeaders,
+        // Columns that will be preserved as contact/company custom_fields (not skipped).
+        unmapped_columns: customFieldHeaders,
+        // Columns the user explicitly told us to drop.
+        excluded_columns: excludedHeaders,
       };
+
 
       const initialDiagnostics = {
         diagnostics: {
@@ -369,7 +385,7 @@ export default function ImportWizardPage() {
     } finally {
       setSubmitting(false);
     }
-  }, [parsed, file, user, workspaceId, columnMapping, dupStrategy, importSettings, unmappedHeaders, navigate]);
+  }, [parsed, file, user, workspaceId, columnMapping, dupStrategy, importSettings, customFieldHeaders, excludedHeaders, navigate]);
 
   // ─── Step transitions ─────────────────────────────────────────────────────────
 
@@ -494,78 +510,141 @@ export default function ImportWizardPage() {
           {/* ─── STEP 2: Column Mapping ──────────────────────────────────── */}
           {step === 2 && parsed && (
             <div className="space-y-6">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-4">
                 <div>
                   <CardTitle className="text-lg">Map Columns</CardTitle>
                   <CardDescription>
-                    Auto-mapped {mappedFieldCount} of {parsed.headers.length} columns. Unmapped columns are still saved as custom fields — you don't have to map every one.
+                    Every column will be imported. {mappedFieldCount} of {parsed.headers.length} were auto-mapped to standard fields;
+                    the rest are saved as <strong>contact</strong> or <strong>company custom fields</strong> using the original CSV header.
+                    Use "Exclude from import" only if you intentionally want to drop a column.
                   </CardDescription>
                 </div>
-                <Badge variant="outline" className="text-xs bg-primary/5 text-primary border-primary/20">
-                  {unmappedHeaders.length} → custom fields
-                </Badge>
+                <div className="flex flex-col gap-1 items-end shrink-0">
+                  <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-700 border-emerald-200">
+                    {mappedFieldCount} standard
+                  </Badge>
+                  <Badge variant="outline" className="text-xs bg-primary/5 text-primary border-primary/20">
+                    {customFieldHeaders.length} → custom fields
+                  </Badge>
+                  {excludedHeaders.length > 0 && (
+                    <Badge variant="outline" className="text-xs text-muted-foreground">
+                      {excludedHeaders.length} excluded
+                    </Badge>
+                  )}
+                </div>
               </div>
 
 
-              <Progress value={(mappedFieldCount / parsed.headers.length) * 100} className="h-2" />
+              <Progress value={((mappedFieldCount + customFieldHeaders.length) / parsed.headers.length) * 100} className="h-2" />
 
               <ScrollArea className="h-[400px] pr-4">
                 <div className="space-y-3">
-                  {parsed.headers.map((header) => (
-                    <div key={header} className="flex items-center gap-4">
-                      <div className="w-[200px] shrink-0">
-                        <p className="text-sm font-medium truncate" title={header}>{header}</p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          e.g. {parsed.rows[0]?.[header] || "—"}
-                        </p>
-                      </div>
-                      <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <Select
-                        value={columnMapping[header] || "__unmapped__"}
-                        onValueChange={(val) =>
-                          setColumnMapping((prev) => {
-                            const next = { ...prev };
-                            if (val === "__unmapped__") delete next[header];
-                            else next[header] = val;
-                            return next;
-                          })
-                        }
-                      >
-                        <SelectTrigger className="w-[240px]">
-                          <SelectValue placeholder="Skip column" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__unmapped__">
-                            <span className="text-muted-foreground">— Save as custom field —</span>
-                          </SelectItem>
+                  {parsed.headers.map((header) => {
+                    const isExcluded = excludedColumns.has(header);
+                    const mappedKey = columnMapping[header];
+                    // Resolve the destination chip shown next to each row.
+                    let destLabel: string;
+                    let destClass: string;
+                    if (isExcluded) {
+                      destLabel = "Excluded";
+                      destClass = "bg-muted text-muted-foreground border-muted-foreground/20";
+                    } else if (mappedKey) {
+                      const f = MAPPABLE_FIELDS.find((x) => x.key === mappedKey);
+                      destLabel = `Standard · ${f?.label ?? mappedKey}`;
+                      destClass = "bg-emerald-500/10 text-emerald-700 border-emerald-200";
+                    } else if (classifyCustomFieldScope(header) === "company") {
+                      destLabel = "Save as Company Custom Field";
+                      destClass = "bg-indigo-500/10 text-indigo-700 border-indigo-200";
+                    } else {
+                      destLabel = "Save as Contact Custom Field";
+                      destClass = "bg-primary/10 text-primary border-primary/20";
+                    }
 
-                          {Object.entries(
-                            MAPPABLE_FIELDS.reduce((acc, f) => {
-                              (acc[f.group] ??= []).push(f);
-                              return acc;
-                            }, {} as Record<string, typeof MAPPABLE_FIELDS>)
-                          ).map(([group, fields]) => (
-                            <div key={group}>
-                              <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">{group}</div>
-                              {fields.map((f) => {
-                                const usedBy = Object.entries(columnMapping).find(
-                                  ([k, v]) => v === f.key && k !== header
-                                );
-                                return (
-                                  <SelectItem key={f.key} value={f.key} disabled={!!usedBy}>
-                                    {f.label}
-                                    {usedBy && <span className="text-muted-foreground ml-1">(used)</span>}
-                                  </SelectItem>
-                                );
-                              })}
-                            </div>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  ))}
+                    // Select value encodes all three modes: __custom__ (preserve as custom field),
+                    // __excluded__ (intentionally drop), or a standard field key.
+                    const selectValue = isExcluded
+                      ? "__excluded__"
+                      : (mappedKey || "__custom__");
+
+                    return (
+                      <div key={header} className="flex items-center gap-4">
+                        <div className="w-[200px] shrink-0">
+                          <p className="text-sm font-medium truncate" title={header}>{header}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            e.g. {parsed.rows[0]?.[header] || "—"}
+                          </p>
+                        </div>
+                        <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <Select
+                          value={selectValue}
+                          onValueChange={(val) => {
+                            if (val === "__excluded__") {
+                              setExcludedColumns((prev) => {
+                                const next = new Set(prev); next.add(header); return next;
+                              });
+                              setColumnMapping((prev) => {
+                                const next = { ...prev }; delete next[header]; return next;
+                              });
+                              return;
+                            }
+                            // Clear excluded mark on any other choice
+                            setExcludedColumns((prev) => {
+                              if (!prev.has(header)) return prev;
+                              const next = new Set(prev); next.delete(header); return next;
+                            });
+                            setColumnMapping((prev) => {
+                              const next = { ...prev };
+                              if (val === "__custom__") delete next[header];
+                              else next[header] = val;
+                              return next;
+                            });
+                          }}
+                        >
+                          <SelectTrigger className="w-[260px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__custom__">
+                              <span>
+                                Save as {classifyCustomFieldScope(header) === "company" ? "Company" : "Contact"} Custom Field
+                              </span>
+                            </SelectItem>
+                            <SelectItem value="__excluded__">
+                              <span className="text-muted-foreground">Exclude from import</span>
+                            </SelectItem>
+
+                            {Object.entries(
+                              MAPPABLE_FIELDS.reduce((acc, f) => {
+                                (acc[f.group] ??= []).push(f);
+                                return acc;
+                              }, {} as Record<string, typeof MAPPABLE_FIELDS>)
+                            ).map(([group, fields]) => (
+                              <div key={group}>
+                                <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">{group}</div>
+                                {fields.map((f) => {
+                                  const usedBy = Object.entries(columnMapping).find(
+                                    ([k, v]) => v === f.key && k !== header
+                                  );
+                                  return (
+                                    <SelectItem key={f.key} value={f.key} disabled={!!usedBy}>
+                                      {f.label}
+                                      {usedBy && <span className="text-muted-foreground ml-1">(used)</span>}
+                                    </SelectItem>
+                                  );
+                                })}
+                              </div>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Badge variant="outline" className={`text-[10px] shrink-0 ${destClass}`}>
+                          {destLabel}
+                        </Badge>
+                      </div>
+                    );
+                  })}
                 </div>
               </ScrollArea>
+
             </div>
           )}
 
@@ -589,8 +668,22 @@ export default function ImportWizardPage() {
                 const totalChanged = columnAnalysis.reduce((s, c) => s + c.changedRows, 0);
                 const totalInvalid = columnAnalysis.reduce((s, c) => s + c.invalidRows, 0);
 
+                const excludedCount = columnAnalysis.filter((c) => c.storedAs === "excluded").length;
+                const importedCount = columnAnalysis.length - excludedCount;
                 return (
                   <div className="space-y-4">
+                    <div className="rounded-md bg-emerald-500/5 border border-emerald-200 p-3 text-sm">
+                      <p className="font-medium text-emerald-800">
+                        {importedCount} of {columnAnalysis.length} columns will be imported
+                        {" — "}
+                        {standardCount} standard{" · "}{customCount} custom
+                        {excludedCount > 0 && <> · {excludedCount} excluded</>}
+                      </p>
+                      <p className="text-xs text-emerald-700/80 mt-0.5">
+                        No column is skipped by default. Anything not mapped to a standard field is saved to <code>contacts.custom_fields</code> or <code>companies.custom_fields</code>.
+                      </p>
+                    </div>
+
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                       <Card><CardContent className="p-3 text-center">
                         <p className="text-2xl font-bold text-foreground">{standardCount}</p>
@@ -614,7 +707,7 @@ export default function ImportWizardPage() {
                       <div className="flex items-start gap-2 p-3 rounded-md bg-primary/5 border border-primary/20 text-sm">
                         <Sparkles className="h-4 w-4 text-primary shrink-0 mt-0.5" />
                         <div>
-                          <p className="font-medium">{customCount} unmapped {customCount === 1 ? "column" : "columns"} will be preserved as custom fields.</p>
+                          <p className="font-medium">{customCount} {customCount === 1 ? "column is" : "columns are"} preserved as custom fields.</p>
                           <p className="text-xs text-muted-foreground mt-0.5">
                             {contactCustomCount > 0 && <>{contactCustomCount} stored on <code>contacts.custom_fields</code>. </>}
                             {companyCustomCount > 0 && <>{companyCustomCount} stored on <code>companies.custom_fields</code>. </>}
@@ -623,6 +716,8 @@ export default function ImportWizardPage() {
                         </div>
                       </div>
                     )}
+
+
 
 
                     {warningCount > 0 && (
@@ -664,14 +759,16 @@ export default function ImportWizardPage() {
                                     )}
                                   </div>
                                 ) : (
-                                  <span className="text-muted-foreground italic">unmapped</span>
+                                  <span className="text-muted-foreground italic">— saved as custom field —</span>
                                 )}
                               </TableCell>
+
                               <TableCell className="text-xs align-top">
                                 {c.storedAs === "standard_field" && <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-700 border-emerald-200">Standard field</Badge>}
                                 {c.storedAs === "contact_custom" && <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">Contact custom</Badge>}
                                 {c.storedAs === "company_custom" && <Badge variant="outline" className="text-xs bg-indigo-500/10 text-indigo-700 border-indigo-200">Company custom</Badge>}
-                                {c.storedAs === "skipped" && <Badge variant="outline" className="text-xs text-muted-foreground">Empty</Badge>}
+                                {c.storedAs === "empty" && <Badge variant="outline" className="text-xs text-muted-foreground">Empty column</Badge>}
+                                {c.storedAs === "excluded" && <Badge variant="outline" className="text-xs text-muted-foreground">Excluded</Badge>}
                               </TableCell>
 
                               <TableCell className="text-xs align-top">
@@ -891,9 +988,11 @@ export default function ImportWizardPage() {
                 <Card>
                   <CardContent className="p-4 space-y-2">
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Mapping</p>
-                    <p className="font-medium">{mappedFieldCount} fields mapped</p>
+                    <p className="font-medium">
+                      {(parsed?.headers.length ?? 0) - excludedHeaders.length} of {parsed?.headers.length ?? 0} columns will be imported
+                    </p>
                     <p className="text-sm text-muted-foreground">
-                      {unmappedHeaders.length} columns will be stored as metadata
+                      {mappedFieldCount} standard · {customFieldHeaders.length} custom{excludedHeaders.length > 0 ? ` · ${excludedHeaders.length} excluded` : ""}
                     </p>
                   </CardContent>
                 </Card>
