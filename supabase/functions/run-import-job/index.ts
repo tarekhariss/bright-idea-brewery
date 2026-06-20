@@ -598,11 +598,17 @@ Deno.serve(async (req: Request) => {
 
     const contactIndex = buildContactIndex((existingContacts ?? []) as ExistingContact[]);
     const companyIndex = buildCompanyIndex((existingCompanies ?? []) as ExistingCompany[]);
-    const companyCache = new Map<string, string>();
-    for (const c of (existingCompanies ?? []) as ExistingCompany[]) companyCache.set(normalizeCompanyName(c.name), c.id);
+    // Domain-first cache so importer never duplicates a company that shares a normalized domain.
+    const companyDomainCache = new Map<string, string>(); // normalized_domain -> company.id
+    const companyNameCache = new Map<string, string>();   // normalized_name    -> company.id
+    for (const c of (existingCompanies ?? []) as ExistingCompany[]) {
+      const nd = (c.normalized_domain && c.normalized_domain.trim())
+        ? c.normalized_domain.trim().toLowerCase()
+        : (c.domain ? normalizeDomain(c.domain) : (c.website ? normalizeDomain(c.website) : ""));
+      if (nd) companyDomainCache.set(nd, c.id);
+      companyNameCache.set(c.normalized_name || normalizeCompanyName(c.name), c.id);
+    }
 
-    updateDiag({ timings: { preload_existing_ms: Math.round(performance.now() - preloadStart) } });
-    console.log(`[import] Preloaded ${(existingContacts ?? []).length} contacts, ${(existingCompanies ?? []).length} companies in ${Math.round(performance.now() - preloadStart)}ms`);
 
     const settings = (job.settings ?? {}) as ImportSettings;
     const mapping = (job.column_mapping ?? {}) as Record<string, string>;
