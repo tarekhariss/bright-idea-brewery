@@ -93,10 +93,26 @@ export function CampaignLeadsTab({ campaignId }: { campaignId: string }) {
     });
   }, [enriched, statusFilter, search]);
 
+  const idList = useMemo(
+    () => enrollIds.split(/[\n,\s]+/).map((s) => s.trim()).filter(Boolean),
+    [enrollIds]
+  );
+
+  const { data: targetingPreview } = useQuery({
+    queryKey: ["targeting-preview", campaignId, idList],
+    enabled: enrollOpen && idList.length > 0 && idList.length <= 2000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("preview_campaign_targeting" as any, {
+        p_campaign_id: campaignId, p_contact_ids: idList,
+      } as any);
+      if (error) throw error;
+      return Array.isArray(data) ? data[0] : data;
+    },
+  });
+
   const handleEnroll = async () => {
-    const ids = enrollIds.split(/[\n,\s]+/).map((s) => s.trim()).filter(Boolean);
-    if (!ids.length) return;
-    await enrollContacts.mutateAsync({ campaignId, contactIds: ids });
+    if (!idList.length) return;
+    await enrollContacts.mutateAsync({ campaignId, contactIds: idList });
     setEnrollOpen(false);
     setEnrollIds("");
   };
