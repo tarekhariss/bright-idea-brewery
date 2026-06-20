@@ -126,6 +126,7 @@ import VfAdminPage from "./pages/verification/AdminAnalyticsPage";
 import VfCampaignSafetyPage from "./pages/verification/CampaignSafetyPage";
 import VfOperationsPage from "./pages/verification/OperationsDashboardPage";
 import VfJobDetailPage from "./pages/verification/JobDetailPage";
+import VfEmailMemoryPage from "./pages/verification/EmailMemoryPage";
 
 // Legacy /tools/verification/:id → redirect to new detail page
 function RedirectToVfJob() {
@@ -320,6 +321,7 @@ const App = () => (
             <Route path="/verification/admin" element={<VL><VfAdminPage /></VL>} />
             <Route path="/verification/ai" element={<VL><VfAIPage /></VL>} />
             <Route path="/verification/operations" element={<VL><VfOperationsPage /></VL>} />
+            <Route path="/verification/email-memory" element={<VL><VfEmailMemoryPage /></VL>} />
 
 
             {/* Records (reuse existing) */}
