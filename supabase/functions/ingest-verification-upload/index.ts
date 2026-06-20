@@ -205,6 +205,11 @@ Deno.serve(async (req) => {
       stored_for_future: 0,
     };
 
+    // Stable per-request fallback timestamp for rows missing a date.
+    // We DO NOT include this in the dedupe key — the dedupe key uses a
+    // "no-date" sentinel so identical CSVs re-uploaded later still dedupe.
+    const requestFallbackTs = new Date().toISOString();
+
     // Build canonical rows
     const prepared: any[] = [];
     const seenInChunk = new Set<string>();
@@ -216,7 +221,12 @@ Deno.serve(async (req) => {
       const { canonical, flags } = resolveCanonical(statusMap, provider, providerStatus);
       applyFlagOverrides(flags, row, mapping);
 
-      const verifiedAt = parseDate(getCol(row, mapping.verified_at)) ?? new Date().toISOString();
+      const parsedVerifiedAt = parseDate(getCol(row, mapping.verified_at));
+      const verifiedAt = parsedVerifiedAt ?? requestFallbackTs;
+      // Dedupe key uses the *source* verified_at value (or a sentinel when
+      // absent) so re-uploading the same CSV produces identical keys even
+      // though `verified_at` is filled with a fresh fallback timestamp.
+      const verifiedAtKey = parsedVerifiedAt ?? "no-date";
       const reason = getCol(row, mapping.reason); const smtp = getCol(row, mapping.smtp_code);
       const mx = getCol(row, mapping.mx); const domainCol = getCol(row, mapping.domain);
 
@@ -232,10 +242,9 @@ Deno.serve(async (req) => {
         if (keep.has(k) || preserve.has(k) || preserve.size === 0) raw[k] = v;
       }
 
-      // idempotency fingerprint inside this upload + within recent rows
-      const fp = `${email}|${provider}|${providerStatus ?? ""}|${verifiedAt}`;
-      if (seenInChunk.has(fp)) { counters.duplicates++; continue; }
-      seenInChunk.add(fp);
+      const dedupeKey = `${email}|${provider}|${providerStatus ?? ""}|${verifiedAtKey}`;
+      if (seenInChunk.has(dedupeKey)) { counters.duplicates++; continue; }
+      seenInChunk.add(dedupeKey);
 
       prepared.push({
         workspace_id: body.workspace_id,
@@ -252,6 +261,7 @@ Deno.serve(async (req) => {
         domain: domainCol ? String(domainCol).toLowerCase() : domainOf(email),
         raw_payload: raw,
         created_by: userId,
+        dedupe_key: dedupeKey,
       });
 
       counters.by_status[canonical] = (counters.by_status[canonical] ?? 0) + 1;
@@ -261,32 +271,21 @@ Deno.serve(async (req) => {
       if (flags.is_catch_all)  counters.modifiers.catch_all++;
     }
 
-    // Cross-row idempotency: check existing history fingerprints in DB for this upload_token
     if (prepared.length) {
       const emails = Array.from(new Set(prepared.map(p => p.normalized_email)));
-      const { data: existing } = await admin
-        .from("email_status_history")
-        .select("normalized_email, provider, provider_status, verified_at, source")
-        .eq("workspace_id", body.workspace_id)
-        .in("normalized_email", emails);
-      const existingSet = new Set<string>();
-      (existing ?? []).forEach((e: any) => {
-        existingSet.add(`${e.normalized_email}|${e.provider}|${e.provider_status ?? ""}|${new Date(e.verified_at).toISOString()}`);
-      });
-      const toInsert = prepared.filter(p => {
-        const fp = `${p.normalized_email}|${p.provider}|${p.provider_status ?? ""}|${new Date(p.verified_at).toISOString()}`;
-        if (existingSet.has(fp)) { counters.duplicates++; return false; }
-        return true;
-      });
 
-      if (toInsert.length) {
-        // insert in batches of 500
-        for (let i = 0; i < toInsert.length; i += 500) {
-          const chunk = toInsert.slice(i, i + 500);
-          const { error } = await admin.from("email_status_history").insert(chunk);
-          if (error) throw error;
-          counters.inserted += chunk.length;
-        }
+      // DB-level idempotency: partial unique index on (workspace_id, dedupe_key)
+      // means re-uploads of identical rows are silently ignored.
+      for (let i = 0; i < prepared.length; i += 500) {
+        const chunk = prepared.slice(i, i + 500);
+        const { data: insertedRows, error } = await admin
+          .from("email_status_history")
+          .upsert(chunk, { onConflict: "workspace_id,dedupe_key", ignoreDuplicates: true })
+          .select("id");
+        if (error) throw error;
+        const insertedCount = insertedRows?.length ?? 0;
+        counters.inserted += insertedCount;
+        counters.duplicates += chunk.length - insertedCount;
       }
 
       // backward matching report — how many emails already exist as contacts
