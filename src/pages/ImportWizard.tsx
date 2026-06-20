@@ -205,7 +205,13 @@ export default function ImportWizardPage() {
   // ─── Step 5: Confirm and create ───────────────────────────────────────────────
 
   const mappedFieldCount = Object.values(columnMapping).filter(Boolean).length;
-  const unmappedHeaders = parsed?.headers.filter((h) => !columnMapping[h]) ?? [];
+  // Headers that aren't mapped to a standard field AND aren't user-excluded.
+  // These are preserved as contact/company custom fields — NOT skipped.
+  const customFieldHeaders = parsed?.headers.filter(
+    (h) => !columnMapping[h] && !excludedColumns.has(h)
+  ) ?? [];
+  const excludedHeaders = parsed?.headers.filter((h) => excludedColumns.has(h)) ?? [];
+
 
   const handleConfirmImport = useCallback(async () => {
     if (!parsed || !file || !user) return;
