@@ -629,10 +629,15 @@ Deno.serve(async (req: Request) => {
           };
           const companyData: Record<string, unknown> = {};
           let hasCompanyFields = false;
+          const customFields = (normalized as any)._custom_fields ?? null;
           for (const [key, value] of Object.entries(normalized)) {
+            if (key.startsWith("_")) continue; // skip _custom_fields / _original_values / _invalid_values
             if (value === null || value === undefined) continue;
             if (CONTACT_FIELDS.has(key)) contact[key] = value;
             if (COMPANY_FIELDS.has(key)) { companyData[key] = value; hasCompanyFields = true; }
+          }
+          if (customFields && typeof customFields === "object" && Object.keys(customFields).length > 0) {
+            contact.custom_fields = customFields;
           }
           if (!contact.city && normalized.company_city) contact.city = normalized.company_city;
           if (!contact.state && normalized.company_state) contact.state = normalized.company_state;
@@ -642,6 +647,7 @@ Deno.serve(async (req: Request) => {
           const companyKey = companyName ? normalizeCompanyName(companyName) : "";
           const matchedCompanyId = rowUpdate.company_id ?? (companyKey ? companyCache.get(companyKey) : null);
           if (matchedCompanyId) { contact.company_id = matchedCompanyId; rowUpdate.company_id = matchedCompanyId; }
+
 
           if (companyName && hasCompanyFields && !rowUpdate.company_id) {
             pendingContacts.push({ rowId: row.id, rowUpdate, contact, companyData, companyKey, companyName });
