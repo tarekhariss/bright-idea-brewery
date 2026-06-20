@@ -410,7 +410,8 @@ export function classifyCustomFieldScope(header: string): "contact" | "company" 
 
 export function normalizeRow(
   raw: Record<string, string>,
-  mapping: Record<string, string>
+  mapping: Record<string, string>,
+  excluded: Set<string> = new Set()
 ): NormalizationResult {
   const normalized: Record<string, unknown> = {};
   const changes: NormalizationChange[] = [];
@@ -419,15 +420,16 @@ export function normalizeRow(
   const originals: Record<string, string> = {};
   const invalidFields: Record<string, string> = {};
 
-  // 1) Preserve EVERY unmapped column as a custom field, routed by header semantics.
+  // 1) Preserve EVERY unmapped (and not user-excluded) column as a custom field,
+  //    routed by header semantics. Nothing is silently dropped.
   for (const [csvCol, rawVal] of Object.entries(raw)) {
-    if (!mapping[csvCol]) {
-      const trimmed = (rawVal ?? "").trim();
-      if (!trimmed || isEmptyLike(trimmed)) continue;
-      const scope = classifyCustomFieldScope(csvCol);
-      if (scope === "company") companyCustom[csvCol] = trimmed;
-      else contactCustom[csvCol] = trimmed;
-    }
+    if (mapping[csvCol]) continue;
+    if (excluded.has(csvCol)) continue;
+    const trimmed = (rawVal ?? "").trim();
+    if (!trimmed || isEmptyLike(trimmed)) continue;
+    const scope = classifyCustomFieldScope(csvCol);
+    if (scope === "company") companyCustom[csvCol] = trimmed;
+    else contactCustom[csvCol] = trimmed;
   }
 
 
