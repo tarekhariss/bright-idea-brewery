@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.classify_reply_text(text) TO anon;

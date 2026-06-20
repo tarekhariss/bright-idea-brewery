@@ -10832,6 +10832,13 @@ export type Database = {
         Args: { p_body: string; p_subject: string }
         Returns: Database["public"]["Enums"]["reply_category"]
       }
+      classify_reply_text: { Args: { p_text: string }; Returns: Json }
+      classify_unclassified_inbox_threads: {
+        Args: { p_limit?: number; p_workspace_id: string }
+        Returns: {
+          classified: number
+        }[]
+      }
       classify_unknown_confidence: {
         Args: { _pass: number; _provider: string; _reason: string }
         Returns: string
@@ -10853,6 +10860,10 @@ export type Database = {
           _status: string
           _tls_used?: boolean
         }
+        Returns: Json
+      }
+      compute_account_heat_score: {
+        Args: { p_company_id: string; p_workspace_id: string }
         Returns: Json
       }
       compute_catch_all_probability: {
@@ -10987,6 +10998,14 @@ export type Database = {
       }
       ensure_crm_pipeline: { Args: { _workspace_id: string }; Returns: string }
       generate_workspace_slug: { Args: { p_name: string }; Returns: string }
+      get_daily_command_center: {
+        Args: { p_workspace_id: string }
+        Returns: Json
+      }
+      get_segment_performance: {
+        Args: { p_list_id: string; p_workspace_id: string }
+        Returns: Json
+      }
       get_workspace_data_quality: {
         Args: { p_workspace_id: string }
         Returns: Json

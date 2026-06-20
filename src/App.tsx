@@ -28,6 +28,8 @@ import ImportWizardPage from "./pages/ImportWizard";
 import ImportJobDetailPage from "./pages/ImportJobDetail";
 import SavedViewsPage from "./pages/SavedViews";
 import DataHealthPage from "./pages/DataHealth";
+import DataQualityPage from "./pages/intelligence/DataQualityPage";
+import DailyCommandCenterPage from "./pages/intelligence/DailyCommandCenterPage";
 import NotFound from "./pages/NotFound";
 import WorkspaceOnboarding from "./pages/WorkspaceOnboarding";
 
@@ -219,6 +221,9 @@ const App = () => (
 
             {/* Dashboard */}
             <Route path="/" element={<PL><DashboardPage /></PL>} />
+            <Route path="/today" element={<PL><DailyCommandCenterPage /></PL>} />
+            <Route path="/intelligence/data-quality" element={<PL><DataQualityPage /></PL>} />
+            <Route path="/intelligence/today" element={<PL><DailyCommandCenterPage /></PL>} />
 
             {/* Search */}
             <Route path="/search" element={<PL><ProspectSearchPage /></PL>} />

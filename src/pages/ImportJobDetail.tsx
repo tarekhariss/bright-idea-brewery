@@ -24,6 +24,8 @@ import {
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { ImportReviewPanel } from "@/components/import/ImportReviewPanel";
+import { ImportQuarantineTab } from "@/components/imports/ImportQuarantineTab";
+import { useIntelligenceV2 } from "@/hooks/use-intelligence-v2";
 
 const STATUS_STYLES: Record<string, string> = {
   pending: "bg-muted text-muted-foreground",
@@ -50,6 +52,7 @@ export default function ImportJobDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { enabled: v2Enabled } = useIntelligenceV2();
   const [rowStatusFilter, setRowStatusFilter] = useState("all");
   const [reviewFilter, setReviewFilter] = useState("all");
   const [page, setPage] = useState(0);
@@ -460,6 +463,7 @@ export default function ImportJobDetailPage() {
               <Shield className="h-3.5 w-3.5" /> Review Queue
               {(reviewCount ?? 0) > 0 && <Badge variant="secondary" className="ml-1 text-xs h-5 px-1.5">{reviewCount}</Badge>}
             </TabsTrigger>
+            {v2Enabled && <TabsTrigger value="quarantine" className="gap-1.5"><Shield className="h-3.5 w-3.5" /> Quarantine</TabsTrigger>}
           </TabsList>
           {activeTab === "all" && (
             <div className="flex items-center gap-3">
@@ -497,6 +501,11 @@ export default function ImportJobDetailPage() {
             <RowTable rows={rowsData?.rows} loading={rowsLoading} onViewRow={setSelectedRow} onReviewRow={setReviewRow} showReviewButton />
           )}
         </TabsContent>
+        {v2Enabled && (
+          <TabsContent value="quarantine" className="mt-4">
+            <ImportQuarantineTab importJobId={id!} />
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Pagination */}

@@ -17,6 +17,7 @@ import { PushToCrmButton } from "@/components/crm/PushToCrmButton";
 import { IntelligenceTab } from "@/components/intelligence/IntelligenceTab";
 import { AttributionSection } from "@/components/analytics/AttributionSection";
 import { useCompanyAttribution } from "@/hooks/use-analytics";
+import { AccountHeatScoreCard } from "@/components/companies/AccountHeatScoreCard";
 import type { Database, LifecycleStatus } from "@/integrations/supabase/db-types";
 
 type Company = Database["public"]["Tables"]["companies"]["Row"];
@@ -163,6 +164,7 @@ export default function CompanyDetailPage() {
         <TabsContent value="details">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
+          {id && <AccountHeatScoreCard companyId={id} />}
           {/* Company Info */}
           <Card>
             <CardHeader className="pb-3"><CardTitle className="text-sm font-medium">Company Information</CardTitle></CardHeader>
