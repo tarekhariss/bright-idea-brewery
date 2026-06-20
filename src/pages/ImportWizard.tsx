@@ -48,6 +48,7 @@ import {
   MAPPABLE_FIELDS,
   normalizeRow,
   analyzeColumns,
+  classifyCustomFieldScope,
   checkDuplicatesAdvanced,
   buildContactIndex,
   buildCompanyIndex,
