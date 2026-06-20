@@ -21,6 +21,9 @@ import { useCampaignLeads } from "@/hooks/use-campaign-detail";
 import { useEnrollContacts, useUpdateEnrollment } from "@/hooks/use-campaign-workflow";
 import { useCampaign } from "@/hooks/use-campaigns";
 import { useMailboxes } from "@/hooks/use-deliverability";
+import { EmailTargetingModeCard } from "./EmailTargetingModeCard";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 
 // Derive a UX-friendly status (sent / opened / replied / completed / pending / stopped)
 function deriveLeadStatus(e: any): "pending" | "sent" | "opened" | "replied" | "completed" | "stopped" {
