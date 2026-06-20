@@ -119,6 +119,7 @@ export function CampaignLeadsTab({ campaignId }: { campaignId: string }) {
 
   return (
     <div className="space-y-3">
+      <EmailTargetingModeCard campaignId={campaignId} />
       {/* Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Tabs value={statusFilter} onValueChange={setStatusFilter}>
