@@ -28,6 +28,8 @@ import ImportWizardPage from "./pages/ImportWizard";
 import ImportJobDetailPage from "./pages/ImportJobDetail";
 import SavedViewsPage from "./pages/SavedViews";
 import DataHealthPage from "./pages/DataHealth";
+import DataQualityPage from "./pages/intelligence/DataQualityPage";
+import DailyCommandCenterPage from "./pages/intelligence/DailyCommandCenterPage";
 import NotFound from "./pages/NotFound";
 import WorkspaceOnboarding from "./pages/WorkspaceOnboarding";
 
