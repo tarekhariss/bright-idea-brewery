@@ -23,8 +23,8 @@ const STATUS_META: Record<CanonicalEmailStatus, { label: string; tone: string; I
   unverified:      { label: "Unverified",      tone: "bg-muted text-muted-foreground border-border",             Icon: HelpCircle },
 };
 
-interface Contact {
-  email_canonical_status?: CanonicalEmailStatus | null;
+export interface ContactEmailMemoryFields {
+  email_canonical_status?: CanonicalEmailStatus | string | null;
   email_status_source?: string | null;
   email_status_verified_at?: string | null;
   email_status_updated_at?: string | null;
@@ -36,6 +36,7 @@ interface Contact {
   email_is_mx_missing?: boolean | null;
   email_is_temporary_failure?: boolean | null;
 }
+type Contact = ContactEmailMemoryFields & Record<string, any>;
 
 export function CanonicalStatusBadge({ contact, size = "sm" }: { contact: Contact; size?: "xs" | "sm" }) {
   const status = (contact.email_canonical_status ?? "unverified") as CanonicalEmailStatus;
