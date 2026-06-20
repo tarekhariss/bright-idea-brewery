@@ -69,24 +69,35 @@ export function AddToListDialog({ open, onOpenChange, contactIds, onSuccess }: A
     setAdding(false);
   };
 
+  const { createWorkspace } = useAuth() as any;
   const createAndAdd = async () => {
     if (!user || !newName.trim()) return;
-    if (!workspaceId) { toast({ title: "Error", description: "No active workspace", variant: "destructive" }); return; }
     setAdding(true);
-    const { data, error } = await supabase.from("lists").insert({
-      name: newName.trim(),
-      is_dynamic: false,
-      created_by: user.id,
-      workspace_id: workspaceId,
-    } as any).select("id").single();
-    if (error || !data) {
-      toast({ title: "Error", description: error?.message ?? "Failed to create list", variant: "destructive" });
+    try {
+      let wsId = workspaceId;
+      if (!wsId) {
+        const ws = await createWorkspace("My Workspace");
+        wsId = ws?.id ?? null;
+      }
+      if (!wsId) { toast({ title: "Error", description: "Could not initialize workspace", variant: "destructive" }); setAdding(false); return; }
+      const { data, error } = await supabase.from("lists").insert({
+        name: newName.trim(),
+        is_dynamic: false,
+        created_by: user.id,
+        workspace_id: wsId,
+      } as any).select("id").single();
+      if (error || !data) {
+        toast({ title: "Error", description: error?.message ?? "Failed to create list", variant: "destructive" });
+        setAdding(false);
+        return;
+      }
+      await addToList((data as any).id);
+      setCreating(false);
+      setNewName("");
+    } catch (e: any) {
+      toast({ title: "Error", description: e?.message ?? "Failed", variant: "destructive" });
       setAdding(false);
-      return;
     }
-    await addToList((data as any).id);
-    setCreating(false);
-    setNewName("");
   };
 
   return (
