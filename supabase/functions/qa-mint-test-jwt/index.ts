@@ -21,6 +21,8 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: "forbidden" }), { status: 403, headers: { ...cors, "Content-Type": "application/json" } });
   }
   try {
+    const url = new URL(req.url);
+    const action = url.searchParams.get("action") ?? "mint";
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_KEY  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const ANON_KEY     = Deno.env.get("SUPABASE_ANON_KEY")!;
