@@ -399,8 +399,12 @@ function titleCase(val: string): string {
  */
 export function classifyCustomFieldScope(header: string): "contact" | "company" {
   const h = header.toLowerCase().trim().replace(/[_\-\/\\.]+/g, " ").replace(/\s+/g, " ");
+  // Strong company prefixes
   if (/^(company|organization|organisation|org|account|employer|firm|business)\b/.test(h)) return "company";
-  if (/\b(employees|headcount|revenue|funding|founded|industry|sic|naics|ticker|hq|headquarters|domain|website|technologies|tech stack|specialties|segments|territories)\b/.test(h)) return "company";
+  // Strong contact prefixes — keep contact-scope explicit
+  if (/^(contact|person|lead|prospect|recipient|attendee)\b/.test(h)) return "contact";
+  // Common company-side topical words anywhere in header
+  if (/\b(employees|headcount|revenue|funding|founded|industry|sic|naics|ticker|hq|headquarters|domain|website|technologies|tech stack|specialties|segments|territories|name for emails)\b/.test(h)) return "company";
   return "contact";
 }
 
