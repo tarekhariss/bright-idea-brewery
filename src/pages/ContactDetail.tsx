@@ -138,6 +138,8 @@ export default function ContactDetailPage() {
             <LifecycleBadge status={contact.lifecycle_status} />
             <OutreachBadge status={contact.outreach_status} />
             <EmailValidityBadge status={contact.email_validity_status} />
+            <CanonicalStatusBadge contact={contact} />
+            <ModifierChips contact={contact} />
             <QualityScoreBadge score={contact.data_quality_score} />
           </div>
         </div>
