@@ -195,9 +195,14 @@ export default function ListDetailPage() {
                 <Download className="h-3.5 w-3.5" /> Export
               </Button>
               {!list.is_dynamic && (
-                <Button size="sm" className="gap-1.5 text-xs" onClick={() => setAddOpen(true)}>
-                  <Plus className="h-3.5 w-3.5" /> Add Contacts
-                </Button>
+                <>
+                  <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => navigate(`/imports/new?list_id=${list.id}`)}>
+                    <Upload className="h-3.5 w-3.5" /> Import CSV
+                  </Button>
+                  <Button size="sm" className="gap-1.5 text-xs" onClick={() => setAddOpen(true)}>
+                    <Plus className="h-3.5 w-3.5" /> Add Contacts
+                  </Button>
+                </>
               )}
             </div>
           </div>
