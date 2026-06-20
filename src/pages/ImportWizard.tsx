@@ -509,75 +509,141 @@ export default function ImportWizardPage() {
           {/* ─── STEP 2: Column Mapping ──────────────────────────────────── */}
           {step === 2 && parsed && (
             <div className="space-y-6">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-4">
                 <div>
                   <CardTitle className="text-lg">Map Columns</CardTitle>
                   <CardDescription>
-                    Auto-mapped {mappedFieldCount} of {parsed.headers.length} columns. Unmapped columns are still saved as custom fields — you don't have to map every one.
+                    Every column will be imported. {mappedFieldCount} of {parsed.headers.length} were auto-mapped to standard fields;
+                    the rest are saved as <strong>contact</strong> or <strong>company custom fields</strong> using the original CSV header.
+                    Use "Exclude from import" only if you intentionally want to drop a column.
                   </CardDescription>
                 </div>
-                <Badge variant="outline" className="text-xs bg-primary/5 text-primary border-primary/20">
-                  {unmappedHeaders.length} → custom fields
-                </Badge>
+                <div className="flex flex-col gap-1 items-end shrink-0">
+                  <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-700 border-emerald-200">
+                    {mappedFieldCount} standard
+                  </Badge>
+                  <Badge variant="outline" className="text-xs bg-primary/5 text-primary border-primary/20">
+                    {customFieldHeaders.length} → custom fields
+                  </Badge>
+                  {excludedHeaders.length > 0 && (
+                    <Badge variant="outline" className="text-xs text-muted-foreground">
+                      {excludedHeaders.length} excluded
+                    </Badge>
+                  )}
+                </div>
               </div>
 
 
-              <Progress value={(mappedFieldCount / parsed.headers.length) * 100} className="h-2" />
+              <Progress value={((mappedFieldCount + customFieldHeaders.length) / parsed.headers.length) * 100} className="h-2" />
 
               <ScrollArea className="h-[400px] pr-4">
                 <div className="space-y-3">
-                  {parsed.headers.map((header) => (
-                    <div key={header} className="flex items-center gap-4">
-                      <div className="w-[200px] shrink-0">
-                        <p className="text-sm font-medium truncate" title={header}>{header}</p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          e.g. {parsed.rows[0]?.[header] || "—"}
-                        </p>
-                      </div>
-                      <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <Select
-                        value={columnMapping[header] || "__unmapped__"}
-                        onValueChange={(val) =>
-                          setColumnMapping((prev) => {
-                            const next = { ...prev };
-                            if (val === "__unmapped__") delete next[header];
-                            else next[header] = val;
-                            return next;
-                          })
-                        }
-                      >
-                        <SelectTrigger className="w-[240px]">
-                          <SelectValue placeholder="Skip column" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__unmapped__">
-                            <span className="text-muted-foreground">— Save as custom field —</span>
-                          </SelectItem>
+                  {parsed.headers.map((header) => {
+                    const isExcluded = excludedColumns.has(header);
+                    const mappedKey = columnMapping[header];
+                    // Resolve the destination chip shown next to each row.
+                    let destLabel: string;
+                    let destClass: string;
+                    if (isExcluded) {
+                      destLabel = "Excluded";
+                      destClass = "bg-muted text-muted-foreground border-muted-foreground/20";
+                    } else if (mappedKey) {
+                      const f = MAPPABLE_FIELDS.find((x) => x.key === mappedKey);
+                      destLabel = `Standard · ${f?.label ?? mappedKey}`;
+                      destClass = "bg-emerald-500/10 text-emerald-700 border-emerald-200";
+                    } else if (classifyCustomFieldScope(header) === "company") {
+                      destLabel = "Save as Company Custom Field";
+                      destClass = "bg-indigo-500/10 text-indigo-700 border-indigo-200";
+                    } else {
+                      destLabel = "Save as Contact Custom Field";
+                      destClass = "bg-primary/10 text-primary border-primary/20";
+                    }
 
-                          {Object.entries(
-                            MAPPABLE_FIELDS.reduce((acc, f) => {
-                              (acc[f.group] ??= []).push(f);
-                              return acc;
-                            }, {} as Record<string, typeof MAPPABLE_FIELDS>)
-                          ).map(([group, fields]) => (
-                            <div key={group}>
-                              <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">{group}</div>
-                              {fields.map((f) => {
-                                const usedBy = Object.entries(columnMapping).find(
-                                  ([k, v]) => v === f.key && k !== header
-                                );
-                                return (
-                                  <SelectItem key={f.key} value={f.key} disabled={!!usedBy}>
-                                    {f.label}
-                                    {usedBy && <span className="text-muted-foreground ml-1">(used)</span>}
-                                  </SelectItem>
-                                );
-                              })}
-                            </div>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    // Select value encodes all three modes: __custom__ (preserve as custom field),
+                    // __excluded__ (intentionally drop), or a standard field key.
+                    const selectValue = isExcluded
+                      ? "__excluded__"
+                      : (mappedKey || "__custom__");
+
+                    return (
+                      <div key={header} className="flex items-center gap-4">
+                        <div className="w-[200px] shrink-0">
+                          <p className="text-sm font-medium truncate" title={header}>{header}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            e.g. {parsed.rows[0]?.[header] || "—"}
+                          </p>
+                        </div>
+                        <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <Select
+                          value={selectValue}
+                          onValueChange={(val) => {
+                            if (val === "__excluded__") {
+                              setExcludedColumns((prev) => {
+                                const next = new Set(prev); next.add(header); return next;
+                              });
+                              setColumnMapping((prev) => {
+                                const next = { ...prev }; delete next[header]; return next;
+                              });
+                              return;
+                            }
+                            // Clear excluded mark on any other choice
+                            setExcludedColumns((prev) => {
+                              if (!prev.has(header)) return prev;
+                              const next = new Set(prev); next.delete(header); return next;
+                            });
+                            setColumnMapping((prev) => {
+                              const next = { ...prev };
+                              if (val === "__custom__") delete next[header];
+                              else next[header] = val;
+                              return next;
+                            });
+                          }}
+                        >
+                          <SelectTrigger className="w-[260px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__custom__">
+                              <span>
+                                Save as {classifyCustomFieldScope(header) === "company" ? "Company" : "Contact"} Custom Field
+                              </span>
+                            </SelectItem>
+                            <SelectItem value="__excluded__">
+                              <span className="text-muted-foreground">Exclude from import</span>
+                            </SelectItem>
+
+                            {Object.entries(
+                              MAPPABLE_FIELDS.reduce((acc, f) => {
+                                (acc[f.group] ??= []).push(f);
+                                return acc;
+                              }, {} as Record<string, typeof MAPPABLE_FIELDS>)
+                            ).map(([group, fields]) => (
+                              <div key={group}>
+                                <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">{group}</div>
+                                {fields.map((f) => {
+                                  const usedBy = Object.entries(columnMapping).find(
+                                    ([k, v]) => v === f.key && k !== header
+                                  );
+                                  return (
+                                    <SelectItem key={f.key} value={f.key} disabled={!!usedBy}>
+                                      {f.label}
+                                      {usedBy && <span className="text-muted-foreground ml-1">(used)</span>}
+                                    </SelectItem>
+                                  );
+                                })}
+                              </div>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Badge variant="outline" className={`text-[10px] shrink-0 ${destClass}`}>
+                          {destLabel}
+                        </Badge>
+                      </div>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+
                   ))}
                 </div>
               </ScrollArea>
