@@ -609,6 +609,11 @@ Deno.serve(async (req: Request) => {
       companyNameCache.set(c.normalized_name || normalizeCompanyName(c.name), c.id);
     }
 
+    updateDiag({ timings: { preload_existing_ms: Math.round(performance.now() - preloadStart) } });
+    console.log(`[import] Preloaded ${(existingContacts ?? []).length} contacts, ${(existingCompanies ?? []).length} companies in ${Math.round(performance.now() - preloadStart)}ms`);
+
+
+
 
     const settings = (job.settings ?? {}) as ImportSettings;
     const mapping = (job.column_mapping ?? {}) as Record<string, string>;
