@@ -109,6 +109,10 @@ export default function ImportWizardPage() {
 
   // Step 2 state
   const [columnMapping, setColumnMapping] = useState<Record<string, string>>({});
+  // Headers the user explicitly marked as "Exclude from import". Empty by default —
+  // nothing is ever skipped unless the user intentionally chooses to exclude it.
+  const [excludedColumns, setExcludedColumns] = useState<Set<string>>(new Set());
+
 
   // Step 3 state
   const [normPreview, setNormPreview] = useState<NormalizationResult[]>([]);
