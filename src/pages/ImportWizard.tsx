@@ -112,6 +112,8 @@ export default function ImportWizardPage() {
 
   // Step 3 state
   const [normPreview, setNormPreview] = useState<NormalizationResult[]>([]);
+  const [columnAnalysis, setColumnAnalysis] = useState<ColumnAnalysis[]>([]);
+
 
   // Step 4 state
   const [dupResult, setDupResult] = useState<DuplicateCheckResult | null>(null);
