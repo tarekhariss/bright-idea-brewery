@@ -286,7 +286,13 @@ export const FIELD_VALIDATORS: Record<string, (v: string) => boolean> = {
   corporate_phone: (v) => (v.match(/\d/g)?.length ?? 0) >= 7,
   company_phone: (v) => (v.match(/\d/g)?.length ?? 0) >= 7,
   // For company names: only flag obviously-bad values (very long or contains sentence punctuation that suggests free-text)
-  company_name_raw: (v) => v.length <= 120 && !/[.!?]{1,}$/.test(v.trim()),
+  // Reject only obviously non-name values: very long text, sentence terminators (! ?),
+  // or > 20 whitespace-separated tokens (i.e. a description, not a name).
+  company_name_raw: (v) => {
+    const t = v.trim();
+    return t.length <= 120 && !/[!?]$/.test(t) && t.split(/\s+/).length <= 20;
+  },
+
 };
 
 export function isValidForField(fieldKey: string, value: string): boolean {
