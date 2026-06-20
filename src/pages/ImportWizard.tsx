@@ -47,6 +47,7 @@ import {
   autoMapColumns,
   MAPPABLE_FIELDS,
   normalizeRow,
+  analyzeColumns,
   checkDuplicatesAdvanced,
   buildContactIndex,
   buildCompanyIndex,
@@ -56,11 +57,13 @@ import {
   type DuplicateStrategy,
   type DuplicateCheckResult,
   type NormalizationResult,
+  type ColumnAnalysis,
   type ImportSettings,
   type ExistingContact,
   type ExistingCompany,
 } from "@/lib/csv-utils";
 import type { Json } from "@/integrations/supabase/db-types";
+
 
 function ListSelector({ value, onChange }: { value: string | null; onChange: (id: string | null) => void }) {
   const { data: lists } = useQuery({
@@ -109,6 +112,8 @@ export default function ImportWizardPage() {
 
   // Step 3 state
   const [normPreview, setNormPreview] = useState<NormalizationResult[]>([]);
+  const [columnAnalysis, setColumnAnalysis] = useState<ColumnAnalysis[]>([]);
+
 
   // Step 4 state
   const [dupResult, setDupResult] = useState<DuplicateCheckResult | null>(null);
@@ -158,7 +163,9 @@ export default function ImportWizardPage() {
     if (!parsed) return;
     const preview = parsed.rows.slice(0, 20).map((row) => normalizeRow(row, columnMapping));
     setNormPreview(preview);
+    setColumnAnalysis(analyzeColumns(parsed, columnMapping, 50));
   }, [parsed, columnMapping]);
+
 
   // ─── Step 4: Duplicate detection ──────────────────────────────────────────────
 
@@ -491,13 +498,14 @@ export default function ImportWizardPage() {
                 <div>
                   <CardTitle className="text-lg">Map Columns</CardTitle>
                   <CardDescription>
-                    Map your CSV columns to database fields. {mappedFieldCount} of {parsed.headers.length} mapped.
+                    Auto-mapped {mappedFieldCount} of {parsed.headers.length} columns. Unmapped columns are still saved as custom fields — you don't have to map every one.
                   </CardDescription>
                 </div>
-                <Badge variant="outline" className="text-xs">
-                  {unmappedHeaders.length} unmapped → stored as metadata
+                <Badge variant="outline" className="text-xs bg-primary/5 text-primary border-primary/20">
+                  {unmappedHeaders.length} → custom fields
                 </Badge>
               </div>
+
 
               <Progress value={(mappedFieldCount / parsed.headers.length) * 100} className="h-2" />
 
@@ -528,8 +536,9 @@ export default function ImportWizardPage() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="__unmapped__">
-                            <span className="text-muted-foreground">— Skip / Unmapped —</span>
+                            <span className="text-muted-foreground">— Save as custom field —</span>
                           </SelectItem>
+
                           {Object.entries(
                             MAPPABLE_FIELDS.reduce((acc, f) => {
                               (acc[f.group] ??= []).push(f);
@@ -564,96 +573,136 @@ export default function ImportWizardPage() {
           {step === 3 && (
             <div className="space-y-6">
               <div>
-                <CardTitle className="text-lg">Normalization Preview</CardTitle>
+                <CardTitle className="text-lg">Mapping & Normalization Preview</CardTitle>
                 <CardDescription>
-                  Review how your data will be cleaned and standardized before import.
+                  Per-column review of how each CSV column will be mapped, cleaned, and stored.
+                  Sampled from the first 50 rows.
                 </CardDescription>
               </div>
 
-              {normPreview.length > 0 ? (
-                <>
-                  {(() => {
-                    const allChanges = normPreview.flatMap((n, i) =>
-                      n.changes.map((c) => ({ ...c, row: i + 1 }))
-                    );
-                    const ruleGroups = allChanges.reduce((acc, c) => {
-                      (acc[c.rule] ??= []).push(c);
-                      return acc;
-                    }, {} as Record<string, typeof allChanges>);
+              {columnAnalysis.length > 0 ? (() => {
+                const standardCount = columnAnalysis.filter((c) => c.storedAs === "standard_field").length;
+                const customCount = columnAnalysis.filter((c) => c.storedAs === "custom_field").length;
+                const skippedCount = columnAnalysis.filter((c) => c.storedAs === "skipped").length;
+                const warningCount = columnAnalysis.filter((c) => c.warning).length;
+                const totalChanged = columnAnalysis.reduce((s, c) => s + c.changedRows, 0);
+                const totalInvalid = columnAnalysis.reduce((s, c) => s + c.invalidRows, 0);
 
-                    return (
-                      <div className="space-y-4">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                          <Card>
-                            <CardContent className="p-3 text-center">
-                              <p className="text-2xl font-bold text-foreground">{normPreview.length}</p>
-                              <p className="text-xs text-muted-foreground">Rows previewed</p>
-                            </CardContent>
-                          </Card>
-                          <Card>
-                            <CardContent className="p-3 text-center">
-                              <p className="text-2xl font-bold text-primary">{allChanges.length}</p>
-                              <p className="text-xs text-muted-foreground">Changes applied</p>
-                            </CardContent>
-                          </Card>
-                          <Card>
-                            <CardContent className="p-3 text-center">
-                              <p className="text-2xl font-bold text-foreground">{Object.keys(ruleGroups).length}</p>
-                              <p className="text-xs text-muted-foreground">Rule types</p>
-                            </CardContent>
-                          </Card>
-                          <Card>
-                            <CardContent className="p-3 text-center">
-                              <p className="text-2xl font-bold text-emerald-600">
-                                {normPreview.filter((n) => n.changes.length > 0).length}
-                              </p>
-                              <p className="text-xs text-muted-foreground">Rows modified</p>
-                            </CardContent>
-                          </Card>
+                return (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <Card><CardContent className="p-3 text-center">
+                        <p className="text-2xl font-bold text-foreground">{standardCount}</p>
+                        <p className="text-xs text-muted-foreground">Mapped to fields</p>
+                      </CardContent></Card>
+                      <Card><CardContent className="p-3 text-center">
+                        <p className="text-2xl font-bold text-primary">{customCount}</p>
+                        <p className="text-xs text-muted-foreground">Saved as custom fields</p>
+                      </CardContent></Card>
+                      <Card><CardContent className="p-3 text-center">
+                        <p className="text-2xl font-bold text-emerald-600">{totalChanged}</p>
+                        <p className="text-xs text-muted-foreground">Values to be cleaned</p>
+                      </CardContent></Card>
+                      <Card><CardContent className="p-3 text-center">
+                        <p className={`text-2xl font-bold ${totalInvalid > 0 ? "text-amber-600" : "text-muted-foreground"}`}>{totalInvalid}</p>
+                        <p className="text-xs text-muted-foreground">Invalid values skipped</p>
+                      </CardContent></Card>
+                    </div>
+
+                    {customCount > 0 && (
+                      <div className="flex items-start gap-2 p-3 rounded-md bg-primary/5 border border-primary/20 text-sm">
+                        <Sparkles className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-medium">{customCount} unmapped {customCount === 1 ? "column" : "columns"} will be preserved as custom fields.</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Stored under each contact's <code>custom_fields</code> using the original CSV header as the key. Visible on the contact detail page and included in exports.
+                          </p>
                         </div>
-
-                        {Object.entries(ruleGroups).length > 0 ? (
-                          <div className="border rounded-lg overflow-auto max-h-[300px]">
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead className="text-xs">Rule</TableHead>
-                                  <TableHead className="text-xs">Field</TableHead>
-                                  <TableHead className="text-xs">Original</TableHead>
-                                  <TableHead className="text-xs">Normalized</TableHead>
-                                  <TableHead className="text-xs">Count</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {Object.entries(ruleGroups).map(([rule, items]) => (
-                                  <TableRow key={rule}>
-                                    <TableCell className="text-xs">
-                                      <Badge variant="outline" className="text-xs">{rule}</Badge>
-                                    </TableCell>
-                                    <TableCell className="text-xs">{items[0].field}</TableCell>
-                                    <TableCell className="text-xs font-mono truncate max-w-[150px] text-muted-foreground">
-                                      {items[0].original}
-                                    </TableCell>
-                                    <TableCell className="text-xs font-mono truncate max-w-[150px] text-emerald-600">
-                                      {items[0].normalized}
-                                    </TableCell>
-                                    <TableCell className="text-xs font-semibold">{items.length}</TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          </div>
-                        ) : (
-                          <div className="text-center py-8 text-muted-foreground">
-                            <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-emerald-500" />
-                            <p className="text-sm font-medium">Data looks clean — no normalization changes needed.</p>
-                          </div>
-                        )}
                       </div>
-                    );
-                  })()}
-                </>
-              ) : (
+                    )}
+
+                    {warningCount > 0 && (
+                      <div className="flex items-start gap-2 p-3 rounded-md bg-amber-500/10 border border-amber-200 text-sm">
+                        <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-medium text-amber-700">{warningCount} {warningCount === 1 ? "column looks" : "columns look"} mismapped.</p>
+                          <p className="text-xs text-amber-700/80 mt-0.5">
+                            The sampled values do not match the target field type. Go back to "Map Columns" to fix — invalid values will NOT be written to the standard field.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="border rounded-lg overflow-auto max-h-[480px]">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-xs">CSV Column</TableHead>
+                            <TableHead className="text-xs">Detected Field</TableHead>
+                            <TableHead className="text-xs">Stored As</TableHead>
+                            <TableHead className="text-xs">Sample Values</TableHead>
+                            <TableHead className="text-xs text-right">Cleaned</TableHead>
+                            <TableHead className="text-xs text-right">Invalid</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {columnAnalysis.map((c) => (
+                            <TableRow key={c.csvColumn} className={c.warning ? "bg-amber-500/5" : ""}>
+                              <TableCell className="text-xs font-medium align-top">
+                                <div className="truncate max-w-[180px]" title={c.csvColumn}>{c.csvColumn}</div>
+                              </TableCell>
+                              <TableCell className="text-xs align-top">
+                                {c.mappedField ? (
+                                  <div>
+                                    <Badge variant="outline" className="text-xs">{c.fieldLabel || c.mappedField}</Badge>
+                                    {c.confidence != null && (
+                                      <p className="text-[10px] text-muted-foreground mt-1">{c.confidence}% confidence</p>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-muted-foreground italic">unmapped</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-xs align-top">
+                                {c.storedAs === "standard_field" && <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-700 border-emerald-200">Standard field</Badge>}
+                                {c.storedAs === "custom_field" && <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">Custom field</Badge>}
+                                {c.storedAs === "skipped" && <Badge variant="outline" className="text-xs text-muted-foreground">Empty</Badge>}
+                              </TableCell>
+                              <TableCell className="text-xs align-top">
+                                <div className="space-y-1 max-w-[280px]">
+                                  {c.sampleOriginal.length === 0 ? (
+                                    <span className="text-muted-foreground italic">—</span>
+                                  ) : c.sampleOriginal.map((s, i) => (
+                                    <div key={i} className="font-mono text-[11px]">
+                                      <span className="text-muted-foreground truncate inline-block max-w-[260px] align-middle" title={s}>{s}</span>
+                                      {c.sampleNormalized[i] && c.sampleNormalized[i] !== s && (
+                                        <div className="text-emerald-700 truncate max-w-[260px]" title={c.sampleNormalized[i]}>
+                                          → {c.sampleNormalized[i]}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                  {c.warning && (
+                                    <p className="text-[10px] text-amber-700 mt-1">⚠ {c.warning}</p>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-xs text-right align-top tabular-nums">{c.changedRows || "—"}</TableCell>
+                              <TableCell className={`text-xs text-right align-top tabular-nums ${c.invalidRows > 0 ? "text-amber-700 font-semibold" : ""}`}>{c.invalidRows || "—"}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+
+                    {skippedCount === 0 && totalInvalid === 0 && totalChanged === 0 && (
+                      <div className="text-center py-4 text-sm text-emerald-600">
+                        <CheckCircle2 className="h-5 w-5 mx-auto mb-1" /> Data looks clean — no normalization changes needed.
+                      </div>
+                    )}
+                  </div>
+                );
+              })() : (
                 <div className="text-center py-12 text-muted-foreground">
                   <Sparkles className="h-8 w-8 mx-auto mb-2" />
                   <p className="text-sm">Running normalization preview…</p>
@@ -661,6 +710,7 @@ export default function ImportWizardPage() {
               )}
             </div>
           )}
+
 
           {/* ─── STEP 4: Duplicate Handling ──────────────────────────────── */}
           {step === 4 && (

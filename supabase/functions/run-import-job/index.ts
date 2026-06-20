@@ -103,13 +103,47 @@ const FIELD_TYPES: Record<string, "string" | "number" | "array" | "date"> = {
   external_account_id:"string",
 };
 
+const EMAIL_RE = /^[^\s@,;]+@[^\s@,;]+\.[a-z]{2,}$/i;
+const URL_RE = /^(https?:\/\/)?([a-z0-9-]+\.)+[a-z]{2,}(\/[^\s]*)?$/i;
+const DOMAIN_RE = /^([a-z0-9-]+\.)+[a-z]{2,}$/i;
+function isValidForField(fieldKey: string, v: string): boolean {
+  if (!v || !v.trim()) return true;
+  if (["email","secondary_email","tertiary_email","personal_email"].includes(fieldKey)) return EMAIL_RE.test(v.trim());
+  if (fieldKey === "linkedin_url") return /linkedin\.com\/(in|pub|company)\//i.test(v) || /^[a-z0-9][a-z0-9-]{2,}$/i.test(v.trim());
+  if (fieldKey === "company_linkedin_url") return /linkedin\.com\/(company|school)\//i.test(v);
+  if (fieldKey === "website") return URL_RE.test(v.trim().replace(/\s+/g, ""));
+  if (fieldKey === "domain") return DOMAIN_RE.test(v.trim().replace(/^https?:\/\//i, "").replace(/^www\./i, "").split("/")[0]);
+  if (fieldKey.includes("phone")) return (v.match(/\d/g)?.length ?? 0) >= 7;
+  if (fieldKey === "company_name_raw") return v.length <= 120 && !/[.!?]+$/.test(v.trim());
+  return true;
+}
+
 function normalizeRow(raw: Record<string, string>, mapping: Record<string, string>) {
   const normalized: Record<string, unknown> = {};
+  const customFields: Record<string, string> = {};
+  const invalidFields: Record<string, string> = {};
+
+  // Preserve EVERY unmapped column as a custom field (raw, trimmed)
+  for (const [csvCol, rawVal] of Object.entries(raw)) {
+    if (!mapping[csvCol]) {
+      const t = (rawVal ?? "").trim();
+      if (t && !isEmptyLike(t)) customFields[csvCol] = t;
+    }
+  }
+
   for (const [csvCol, fieldKey] of Object.entries(mapping)) {
     const rawVal = raw[csvCol] ?? "";
     let val = rawVal.trim().replace(/\s+/g, " ");
     if (isEmptyLike(val)) { normalized[fieldKey] = null; continue; }
-    if (fieldKey === "email" || fieldKey === "secondary_email" || fieldKey === "tertiary_email") val = normalizeEmail(val);
+
+    // Type-safe gating: only normalize when value looks valid for the target field.
+    if (!isValidForField(fieldKey, val)) {
+      invalidFields[fieldKey] = val;
+      normalized[fieldKey] = null;
+      continue;
+    }
+
+    if (fieldKey === "email" || fieldKey === "secondary_email" || fieldKey === "tertiary_email" || fieldKey === "personal_email") val = normalizeEmail(val);
     else if (fieldKey === "linkedin_url" || fieldKey === "company_linkedin_url") val = normalizeLinkedIn(val);
     else if (fieldKey === "domain") val = normalizeDomain(val);
     else if (fieldKey === "website") val = normalizeWebsite(val);
@@ -120,8 +154,12 @@ function normalizeRow(raw: Record<string, string>, mapping: Record<string, strin
     if (type === "array") { normalized[fieldKey] = val.split(/[,;|]/).map((s) => s.trim()).filter(Boolean); continue; }
     normalized[fieldKey] = val;
   }
+
+  if (Object.keys(customFields).length > 0) (normalized as any)._custom_fields = customFields;
+  if (Object.keys(invalidFields).length > 0) (normalized as any)._invalid_values = invalidFields;
   return normalized;
 }
+
 
 function buildContactIndex(contacts: ExistingContact[]) {
   const emailMap = new Map<string, ExistingContact>();
@@ -629,10 +667,15 @@ Deno.serve(async (req: Request) => {
           };
           const companyData: Record<string, unknown> = {};
           let hasCompanyFields = false;
+          const customFields = (normalized as any)._custom_fields ?? null;
           for (const [key, value] of Object.entries(normalized)) {
+            if (key.startsWith("_")) continue; // skip _custom_fields / _original_values / _invalid_values
             if (value === null || value === undefined) continue;
             if (CONTACT_FIELDS.has(key)) contact[key] = value;
             if (COMPANY_FIELDS.has(key)) { companyData[key] = value; hasCompanyFields = true; }
+          }
+          if (customFields && typeof customFields === "object" && Object.keys(customFields).length > 0) {
+            contact.custom_fields = customFields;
           }
           if (!contact.city && normalized.company_city) contact.city = normalized.company_city;
           if (!contact.state && normalized.company_state) contact.state = normalized.company_state;
@@ -642,6 +685,7 @@ Deno.serve(async (req: Request) => {
           const companyKey = companyName ? normalizeCompanyName(companyName) : "";
           const matchedCompanyId = rowUpdate.company_id ?? (companyKey ? companyCache.get(companyKey) : null);
           if (matchedCompanyId) { contact.company_id = matchedCompanyId; rowUpdate.company_id = matchedCompanyId; }
+
 
           if (companyName && hasCompanyFields && !rowUpdate.company_id) {
             pendingContacts.push({ rowId: row.id, rowUpdate, contact, companyData, companyKey, companyName });

@@ -143,55 +143,55 @@ export const MAPPABLE_FIELDS: MappableField[] = [
 // ─── Auto-mapping heuristics ────────────────────────────────────────────────────
 
 const AUTO_MAP_HINTS: Record<string, string[]> = {
-  first_name: ["first name", "first_name", "firstname", "given name"],
-  last_name: ["last name", "last_name", "lastname", "surname", "family name"],
-  email: ["email", "email address", "e-mail", "primary email", "person email"],
-  secondary_email: ["secondary email", "email 2", "alternate email"],
-  tertiary_email: ["tertiary email", "email 3"],
-  personal_email: ["personal email", "personal e-mail"],
-  job_title: ["title", "job title", "job_title", "position", "person title"],
-  seniority_level: ["seniority", "seniority level", "level"],
-  department: ["department", "dept"],
-  headline: ["headline", "tagline"],
-  bio: ["bio", "biography", "about"],
-  persona: ["persona", "buyer persona", "icp"],
-  linkedin_url: ["linkedin", "linkedin url", "person linkedin url", "linkedin profile"],
-  twitter_url: ["twitter", "twitter url", "x url"],
+  first_name: ["first name", "firstname", "given name", "fname", "person first name", "contact first name"],
+  last_name: ["last name", "lastname", "surname", "family name", "lname", "person last name", "contact last name"],
+  email: ["email", "email address", "primary email", "work email", "business email", "person email", "contact email", "email1"],
+  secondary_email: ["secondary email", "email 2", "email2", "alternate email", "alt email", "other email"],
+  tertiary_email: ["tertiary email", "email 3", "email3"],
+  personal_email: ["personal email", "private email", "home email"],
+  job_title: ["title", "job title", "position", "person title", "current title", "role", "job role"],
+  seniority_level: ["seniority", "seniority level", "level", "career level"],
+  department: ["department", "dept", "function", "team"],
+  headline: ["headline", "tagline", "linkedin headline"],
+  bio: ["bio", "biography", "about", "summary"],
+  persona: ["persona", "buyer persona", "icp", "ideal customer profile"],
+  linkedin_url: ["linkedin", "linkedin url", "person linkedin url", "linkedin profile", "linkedin profile url", "contact linkedin url", "lead linkedin"],
+  twitter_url: ["twitter", "twitter url", "x url", "twitter handle"],
   facebook_url: ["facebook", "facebook url"],
   github_url: ["github", "github url"],
-  photo_url: ["photo", "photo url", "avatar", "profile photo"],
-  years_experience: ["years experience", "experience years", "yoe"],
+  photo_url: ["photo", "photo url", "avatar", "profile photo", "profile picture"],
+  years_experience: ["years experience", "experience years", "yoe", "years of experience"],
   skills: ["skills", "skill set"],
   languages: ["languages", "spoken languages"],
-  job_change_date: ["job change date", "job changed"],
-  current_role_start_date: ["role start date", "current role start"],
-  phone: ["phone", "phone number", "direct phone"],
-  work_direct_phone: ["work phone", "work direct phone", "office phone"],
-  mobile_phone: ["mobile", "mobile phone", "cell", "cell phone"],
-  corporate_phone: ["corporate phone", "company phone number"],
-  country: ["country", "person country"],
-  city: ["city", "person city"],
-  state: ["state", "person state", "region"],
-  address: ["address", "street address"],
+  job_change_date: ["job change date", "job changed", "last job change"],
+  current_role_start_date: ["role start date", "current role start", "started current role"],
+  phone: ["phone", "phone number", "direct phone", "primary phone", "telephone", "tel"],
+  work_direct_phone: ["work phone", "work direct phone", "office phone", "direct dial"],
+  mobile_phone: ["mobile", "mobile phone", "cell", "cell phone", "cellphone"],
+  corporate_phone: ["corporate phone", "company phone number", "main phone"],
+  country: ["country", "person country", "contact country"],
+  city: ["city", "person city", "contact city"],
+  state: ["state", "person state", "region", "province"],
+  address: ["address", "street address", "street"],
   postal_code: ["postal code", "zip", "zip code", "postcode"],
   timezone: ["timezone", "time zone", "tz"],
-  company_name_raw: ["company", "company name", "organization", "account name"],
-  domain: ["domain", "company domain", "website domain"],
-  website: ["website", "company website", "url"],
-  industry: ["industry", "company industry"],
-  employee_count: ["employees", "employee count", "number of employees", "# employees"],
-  employee_range: ["employee range", "company size"],
+  company_name_raw: ["company", "company name", "organization", "organisation", "account name", "employer", "company name for emails"],
+  domain: ["domain", "company domain", "website domain", "primary domain", "email domain"],
+  website: ["website", "company website", "url", "organization website", "company url", "company website url"],
+  industry: ["industry", "company industry", "vertical"],
+  employee_count: ["employees", "employee count", "number of employees", "headcount", "num employees"],
+  employee_range: ["employee range", "company size", "size", "employee size"],
   revenue_range: ["revenue range", "revenue"],
   annual_revenue: ["annual revenue", "yearly revenue"],
-  total_funding: ["total funding", "funding"],
-  latest_funding: ["latest funding round", "latest round"],
-  latest_funding_amount: ["latest funding amount"],
+  total_funding: ["total funding", "funding", "total raised"],
+  latest_funding: ["latest funding round", "latest round", "last funding round"],
+  latest_funding_amount: ["latest funding amount", "last funding amount"],
   funding_stage: ["funding stage", "stage", "investment stage"],
   founded_year: ["founded", "founded year", "year founded"],
-  company_type: ["company type", "org type"],
-  headquarters: ["headquarters", "hq", "hq location"],
-  technologies: ["technologies", "tech stack"],
-  keywords: ["keywords", "tags"],
+  company_type: ["company type", "org type", "organization type"],
+  headquarters: ["headquarters", "hq", "hq location", "company hq"],
+  technologies: ["technologies", "tech stack", "technology stack"],
+  keywords: ["keywords", "tags", "company keywords"],
   specialties: ["specialties", "specialty"],
   market_segments: ["market segments", "segments"],
   territories: ["territories", "territory"],
@@ -199,27 +199,100 @@ const AUTO_MAP_HINTS: Record<string, string[]> = {
   naics_code: ["naics code", "naics"],
   stock_ticker: ["ticker", "stock ticker", "stock symbol"],
   headcount_growth_pct: ["headcount growth", "growth rate", "employee growth"],
-  company_linkedin_url: ["company linkedin", "company linkedin url", "company linkedin profile", "organization linkedin", "org linkedin"],
-  external_source: ["source", "lead source", "data source"],
-  external_contact_id: ["external id", "contact id", "person id", "apollo id"],
-  external_account_id: ["account id", "company id", "external account id"],
+  company_linkedin_url: ["company linkedin", "company linkedin url", "company linkedin profile", "organization linkedin", "org linkedin", "linkedin company url"],
+  company_address: ["company address", "company street", "organization address"],
+  company_city: ["company city", "organization city"],
+  company_state: ["company state", "organization state"],
+  company_country: ["company country", "organization country"],
+  company_phone: ["company phone", "organization phone"],
+  external_source: ["source", "lead source", "data source", "origin"],
+  external_contact_id: ["external id", "contact id", "person id", "apollo id", "apollo contact id"],
+  external_account_id: ["account id", "company id", "external account id", "apollo company id"],
 };
 
-export function autoMapColumns(csvHeaders: string[]): Record<string, string> {
-  const mapping: Record<string, string> = {};
-  const usedFields = new Set<string>();
-  for (const header of csvHeaders) {
-    const normalized = header.toLowerCase().trim().replace(/[_\-]/g, " ");
-    for (const [fieldKey, hints] of Object.entries(AUTO_MAP_HINTS)) {
-      if (usedFields.has(fieldKey)) continue;
-      if (hints.some((h) => h === normalized)) {
-        mapping[header] = fieldKey;
-        usedFields.add(fieldKey);
-        break;
+function tokenize(header: string): string {
+  return header.toLowerCase().trim()
+    .replace(/[_\-\/\\.]+/g, " ")
+    .replace(/[^a-z0-9 ]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export interface AutoMapResult {
+  field: string;
+  confidence: number; // 0-100
+  reason: "exact" | "alias" | "token-superset" | "contains";
+}
+
+/** Suggest a mapped field for a single CSV header. */
+export function suggestFieldForHeader(header: string, claimed: Set<string> = new Set()): AutoMapResult | null {
+  const norm = tokenize(header);
+  if (!norm) return null;
+  const tokens = new Set(norm.split(" "));
+
+  for (const [fieldKey, hints] of Object.entries(AUTO_MAP_HINTS)) {
+    if (claimed.has(fieldKey)) continue;
+    if (norm === fieldKey.replace(/_/g, " ")) return { field: fieldKey, confidence: 100, reason: "exact" };
+    if (hints.some((h) => h === norm)) return { field: fieldKey, confidence: 98, reason: "alias" };
+  }
+  for (const [fieldKey, hints] of Object.entries(AUTO_MAP_HINTS)) {
+    if (claimed.has(fieldKey)) continue;
+    for (const h of hints) {
+      const htoks = h.split(" ");
+      if (htoks.length >= 2 && htoks.every((t) => tokens.has(t))) {
+        return { field: fieldKey, confidence: 85, reason: "token-superset" };
       }
     }
   }
+  for (const [fieldKey, hints] of Object.entries(AUTO_MAP_HINTS)) {
+    if (claimed.has(fieldKey)) continue;
+    for (const h of hints) {
+      if (h.length >= 5 && norm.includes(h)) {
+        return { field: fieldKey, confidence: 70, reason: "contains" };
+      }
+    }
+  }
+  return null;
+}
+
+export function autoMapColumns(csvHeaders: string[]): Record<string, string> {
+  const mapping: Record<string, string> = {};
+  const claimed = new Set<string>();
+  for (const header of csvHeaders) {
+    const m = suggestFieldForHeader(header, claimed);
+    if (m) { mapping[header] = m.field; claimed.add(m.field); }
+  }
   return mapping;
+}
+
+// ─── Per-field validators (used to gate normalization) ──────────────────────────
+
+const EMAIL_RE = /^[^\s@,;]+@[^\s@,;]+\.[a-z]{2,}$/i;
+const URL_RE = /^(https?:\/\/)?([a-z0-9-]+\.)+[a-z]{2,}(\/[^\s]*)?$/i;
+const DOMAIN_RE = /^([a-z0-9-]+\.)+[a-z]{2,}$/i;
+
+export const FIELD_VALIDATORS: Record<string, (v: string) => boolean> = {
+  email: (v) => EMAIL_RE.test(v.trim()),
+  secondary_email: (v) => EMAIL_RE.test(v.trim()),
+  tertiary_email: (v) => EMAIL_RE.test(v.trim()),
+  personal_email: (v) => EMAIL_RE.test(v.trim()),
+  linkedin_url: (v) => /linkedin\.com\/(in|pub|company)\//i.test(v) || /^[a-z0-9][a-z0-9-]{2,}$/i.test(v.trim()),
+  company_linkedin_url: (v) => /linkedin\.com\/(company|school)\//i.test(v),
+  website: (v) => URL_RE.test(v.trim().replace(/\s+/g, "")),
+  domain: (v) => DOMAIN_RE.test(v.trim().replace(/^https?:\/\//i, "").replace(/^www\./i, "").split("/")[0]),
+  phone: (v) => (v.match(/\d/g)?.length ?? 0) >= 7,
+  mobile_phone: (v) => (v.match(/\d/g)?.length ?? 0) >= 7,
+  work_direct_phone: (v) => (v.match(/\d/g)?.length ?? 0) >= 7,
+  corporate_phone: (v) => (v.match(/\d/g)?.length ?? 0) >= 7,
+  company_phone: (v) => (v.match(/\d/g)?.length ?? 0) >= 7,
+  // For company names: only flag obviously-bad values (very long or contains sentence punctuation that suggests free-text)
+  company_name_raw: (v) => v.length <= 120 && !/[.!?]{1,}$/.test(v.trim()),
+};
+
+export function isValidForField(fieldKey: string, value: string): boolean {
+  if (!value || !value.trim()) return true; // empty is OK — handled separately
+  const fn = FIELD_VALIDATORS[fieldKey];
+  return fn ? fn(value) : true;
 }
 
 // ─── Advanced Normalization ─────────────────────────────────────────────────────
@@ -319,60 +392,70 @@ export function normalizeRow(
 ): NormalizationResult {
   const normalized: Record<string, unknown> = {};
   const changes: NormalizationChange[] = [];
+  const customFields: Record<string, string> = {};
+  const originals: Record<string, string> = {};
+  const invalidFields: Record<string, string> = {};
 
-  function track(field: string, original: string, result: string, rule: string) {
-    if (original !== result) {
-      changes.push({ field, original, normalized: result, rule });
+  // 1) Preserve EVERY unmapped column as a custom field (raw value)
+  for (const [csvCol, rawVal] of Object.entries(raw)) {
+    if (!mapping[csvCol]) {
+      const trimmed = (rawVal ?? "").trim();
+      if (trimmed && !isEmptyLike(trimmed)) customFields[csvCol] = trimmed;
     }
-    return result;
   }
 
+  // 2) Process each mapped column
   for (const [csvCol, fieldKey] of Object.entries(mapping)) {
     const rawVal = raw[csvCol] ?? "";
     const field = MAPPABLE_FIELDS.find((f) => f.key === fieldKey);
 
-    // Whitespace trim
-    let val = rawVal.trim();
-    if (rawVal !== val && rawVal.length > 0) {
-      changes.push({ field: fieldKey, original: rawVal, normalized: val, rule: "Whitespace trimmed" });
-    }
+    let val = rawVal.trim().replace(/\s+/g, " ");
+    if (isEmptyLike(val)) { normalized[fieldKey] = null; continue; }
 
-    // Collapse internal whitespace
-    const collapsed = val.replace(/\s+/g, " ");
-    if (collapsed !== val) {
-      changes.push({ field: fieldKey, original: val, normalized: collapsed, rule: "Whitespace collapsed" });
-      val = collapsed;
-    }
+    originals[fieldKey] = rawVal;
 
-    // Empty to null
-    if (isEmptyLike(val)) {
+    if (!field) { normalized[fieldKey] = val; continue; }
+
+    // Validate first — if invalid for this field type, do NOT apply field-specific
+    // normalization (avoids turning "bakery and confectionery ingredients" into a
+    // "normalized email"). Record as invalid so the UI can warn.
+    if (!isValidForField(fieldKey, val)) {
+      invalidFields[fieldKey] = val;
+      // Still preserve the raw value in _invalid_values for auditing, but don't write
+      // a garbage normalized value into the standard column.
       normalized[fieldKey] = null;
       continue;
     }
 
-    if (!field) { normalized[fieldKey] = val; continue; }
+    let next = val;
+    let rule: string | null = null;
 
-    // Field-specific normalization
-    if (fieldKey === "email" || fieldKey === "secondary_email" || fieldKey === "tertiary_email") {
-      val = track(fieldKey, val, normalizeEmail(val), "Email normalized");
+    if (fieldKey === "email" || fieldKey === "secondary_email" || fieldKey === "tertiary_email" || fieldKey === "personal_email") {
+      next = normalizeEmail(val); rule = "Email normalized";
     } else if (fieldKey === "linkedin_url" || fieldKey === "company_linkedin_url") {
-      val = track(fieldKey, val, normalizeLinkedIn(val), "LinkedIn URL standardized");
+      next = normalizeLinkedIn(val); rule = "LinkedIn URL standardized";
     } else if (fieldKey === "domain") {
-      val = track(fieldKey, val, normalizeDomain(val), "Domain cleaned");
+      next = normalizeDomain(val); rule = "Domain cleaned";
     } else if (fieldKey === "website") {
-      val = track(fieldKey, val, normalizeWebsite(val), "Website standardized");
+      next = normalizeWebsite(val); rule = "Website standardized";
     } else if (fieldKey.includes("phone")) {
-      val = track(fieldKey, val, normalizePhone(val), "Phone normalized");
+      next = normalizePhone(val); rule = "Phone normalized";
     } else if (fieldKey === "company_name_raw") {
-      // Keep original but also store a normalized version
       const normName = normalizeCompanyName(val);
-      if (normName !== val.toLowerCase()) {
+      // Only record a change when the cleaned form actually differs in a meaningful way.
+      if (normName && normName !== val.toLowerCase()) {
         changes.push({ field: fieldKey, original: val, normalized: normName, rule: "Company name standardized" });
       }
+      // Keep the original-cased name in the standard column.
     } else if (fieldKey === "country" || fieldKey === "city" || fieldKey === "state" ||
                fieldKey === "company_city" || fieldKey === "company_state" || fieldKey === "company_country") {
-      val = track(fieldKey, val, titleCase(val), "Location title-cased");
+      next = titleCase(val); rule = "Location title-cased";
     }
+
+    if (rule && next !== val) {
+      changes.push({ field: fieldKey, original: val, normalized: next, rule });
+    }
+    val = next;
 
     // Type casting
     if (field.type === "number") {
@@ -388,8 +471,88 @@ export function normalizeRow(
     normalized[fieldKey] = val;
   }
 
+  if (Object.keys(customFields).length > 0) normalized._custom_fields = customFields;
+  if (Object.keys(originals).length > 0) normalized._original_values = originals;
+  if (Object.keys(invalidFields).length > 0) normalized._invalid_values = invalidFields;
+
   return { normalized, changes };
 }
+
+// ─── Column-level analysis for the import preview ───────────────────────────────
+
+export interface ColumnAnalysis {
+  csvColumn: string;
+  mappedField: string | null;
+  fieldLabel: string | null;
+  confidence: number | null;
+  storedAs: "standard_field" | "custom_field" | "skipped";
+  sampleOriginal: string[];
+  sampleNormalized: string[];
+  changedRows: number;
+  invalidRows: number;
+  warning: string | null;
+}
+
+export function analyzeColumns(
+  parsed: ParsedCSV,
+  mapping: Record<string, string>,
+  sampleSize = 50
+): ColumnAnalysis[] {
+  const rows = parsed.rows.slice(0, sampleSize);
+  return parsed.headers.map((header) => {
+    const fieldKey = mapping[header] || null;
+    const field = fieldKey ? MAPPABLE_FIELDS.find((f) => f.key === fieldKey) : undefined;
+    const claimedReuse = new Set<string>(Object.values(mapping).filter((v) => v && v !== fieldKey));
+    const suggestion = !fieldKey ? suggestFieldForHeader(header, claimedReuse) : null;
+
+    const sampleOriginal: string[] = [];
+    const sampleNormalized: string[] = [];
+    let changedRows = 0;
+    let invalidRows = 0;
+    let nonEmpty = 0;
+
+    for (const row of rows) {
+      const rawVal = (row[header] ?? "").trim();
+      if (!rawVal || isEmptyLike(rawVal)) continue;
+      nonEmpty++;
+      if (sampleOriginal.length < 3) sampleOriginal.push(rawVal);
+
+      if (!fieldKey) continue;
+
+      if (!isValidForField(fieldKey, rawVal)) {
+        invalidRows++;
+        continue;
+      }
+      // Apply just this column's normalization
+      const single = normalizeRow({ [header]: rawVal }, { [header]: fieldKey });
+      const out = single.normalized[fieldKey];
+      const outStr = out == null ? "" : Array.isArray(out) ? out.join(", ") : String(out);
+      if (outStr && outStr !== rawVal) {
+        changedRows++;
+        if (sampleNormalized.length < 3) sampleNormalized.push(outStr);
+      }
+    }
+
+    let warning: string | null = null;
+    if (fieldKey && nonEmpty > 0 && invalidRows / nonEmpty >= 0.5) {
+      warning = `This column does not look like ${field?.label ?? fieldKey} data — ${invalidRows} of ${nonEmpty} sampled values failed validation.`;
+    }
+
+    return {
+      csvColumn: header,
+      mappedField: fieldKey,
+      fieldLabel: field?.label ?? null,
+      confidence: fieldKey ? (suggestion?.confidence ?? null) : null,
+      storedAs: fieldKey ? "standard_field" : (nonEmpty > 0 ? "custom_field" : "skipped"),
+      sampleOriginal,
+      sampleNormalized,
+      changedRows,
+      invalidRows,
+      warning,
+    };
+  });
+}
+
 
 // ─── Advanced Duplicate Detection ───────────────────────────────────────────────
 
