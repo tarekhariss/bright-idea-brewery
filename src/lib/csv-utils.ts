@@ -563,7 +563,12 @@ export function analyzeColumns(
       mappedField: fieldKey,
       fieldLabel: field?.label ?? null,
       confidence: fieldKey ? (suggestion?.confidence ?? null) : null,
-      storedAs: fieldKey ? "standard_field" : (nonEmpty > 0 ? "custom_field" : "skipped"),
+      storedAs: fieldKey
+        ? "standard_field"
+        : (nonEmpty > 0
+            ? (classifyCustomFieldScope(header) === "company" ? "company_custom" : "contact_custom")
+            : "skipped"),
+
       sampleOriginal,
       sampleNormalized,
       changedRows,
