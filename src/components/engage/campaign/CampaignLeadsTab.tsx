@@ -308,6 +308,24 @@ export function CampaignLeadsTab({ campaignId }: { campaignId: string }) {
               placeholder="paste contact UUIDs..."
             />
           </div>
+          {targetingPreview && (
+            <div className="rounded-lg border bg-muted/30 p-3 text-xs space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="font-medium">Targeting preview · mode: <Badge variant="outline" className="ml-1 text-[10px]">{(targetingPreview as any).mode}</Badge></span>
+                <span className="tabular-nums">
+                  <span className="text-emerald-500 font-semibold">{(targetingPreview as any).included}</span> included ·
+                  <span className="text-rose-500 font-semibold ml-1">{Number((targetingPreview as any).total) - Number((targetingPreview as any).included)}</span> blocked
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1 text-[10px] text-muted-foreground">
+                {(["disposable","invalid","bounced","suppressed","unverified","catch_all","risky","unknown"] as const).map(k => {
+                  const v = Number((targetingPreview as any)[`blocked_${k}`] ?? 0);
+                  if (!v) return null;
+                  return <Badge key={k} variant="outline" className="text-[10px]">{k}: {v}</Badge>;
+                })}
+              </div>
+            </div>
+          )}
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setEnrollOpen(false)}>Cancel</Button>
             <Button size="sm" onClick={handleEnroll} disabled={enrollContacts.isPending}>
