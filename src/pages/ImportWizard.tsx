@@ -669,9 +669,11 @@ export default function ImportWizardPage() {
                               </TableCell>
                               <TableCell className="text-xs align-top">
                                 {c.storedAs === "standard_field" && <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-700 border-emerald-200">Standard field</Badge>}
-                                {c.storedAs === "custom_field" && <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">Custom field</Badge>}
+                                {c.storedAs === "contact_custom" && <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">Contact custom</Badge>}
+                                {c.storedAs === "company_custom" && <Badge variant="outline" className="text-xs bg-indigo-500/10 text-indigo-700 border-indigo-200">Company custom</Badge>}
                                 {c.storedAs === "skipped" && <Badge variant="outline" className="text-xs text-muted-foreground">Empty</Badge>}
                               </TableCell>
+
                               <TableCell className="text-xs align-top">
                                 <div className="space-y-1 max-w-[280px]">
                                   {c.sampleOriginal.length === 0 ? (
