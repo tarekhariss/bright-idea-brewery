@@ -659,6 +659,8 @@ Deno.serve(async (req: Request) => {
       const rowUpdates: any[] = [];
       const pendingContacts: Array<{ rowId: string; rowUpdate: any; contact: Record<string, unknown>; companyData: Record<string, unknown>; companyKey: string; companyName: string }> = [];
       const readyContacts: Array<{ rowId: string; rowUpdate: any; contact: Record<string, unknown> }> = [];
+      const mergeUpdates: Array<{ contactId: string; companyId: string | null; patch: Record<string, unknown>; contactCustom: Record<string, string>; companyCustom: Record<string, string> }> = [];
+
 
       for (let i = 0; i < pendingRows.length; i++) {
         const row = pendingRows[i] as any;
