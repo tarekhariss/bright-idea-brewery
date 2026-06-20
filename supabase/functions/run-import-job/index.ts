@@ -306,7 +306,9 @@ function checkDuplicatesAdvanced(
     let companyMatch: ExistingCompany | undefined;
     if (domain) companyMatch = companyIndex.domainMap.get(domain);
     if (!companyMatch && extAccountId) companyMatch = companyIndex.extIdMap.get(extAccountId);
+    if (!companyMatch && companyLinkedin) companyMatch = companyIndex.linkedinMap.get(companyLinkedin);
     if (!companyMatch && companyNorm) companyMatch = companyIndex.nameMap.get(companyNorm);
+
 
     if (match) {
       details.push({
