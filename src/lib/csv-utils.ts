@@ -517,7 +517,7 @@ export interface ColumnAnalysis {
   mappedField: string | null;
   fieldLabel: string | null;
   confidence: number | null;
-  storedAs: "standard_field" | "contact_custom" | "company_custom" | "skipped";
+  storedAs: "standard_field" | "contact_custom" | "company_custom" | "empty" | "excluded";
   sampleOriginal: string[];
   sampleNormalized: string[];
   changedRows: number;
@@ -528,7 +528,8 @@ export interface ColumnAnalysis {
 export function analyzeColumns(
   parsed: ParsedCSV,
   mapping: Record<string, string>,
-  sampleSize = 50
+  sampleSize = 50,
+  excluded: Set<string> = new Set()
 ): ColumnAnalysis[] {
   const rows = parsed.rows.slice(0, sampleSize);
   return parsed.headers.map((header) => {
@@ -555,7 +556,6 @@ export function analyzeColumns(
         invalidRows++;
         continue;
       }
-      // Apply just this column's normalization
       const single = normalizeRow({ [header]: rawVal }, { [header]: fieldKey });
       const out = single.normalized[fieldKey];
       const outStr = out == null ? "" : Array.isArray(out) ? out.join(", ") : String(out);
@@ -570,17 +570,21 @@ export function analyzeColumns(
       warning = `This column does not look like ${field?.label ?? fieldKey} data — ${invalidRows} of ${nonEmpty} sampled values failed validation.`;
     }
 
+    // Stored-as resolution: user exclusion wins, then standard mapping,
+    // then custom-field destination by header scope, finally "empty" only
+    // when the column truly has no values to import.
+    let storedAs: ColumnAnalysis["storedAs"];
+    if (excluded.has(header)) storedAs = "excluded";
+    else if (fieldKey) storedAs = "standard_field";
+    else if (nonEmpty === 0) storedAs = "empty";
+    else storedAs = classifyCustomFieldScope(header) === "company" ? "company_custom" : "contact_custom";
+
     return {
       csvColumn: header,
       mappedField: fieldKey,
       fieldLabel: field?.label ?? null,
       confidence: fieldKey ? (suggestion?.confidence ?? null) : null,
-      storedAs: fieldKey
-        ? "standard_field"
-        : (nonEmpty > 0
-            ? (classifyCustomFieldScope(header) === "company" ? "company_custom" : "contact_custom")
-            : "skipped"),
-
+      storedAs,
       sampleOriginal,
       sampleNormalized,
       changedRows,
