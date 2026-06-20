@@ -505,7 +505,7 @@ export interface ColumnAnalysis {
   mappedField: string | null;
   fieldLabel: string | null;
   confidence: number | null;
-  storedAs: "standard_field" | "custom_field" | "skipped";
+  storedAs: "standard_field" | "contact_custom" | "company_custom" | "skipped";
   sampleOriginal: string[];
   sampleNormalized: string[];
   changedRows: number;
