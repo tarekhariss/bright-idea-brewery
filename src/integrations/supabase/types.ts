@@ -3609,6 +3609,7 @@ export type Database = {
           canonical_status: Database["public"]["Enums"]["email_canonical_status"]
           created_at: string
           created_by: string | null
+          dedupe_key: string
           domain: string | null
           id: string
           import_job_id: string | null
@@ -3635,6 +3636,7 @@ export type Database = {
           canonical_status: Database["public"]["Enums"]["email_canonical_status"]
           created_at?: string
           created_by?: string | null
+          dedupe_key: string
           domain?: string | null
           id?: string
           import_job_id?: string | null
@@ -3661,6 +3663,7 @@ export type Database = {
           canonical_status?: Database["public"]["Enums"]["email_canonical_status"]
           created_at?: string
           created_by?: string | null
+          dedupe_key?: string
           domain?: string | null
           id?: string
           import_job_id?: string | null
@@ -10942,6 +10945,13 @@ export type Database = {
           _workspace_id: string
         }
         Returns: undefined
+      }
+      ingest_email_status_history_batch: {
+        Args: { rows: Json }
+        Returns: {
+          duplicate_count: number
+          inserted_count: number
+        }[]
       }
       intelligence_rollup: { Args: never; Returns: Json }
       is_email_allowed: { Args: { p_email: string }; Returns: boolean }
