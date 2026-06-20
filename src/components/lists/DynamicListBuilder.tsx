@@ -128,17 +128,31 @@ export function DynamicListBuilder({ open, onOpenChange, existingList, onSuccess
     setPreviewLoading(false);
   }, [debouncedFilter, includeLists, excludeLists]);
 
+  const { createWorkspace, workspaceId } = useAuth() as any;
   const handleSave = async () => {
     if (!user || !name.trim()) return;
     setSaving(true);
 
-    const payload = {
+    let wsId = workspaceId as string | null;
+    if (!existingList && !wsId) {
+      try {
+        const ws = await createWorkspace("My Workspace");
+        wsId = ws?.id ?? null;
+      } catch (e: any) {
+        toast({ title: "Error", description: e?.message ?? "Could not initialize workspace", variant: "destructive" });
+        setSaving(false);
+        return;
+      }
+    }
+
+    const payload: any = {
       name: name.trim(),
       description: description.trim() || null,
       is_dynamic: true,
       filter_criteria: { ...filterDef, includeLists, excludeLists },
       created_by: user.id,
     };
+    if (!existingList && wsId) payload.workspace_id = wsId;
 
     let error;
     if (existingList) {

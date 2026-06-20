@@ -76,25 +76,35 @@ export default function ListsPage() {
     return true;
   });
 
+  const { createWorkspace } = useAuth();
   const handleCreateStatic = async () => {
     if (!user || !newName.trim()) return;
-    if (!workspaceId) { toast.error("No active workspace"); return; }
     setCreating(true);
-    const { error } = await db().from("lists").insert({
-      name: newName.trim(),
-      description: newDesc.trim() || null,
-      is_dynamic: false,
-      filter_criteria: null,
-      created_by: user.id,
-      workspace_id: workspaceId,
-    });
-    if (error) {
-      toast.error(error.message);
-    } else {
-      setCreateOpen(false);
-      setNewName("");
-      setNewDesc("");
-      await fetchLists();
+    try {
+      let wsId = workspaceId;
+      if (!wsId) {
+        const ws = await createWorkspace("My Workspace");
+        wsId = ws?.id ?? null;
+      }
+      if (!wsId) { toast.error("Could not initialize workspace"); setCreating(false); return; }
+      const { error } = await db().from("lists").insert({
+        name: newName.trim(),
+        description: newDesc.trim() || null,
+        is_dynamic: false,
+        filter_criteria: null,
+        created_by: user.id,
+        workspace_id: wsId,
+      });
+      if (error) {
+        toast.error(error.message);
+      } else {
+        setCreateOpen(false);
+        setNewName("");
+        setNewDesc("");
+        await fetchLists();
+      }
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to create list");
     }
     setCreating(false);
   };
