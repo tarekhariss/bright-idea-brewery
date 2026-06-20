@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, ArrowLeft, Zap, Users, Trash2, Plus, Download, Calendar, Pencil, RefreshCw } from "lucide-react";
+import { Loader2, ArrowLeft, Zap, Users, Trash2, Plus, Download, Calendar, Pencil, RefreshCw, Upload } from "lucide-react";
 import { LifecycleBadge } from "@/components/data-table/StatusBadge";
 import { TablePagination } from "@/components/data-table/TablePagination";
 import { AddToListDialog } from "@/components/lists/AddToListDialog";
@@ -195,9 +195,14 @@ export default function ListDetailPage() {
                 <Download className="h-3.5 w-3.5" /> Export
               </Button>
               {!list.is_dynamic && (
-                <Button size="sm" className="gap-1.5 text-xs" onClick={() => setAddOpen(true)}>
-                  <Plus className="h-3.5 w-3.5" /> Add Contacts
-                </Button>
+                <>
+                  <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => navigate(`/imports/new?list_id=${list.id}`)}>
+                    <Upload className="h-3.5 w-3.5" /> Import CSV
+                  </Button>
+                  <Button size="sm" className="gap-1.5 text-xs" onClick={() => setAddOpen(true)}>
+                    <Plus className="h-3.5 w-3.5" /> Add Contacts
+                  </Button>
+                </>
               )}
             </div>
           </div>

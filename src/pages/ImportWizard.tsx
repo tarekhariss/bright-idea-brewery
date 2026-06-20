@@ -94,6 +94,8 @@ const STEPS = [
 export default function ImportWizardPage() {
   const navigate = useNavigate();
   const { user, workspaceId } = useAuth();
+  const searchParams = new URLSearchParams(window.location.search);
+  const prefillListId = searchParams.get("list_id") ?? undefined;
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
 
@@ -111,7 +113,10 @@ export default function ImportWizardPage() {
   // Step 4 state
   const [dupResult, setDupResult] = useState<DuplicateCheckResult | null>(null);
   const [dupStrategy, setDupStrategy] = useState<DuplicateStrategy>("flag_review");
-  const [importSettings, setImportSettings] = useState<ImportSettings>({ ...DEFAULT_IMPORT_SETTINGS });
+  const [importSettings, setImportSettings] = useState<ImportSettings>({
+    ...DEFAULT_IMPORT_SETTINGS,
+    ...(prefillListId ? { list_id: prefillListId } : {}),
+  });
   const [dupLoading, setDupLoading] = useState(false);
 
   // ─── Step 1: Upload ───────────────────────────────────────────────────────────
