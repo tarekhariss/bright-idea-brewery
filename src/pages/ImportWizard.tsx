@@ -644,9 +644,6 @@ export default function ImportWizardPage() {
                 </div>
               </ScrollArea>
 
-                  ))}
-                </div>
-              </ScrollArea>
             </div>
           )}
 
