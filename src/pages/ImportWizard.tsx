@@ -47,6 +47,7 @@ import {
   autoMapColumns,
   MAPPABLE_FIELDS,
   normalizeRow,
+  analyzeColumns,
   checkDuplicatesAdvanced,
   buildContactIndex,
   buildCompanyIndex,
@@ -56,11 +57,13 @@ import {
   type DuplicateStrategy,
   type DuplicateCheckResult,
   type NormalizationResult,
+  type ColumnAnalysis,
   type ImportSettings,
   type ExistingContact,
   type ExistingCompany,
 } from "@/lib/csv-utils";
 import type { Json } from "@/integrations/supabase/db-types";
+
 
 function ListSelector({ value, onChange }: { value: string | null; onChange: (id: string | null) => void }) {
   const { data: lists } = useQuery({
