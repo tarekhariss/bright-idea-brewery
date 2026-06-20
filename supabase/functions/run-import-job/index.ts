@@ -269,7 +269,8 @@ function checkDuplicatesAdvanced(
     const fullName = [firstName, lastName].filter(Boolean).join(" ");
     const companyRaw = String(r.company_name_raw ?? "").trim();
     const companyNorm = companyRaw ? normalizeCompanyName(companyRaw) : "";
-    const domain = r.domain ? normalizeDomain(String(r.domain)) : "";
+    const domain = deriveRowDomain(r);
+    const companyLinkedin = r.company_linkedin_url ? normalizeLinkedIn(String(r.company_linkedin_url)) : "";
     const extAccountId = String(r.external_account_id ?? "").trim();
 
     if (!email && !secEmail && !firstName && !lastName) {
