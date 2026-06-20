@@ -3609,6 +3609,7 @@ export type Database = {
           canonical_status: Database["public"]["Enums"]["email_canonical_status"]
           created_at: string
           created_by: string | null
+          dedupe_key: string | null
           domain: string | null
           id: string
           import_job_id: string | null
@@ -3635,6 +3636,7 @@ export type Database = {
           canonical_status: Database["public"]["Enums"]["email_canonical_status"]
           created_at?: string
           created_by?: string | null
+          dedupe_key?: string | null
           domain?: string | null
           id?: string
           import_job_id?: string | null
@@ -3661,6 +3663,7 @@ export type Database = {
           canonical_status?: Database["public"]["Enums"]["email_canonical_status"]
           created_at?: string
           created_by?: string | null
+          dedupe_key?: string | null
           domain?: string | null
           id?: string
           import_job_id?: string | null
