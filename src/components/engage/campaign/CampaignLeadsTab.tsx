@@ -21,6 +21,9 @@ import { useCampaignLeads } from "@/hooks/use-campaign-detail";
 import { useEnrollContacts, useUpdateEnrollment } from "@/hooks/use-campaign-workflow";
 import { useCampaign } from "@/hooks/use-campaigns";
 import { useMailboxes } from "@/hooks/use-deliverability";
+import { EmailTargetingModeCard } from "./EmailTargetingModeCard";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 
 // Derive a UX-friendly status (sent / opened / replied / completed / pending / stopped)
 function deriveLeadStatus(e: any): "pending" | "sent" | "opened" | "replied" | "completed" | "stopped" {
@@ -90,16 +93,33 @@ export function CampaignLeadsTab({ campaignId }: { campaignId: string }) {
     });
   }, [enriched, statusFilter, search]);
 
+  const idList = useMemo(
+    () => enrollIds.split(/[\n,\s]+/).map((s) => s.trim()).filter(Boolean),
+    [enrollIds]
+  );
+
+  const { data: targetingPreview } = useQuery({
+    queryKey: ["targeting-preview", campaignId, idList],
+    enabled: enrollOpen && idList.length > 0 && idList.length <= 2000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("preview_campaign_targeting" as any, {
+        p_campaign_id: campaignId, p_contact_ids: idList,
+      } as any);
+      if (error) throw error;
+      return Array.isArray(data) ? data[0] : data;
+    },
+  });
+
   const handleEnroll = async () => {
-    const ids = enrollIds.split(/[\n,\s]+/).map((s) => s.trim()).filter(Boolean);
-    if (!ids.length) return;
-    await enrollContacts.mutateAsync({ campaignId, contactIds: ids });
+    if (!idList.length) return;
+    await enrollContacts.mutateAsync({ campaignId, contactIds: idList });
     setEnrollOpen(false);
     setEnrollIds("");
   };
 
   return (
     <div className="space-y-3">
+      <EmailTargetingModeCard campaignId={campaignId} />
       {/* Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Tabs value={statusFilter} onValueChange={setStatusFilter}>
@@ -288,6 +308,24 @@ export function CampaignLeadsTab({ campaignId }: { campaignId: string }) {
               placeholder="paste contact UUIDs..."
             />
           </div>
+          {targetingPreview && (
+            <div className="rounded-lg border bg-muted/30 p-3 text-xs space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="font-medium">Targeting preview · mode: <Badge variant="outline" className="ml-1 text-[10px]">{(targetingPreview as any).mode}</Badge></span>
+                <span className="tabular-nums">
+                  <span className="text-emerald-500 font-semibold">{(targetingPreview as any).included}</span> included ·
+                  <span className="text-rose-500 font-semibold ml-1">{Number((targetingPreview as any).total) - Number((targetingPreview as any).included)}</span> blocked
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1 text-[10px] text-muted-foreground">
+                {(["disposable","invalid","bounced","suppressed","unverified","catch_all","risky","unknown"] as const).map(k => {
+                  const v = Number((targetingPreview as any)[`blocked_${k}`] ?? 0);
+                  if (!v) return null;
+                  return <Badge key={k} variant="outline" className="text-[10px]">{k}: {v}</Badge>;
+                })}
+              </div>
+            </div>
+          )}
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setEnrollOpen(false)}>Cancel</Button>
             <Button size="sm" onClick={handleEnroll} disabled={enrollContacts.isPending}>

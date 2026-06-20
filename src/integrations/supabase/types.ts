@@ -1281,6 +1281,7 @@ export type Database = {
           daily_limit: number | null
           delivery_optimization: boolean
           description: string | null
+          email_targeting_mode: string
           end_at: string | null
           id: string
           insert_unsubscribe_header: boolean
@@ -1325,6 +1326,7 @@ export type Database = {
           daily_limit?: number | null
           delivery_optimization?: boolean
           description?: string | null
+          email_targeting_mode?: string
           end_at?: string | null
           id?: string
           insert_unsubscribe_header?: boolean
@@ -1369,6 +1371,7 @@ export type Database = {
           daily_limit?: number | null
           delivery_optimization?: boolean
           description?: string | null
+          email_targeting_mode?: string
           end_at?: string | null
           id?: string
           insert_unsubscribe_header?: boolean
@@ -10857,6 +10860,14 @@ export type Database = {
         Args: { _banner: string; _mx: string }
         Returns: string
       }
+      email_status_allowed_for_mode: {
+        Args: {
+          p_is_disposable: boolean
+          p_mode: string
+          p_status: Database["public"]["Enums"]["email_canonical_status"]
+        }
+        Returns: boolean
+      }
       email_status_current: {
         Args: { p_email: string; p_workspace_id: string }
         Returns: {
@@ -11085,6 +11096,22 @@ export type Database = {
         }[]
       }
       pick_campaign_mailbox: { Args: { _campaign_id: string }; Returns: string }
+      preview_campaign_targeting: {
+        Args: { p_campaign_id: string; p_contact_ids: string[] }
+        Returns: {
+          blocked_bounced: number
+          blocked_catch_all: number
+          blocked_disposable: number
+          blocked_invalid: number
+          blocked_risky: number
+          blocked_suppressed: number
+          blocked_unknown: number
+          blocked_unverified: number
+          included: number
+          mode: string
+          total: number
+        }[]
+      }
       push_to_crm: { Args: { payload: Json }; Returns: Json }
       recompute_email_status_projection: {
         Args: { p_normalized_email: string; p_workspace_id: string }

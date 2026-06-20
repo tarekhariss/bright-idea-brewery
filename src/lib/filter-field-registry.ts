@@ -58,6 +58,30 @@ export const CONTACT_FILTER_FIELDS: FilterFieldMeta[] = [
     ],
   },
 
+  // Email Verification Memory (v2) — canonical, modifiers, provenance
+  {
+    key: "email_canonical_status", label: "Verification Status (v2)", type: "enum", table: "contacts", category: "Email Verification (v2)",
+    options: [
+      { value: "valid", label: "Valid" },
+      { value: "valid_catch_all", label: "Catch-all" },
+      { value: "risky", label: "Risky" },
+      { value: "unknown", label: "Unknown" },
+      { value: "invalid", label: "Invalid" },
+      { value: "bounced", label: "Bounced" },
+      { value: "suppressed", label: "Suppressed" },
+      { value: "unverified", label: "Unverified" },
+    ],
+  },
+  { key: "email_is_role_based",       label: "Role-based Email",       type: "boolean", table: "contacts", category: "Email Verification (v2)" },
+  { key: "email_is_disposable",       label: "Disposable Email",       type: "boolean", table: "contacts", category: "Email Verification (v2)" },
+  { key: "email_is_free_email",       label: "Free-email Provider",    type: "boolean", table: "contacts", category: "Email Verification (v2)" },
+  { key: "email_is_catch_all",        label: "Catch-all Domain",       type: "boolean", table: "contacts", category: "Email Verification (v2)" },
+  { key: "email_is_syntax_invalid",   label: "Syntax Invalid",         type: "boolean", table: "contacts", category: "Email Verification (v2)" },
+  { key: "email_is_mx_missing",       label: "MX Missing",             type: "boolean", table: "contacts", category: "Email Verification (v2)" },
+  { key: "email_is_temporary_failure",label: "Temporary Failure",      type: "boolean", table: "contacts", category: "Email Verification (v2)" },
+  { key: "email_status_source",       label: "Verification Source",    type: "text",    table: "contacts", category: "Email Verification (v2)" },
+  { key: "email_status_verified_at",  label: "Last Verified Date",     type: "date",    table: "contacts", category: "Email Verification (v2)" },
+
   // Lifecycle & Outreach
   {
     key: "lifecycle_status", label: "Lifecycle Stage", type: "enum", table: "contacts", category: "Lifecycle & Outreach",
