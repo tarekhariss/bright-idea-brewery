@@ -39,7 +39,7 @@ Deno.serve(async (req) => {
       const rows = emails.map((e: string) => ({
         workspace_id: QA_WORKSPACE,
         email: e,
-        email_normalized: e.toLowerCase(),
+
         first_name: "QA",
         last_name: "Test",
         source: "qa_phase1a_backend_test",
