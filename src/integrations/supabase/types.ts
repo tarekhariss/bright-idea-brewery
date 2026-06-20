@@ -4549,6 +4549,69 @@ export type Database = {
           },
         ]
       }
+      import_quarantine_rows: {
+        Row: {
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          id: string
+          import_job_id: string
+          import_row_id: string | null
+          notes: string | null
+          raw_row: Json
+          reasons: string[]
+          row_index: number | null
+          status: Database["public"]["Enums"]["quarantine_status"]
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          import_job_id: string
+          import_row_id?: string | null
+          notes?: string | null
+          raw_row?: Json
+          reasons?: string[]
+          row_index?: number | null
+          status?: Database["public"]["Enums"]["quarantine_status"]
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          import_job_id?: string
+          import_row_id?: string | null
+          notes?: string | null
+          raw_row?: Json
+          reasons?: string[]
+          row_index?: number | null
+          status?: Database["public"]["Enums"]["quarantine_status"]
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_quarantine_rows_import_job_id_fkey"
+            columns: ["import_job_id"]
+            isOneToOne: false
+            referencedRelation: "import_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_quarantine_rows_import_row_id_fkey"
+            columns: ["import_row_id"]
+            isOneToOne: false
+            referencedRelation: "import_job_rows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imported_datasets: {
         Row: {
           auto_seed_prospects: boolean
@@ -10796,6 +10859,14 @@ export type Database = {
         Args: { _domain: string }
         Returns: number
       }
+      compute_dataset_readiness: {
+        Args: {
+          p_list_id?: string
+          p_saved_search_id?: string
+          p_workspace_id: string
+        }
+        Returns: Json
+      }
       compute_decay: {
         Args: { _confidence: number; _last_verified_at: string }
         Returns: number
@@ -10916,6 +10987,10 @@ export type Database = {
       }
       ensure_crm_pipeline: { Args: { _workspace_id: string }; Returns: string }
       generate_workspace_slug: { Args: { p_name: string }; Returns: string }
+      get_workspace_data_quality: {
+        Args: { p_workspace_id: string }
+        Returns: Json
+      }
       has_any_role: {
         Args: {
           _roles: Database["public"]["Enums"]["app_role"][]
@@ -11203,6 +11278,13 @@ export type Database = {
       retry_verification_result: {
         Args: { _error: string; _result_id: string }
         Returns: undefined
+      }
+      scan_import_quarantine: {
+        Args: { p_import_job_id: string }
+        Returns: {
+          quarantined: number
+          scanned: number
+        }[]
       }
       schedule_recheck: {
         Args: { _reason: string; _result_id: string }
@@ -11495,6 +11577,7 @@ export type Database = {
         | "invalid_credentials"
         | "pending_validation"
       provider_type: "google_workspace" | "microsoft_365" | "smtp" | "linkedin"
+      quarantine_status: "pending" | "approved" | "excluded"
       queue_item_status:
         | "pending"
         | "processing"
@@ -11992,6 +12075,7 @@ export const Constants = {
         "pending_validation",
       ],
       provider_type: ["google_workspace", "microsoft_365", "smtp", "linkedin"],
+      quarantine_status: ["pending", "approved", "excluded"],
       queue_item_status: [
         "pending",
         "processing",
