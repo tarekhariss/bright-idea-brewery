@@ -29,6 +29,7 @@ type ExistingContact = {
 type ExistingCompany = {
   id: string; name: string; normalized_name: string | null;
   domain: string | null; external_account_id: string | null; website: string | null;
+  normalized_domain?: string | null; company_linkedin_url?: string | null;
 };
 type ImportSettings = {
   duplicate_strategy: string; skip_exact_duplicates: boolean;
