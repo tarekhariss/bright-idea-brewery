@@ -205,15 +205,50 @@ function buildCompanyIndex(companies: ExistingCompany[]) {
   const domainMap = new Map<string, ExistingCompany>();
   const extIdMap = new Map<string, ExistingCompany>();
   const nameMap = new Map<string, ExistingCompany>();
+  const linkedinMap = new Map<string, ExistingCompany>();
   for (const c of companies) {
-    if (c.domain) domainMap.set(normalizeDomain(c.domain), c);
+    // Prefer the DB-computed normalized_domain; fall back to local normalization
+    const nd = (c.normalized_domain && c.normalized_domain.trim())
+      ? c.normalized_domain.trim().toLowerCase()
+      : (c.domain ? normalizeDomain(c.domain) : (c.website ? normalizeDomain(c.website) : ""));
+    if (nd) domainMap.set(nd, c);
     if (c.external_account_id) extIdMap.set(c.external_account_id, c);
     if (c.normalized_name) nameMap.set(c.normalized_name.toLowerCase(), c);
     else if (c.name) nameMap.set(normalizeCompanyName(c.name), c);
-    if (c.website) domainMap.set(normalizeDomain(c.website), c);
+    if (c.company_linkedin_url) linkedinMap.set(normalizeLinkedIn(c.company_linkedin_url), c);
   }
-  return { domainMap, extIdMap, nameMap };
+  return { domainMap, extIdMap, nameMap, linkedinMap };
 }
+
+/**
+ * Derive a normalized domain identity for an inbound row by checking the strongest
+ * signals in order: explicit domain → website → email host → company LinkedIn URL.
+ */
+function deriveRowDomain(r: Record<string, unknown>): string {
+  if (r.domain) {
+    const d = normalizeDomain(String(r.domain));
+    if (d && DOMAIN_RE.test(d)) return d;
+  }
+  if (r.website) {
+    const d = normalizeDomain(String(r.website));
+    if (d && DOMAIN_RE.test(d)) return d;
+  }
+  if (r.email) {
+    const parts = String(r.email).toLowerCase().split("@");
+    if (parts.length === 2) {
+      const host = parts[1].trim();
+      // Skip generic / free-mail hosts so we don't merge unrelated people
+      const generic = new Set([
+        "gmail.com","yahoo.com","hotmail.com","outlook.com","aol.com","icloud.com",
+        "me.com","mac.com","live.com","msn.com","proton.me","protonmail.com",
+        "googlemail.com","yandex.com","gmx.com","zoho.com","fastmail.com","mail.com",
+      ]);
+      if (host && DOMAIN_RE.test(host) && !generic.has(host)) return host;
+    }
+  }
+  return "";
+}
+
 
 function checkDuplicatesAdvanced(
   rows: Record<string, unknown>[],
