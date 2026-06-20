@@ -11614,6 +11614,14 @@ export type Database = {
         | "bounce"
         | "neutral"
         | "unknown"
+        | "positive"
+        | "meeting_intent"
+        | "out_of_office"
+        | "unsubscribe"
+        | "authority_referral"
+        | "budget_objection"
+        | "bad_timing"
+        | "competitor_mention"
       research_source_type: "website" | "linkedin" | "manual" | "crm" | "notes"
       research_status: "pending" | "completed" | "failed"
       sending_health: "unknown" | "good" | "warning" | "poor"
@@ -12113,6 +12121,14 @@ export const Constants = {
         "bounce",
         "neutral",
         "unknown",
+        "positive",
+        "meeting_intent",
+        "out_of_office",
+        "unsubscribe",
+        "authority_referral",
+        "budget_objection",
+        "bad_timing",
+        "competitor_mention",
       ],
       research_source_type: ["website", "linkedin", "manual", "crm", "notes"],
       research_status: ["pending", "completed", "failed"],
