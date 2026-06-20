@@ -94,12 +94,34 @@ export function useEnrollContacts() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ campaignId, contactIds }: { campaignId: string; contactIds: string[] }) => {
+      // Try bulk first — fast path
       const rows = contactIds.map(cid => ({ campaign_id: campaignId, contact_id: cid, status: "pending" }));
-      const { data, error } = await from("campaign_enrollments").upsert(rows, { onConflict: "campaign_id,contact_id", ignoreDuplicates: true }).select();
-      if (error) throw error;
-      return data;
+      const bulk = await from("campaign_enrollments")
+        .upsert(rows, { onConflict: "campaign_id,contact_id", ignoreDuplicates: true })
+        .select();
+      if (!bulk.error) return { enrolled: bulk.data?.length ?? 0, blocked: 0, blocked_messages: [] as string[] };
+
+      // Fallback: per-row to isolate guard violations (intelligence_v2 mode)
+      let enrolled = 0; let blocked = 0; const messages: string[] = [];
+      for (const r of rows) {
+        const { error, data } = await from("campaign_enrollments")
+          .upsert([r], { onConflict: "campaign_id,contact_id", ignoreDuplicates: true })
+          .select();
+        if (error) {
+          blocked++;
+          if (messages.length < 5) messages.push(error.message);
+        } else enrolled += data?.length ?? 0;
+      }
+      return { enrolled, blocked, blocked_messages: messages };
     },
-    onSuccess: (_d: any, vars) => { qc.invalidateQueries({ queryKey: ["campaign_enrollments", vars.campaignId] }); toast.success("Contacts enrolled"); },
+    onSuccess: (res: any, vars) => {
+      qc.invalidateQueries({ queryKey: ["campaign_enrollments", vars.campaignId] });
+      if (res.blocked > 0) {
+        toast.warning(`${res.enrolled} enrolled · ${res.blocked} blocked by email targeting guardrails`);
+      } else {
+        toast.success(`${res.enrolled} contacts enrolled`);
+      }
+    },
     onError: (e: any) => toast.error(e.message),
   });
 }
