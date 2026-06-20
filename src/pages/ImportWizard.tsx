@@ -228,8 +228,12 @@ export default function ImportWizardPage() {
       const settings: Record<string, unknown> = {
         ...importSettings,
         duplicate_strategy: dupStrategy,
-        unmapped_columns: unmappedHeaders,
+        // Columns that will be preserved as contact/company custom_fields (not skipped).
+        unmapped_columns: customFieldHeaders,
+        // Columns the user explicitly told us to drop.
+        excluded_columns: excludedHeaders,
       };
+
 
       const initialDiagnostics = {
         diagnostics: {
