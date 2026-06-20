@@ -701,7 +701,7 @@ export default function ImportWizardPage() {
                       </Table>
                     </div>
 
-                    {skippedCount === 0 && totalInvalid === 0 && totalChanged === 0 && (
+                    {customCount === 0 && totalInvalid === 0 && totalChanged === 0 && (
                       <div className="text-center py-4 text-sm text-emerald-600">
                         <CheckCircle2 className="h-5 w-5 mx-auto mb-1" /> Data looks clean — no normalization changes needed.
                       </div>
