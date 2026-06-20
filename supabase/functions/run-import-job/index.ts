@@ -1102,6 +1102,20 @@ Deno.serve(async (req: Request) => {
 
     console.log(`[import] Job ${job_id} completed: ${processedRows} processed, ${insertedRows} inserted, ${errorRows} errors, ${duplicateRows} dupes${mismatchWarning ? '. ' + mismatchWarning : ''}`);
 
+    // Final safety net: collapse any companies that ended up sharing a normalized
+    // domain (possible from concurrent batches or pre-existing dirty data).
+    try {
+      const { data: dedupeRes, error: dedupeErr } = await (supabase as any).rpc(
+        "dedupe_companies_by_domain",
+        { p_workspace_id: job.workspace_id ?? null, p_actor: userId }
+      );
+      if (dedupeErr) console.warn(`[import] dedupe_companies_by_domain warning: ${dedupeErr.message}`);
+      else if (Array.isArray(dedupeRes) && dedupeRes.length > 0) {
+        console.log(`[import] Dedupe merged ${dedupeRes.length} company groups by domain`);
+      }
+    } catch (e) { console.warn(`[import] dedupe call failed:`, e); }
+
+
     await supabase.from("import_jobs").update({
       status: "completed", processed_rows: processedRows, success_rows: successRows,
       inserted_rows: insertedRows, error_rows: errorRows, duplicate_rows: duplicateRows,
