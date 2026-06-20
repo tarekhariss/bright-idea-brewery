@@ -36,6 +36,7 @@ import { countActiveConditions } from "@/lib/advanced-filter-engine";
 import type { FilterDefinition } from "@/lib/advanced-filter-types";
 import { createEmptyFilterDefinition } from "@/lib/advanced-filter-types";
 import { cn } from "@/lib/utils";
+import { CanonicalStatusBadge, ModifierChips } from "@/components/email-memory/CanonicalEmailBadges";
 
 // ─── Column definitions ──────────────────────────────────────
 interface ColDef {
