@@ -10,43 +10,72 @@ import type {
   FilterGroup,
   FilterOperator,
 } from "./advanced-filter-types";
+import { COMPANY_FILTER_FIELDS } from "./filter-field-registry";
+
+/**
+ * Set of field keys that live on the `companies` table. When the active entity
+ * is `contact`, we transparently rewrite these to `companies.<field>` so the
+ * filter applies against the embedded join instead of the (non-existent)
+ * contact column — and we tell the caller so it can switch to an inner join.
+ */
+const COMPANY_FIELD_KEYS = new Set(COMPANY_FILTER_FIELDS.map((f) => f.key));
+
+function rewriteField(field: string, entityType?: "contact" | "company"): string {
+  if (entityType !== "contact") return field;
+  if (!field || field.includes(".")) return field;
+  if (COMPANY_FIELD_KEYS.has(field)) return `companies.${field}`;
+  return field;
+}
+
+/** True when the definition contains at least one company-table filter (used by
+ * the search hook to switch to an inner join so parent rows are actually filtered). */
+export function hasCompanyTableFilter(def: FilterDefinition | undefined | null): boolean {
+  if (!def) return false;
+  const checkConds = (cs?: FilterCondition[]) => cs?.some((c) => c.field && COMPANY_FIELD_KEYS.has(c.field) && !c.field.includes(".")) ?? false;
+  const walkGroup = (g: FilterGroup): boolean => checkConds(g.conditions) || (g.groups ?? []).some(walkGroup);
+  return (
+    checkConds(def.conditions) ||
+    (def.groups ?? []).some(walkGroup) ||
+    !!def.includeDomains?.length || !!def.excludeDomains?.length ||
+    !!def.includeWebsites?.length || !!def.excludeWebsites?.length
+  );
+}
 
 // ─── Apply a complete FilterDefinition to a Supabase query ───
-export function applyAdvancedFilters(query: any, def: FilterDefinition): any {
+export function applyAdvancedFilters(query: any, def: FilterDefinition, entityType?: "contact" | "company"): any {
   if (!def) return query;
 
   // 1. Apply top-level conditions
   if (def.conditions?.length) {
-    query = applyConditions(query, def.conditions, def.logic);
+    query = applyConditions(query, def.conditions, def.logic, entityType);
   }
 
   // 2. Apply nested groups
   if (def.groups?.length) {
     for (const group of def.groups) {
-      query = applyGroup(query, group);
+      query = applyGroup(query, group, entityType);
     }
   }
 
-  // 3. Domain filtering (company domain for contacts via company_name_raw fallback,
-  //    or domain column for companies)
+  // 3. Domain filtering — for contact searches this targets the joined company.
+  const domainField = entityType === "contact" ? "companies.domain" : "domain";
+  const websiteField = entityType === "contact" ? "companies.website" : "website";
   if (def.includeDomains?.length) {
-    // PostgREST .in() works for domain include
-    query = query.in("domain", def.includeDomains);
+    query = query.in(domainField, def.includeDomains);
   }
   if (def.excludeDomains?.length) {
-    // Use .not.in for exclude
     for (const d of def.excludeDomains) {
-      query = query.neq("domain", d);
+      query = query.neq(domainField, d);
     }
   }
 
   // 4. Website filtering
   if (def.includeWebsites?.length) {
-    query = query.in("website", def.includeWebsites);
+    query = query.in(websiteField, def.includeWebsites);
   }
   if (def.excludeWebsites?.length) {
     for (const w of def.excludeWebsites) {
-      query = query.neq("website", w);
+      query = query.neq(websiteField, w);
     }
   }
 
@@ -54,11 +83,11 @@ export function applyAdvancedFilters(query: any, def: FilterDefinition): any {
 }
 
 // ─── Apply a group (recursive) ───────────────────────────────
-function applyGroup(query: any, group: FilterGroup): any {
+function applyGroup(query: any, group: FilterGroup, entityType?: "contact" | "company"): any {
   if (group.logic === "or") {
     // Build OR clause from conditions
     const orParts = group.conditions
-      .map((c) => conditionToPostgrest(c))
+      .map((c) => conditionToPostgrest(c, entityType))
       .filter(Boolean);
 
     if (orParts.length > 0) {
@@ -66,22 +95,22 @@ function applyGroup(query: any, group: FilterGroup): any {
     }
   } else {
     // AND — apply each condition sequentially
-    query = applyConditions(query, group.conditions, "and");
+    query = applyConditions(query, group.conditions, "and", entityType);
   }
 
   // Recurse into nested sub-groups
   for (const sub of group.groups) {
-    query = applyGroup(query, sub);
+    query = applyGroup(query, sub, entityType);
   }
 
   return query;
 }
 
 // ─── Apply a list of conditions with AND logic ───────────────
-function applyConditions(query: any, conditions: FilterCondition[], logic: "and" | "or"): any {
+function applyConditions(query: any, conditions: FilterCondition[], logic: "and" | "or", entityType?: "contact" | "company"): any {
   if (logic === "or") {
     const orParts = conditions
-      .map((c) => conditionToPostgrest(c))
+      .map((c) => conditionToPostgrest(c, entityType))
       .filter(Boolean);
     if (orParts.length > 0) {
       query = query.or(orParts.join(","));
@@ -91,14 +120,15 @@ function applyConditions(query: any, conditions: FilterCondition[], logic: "and"
 
   // AND — chain sequentially
   for (const condition of conditions) {
-    query = applyCondition(query, condition);
+    query = applyCondition(query, condition, entityType);
   }
   return query;
 }
 
 // ─── Apply a single condition to a query (chain style) ───────
-function applyCondition(query: any, c: FilterCondition): any {
-  const { field, operator, value, conditionType } = c;
+function applyCondition(query: any, c: FilterCondition, entityType?: "contact" | "company"): any {
+  const { operator, value, conditionType } = c;
+  const field = rewriteField(c.field, entityType);
   if (!field) return query;
 
   const isExclude = conditionType === "exclude";
@@ -168,8 +198,9 @@ function applyCondition(query: any, c: FilterCondition): any {
 }
 
 // ─── Convert a condition to a PostgREST OR fragment ──────────
-function conditionToPostgrest(c: FilterCondition): string | null {
-  const { field, operator, value, conditionType } = c;
+function conditionToPostgrest(c: FilterCondition, entityType?: "contact" | "company"): string | null {
+  const { operator, value, conditionType } = c;
+  const field = rewriteField(c.field, entityType);
   if (!field) return null;
 
   const isExclude = conditionType === "exclude";
