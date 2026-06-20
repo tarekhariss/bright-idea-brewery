@@ -274,27 +274,16 @@ Deno.serve(async (req) => {
     if (prepared.length) {
       const emails = Array.from(new Set(prepared.map(p => p.normalized_email)));
 
-      // Pre-filter against existing dedupe keys to keep the operation idempotent
-      // across uploads. A BEFORE INSERT trigger also computes the same key and a
-      // unique index enforces uniqueness at the DB level as a safety net.
-      const { data: existing, error: exErr } = await admin
-        .from("email_status_history")
-        .select("dedupe_key")
-        .eq("workspace_id", body.workspace_id)
-        .in("normalized_email", emails);
-      if (exErr) throw exErr;
-      const existingKeys = new Set<string>((existing ?? []).map((r: any) => r.dedupe_key).filter(Boolean));
-
-      const toInsert = prepared.filter(p => {
-        if (existingKeys.has(p.dedupe_key)) { counters.duplicates++; return false; }
-        return true;
-      });
-
-      for (let i = 0; i < toInsert.length; i += 500) {
-        const chunk = toInsert.slice(i, i + 500);
-        const { error } = await admin.from("email_status_history").insert(chunk);
+      // Use SECURITY DEFINER RPC that performs INSERT ... ON CONFLICT DO NOTHING
+      // on (workspace_id, dedupe_key). Guarantees idempotency across re-uploads
+      // regardless of PostgREST schema cache state.
+      for (let i = 0; i < prepared.length; i += 500) {
+        const chunk = prepared.slice(i, i + 500);
+        const { data, error } = await admin.rpc("ingest_email_status_history_batch", { rows: chunk });
         if (error) throw error;
-        counters.inserted += chunk.length;
+        const row = Array.isArray(data) ? data[0] : data;
+        counters.inserted += row?.inserted_count ?? 0;
+        counters.duplicates += row?.duplicate_count ?? 0;
       }
 
       // backward matching report — how many emails already exist as contacts
