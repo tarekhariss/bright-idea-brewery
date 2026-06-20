@@ -759,9 +759,10 @@ export default function ImportWizardPage() {
                                     )}
                                   </div>
                                 ) : (
-                                  <span className="text-muted-foreground italic">unmapped</span>
+                                  <span className="text-muted-foreground italic">— saved as custom field —</span>
                                 )}
                               </TableCell>
+
                               <TableCell className="text-xs align-top">
                                 {c.storedAs === "standard_field" && <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-700 border-emerald-200">Standard field</Badge>}
                                 {c.storedAs === "contact_custom" && <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">Contact custom</Badge>}
