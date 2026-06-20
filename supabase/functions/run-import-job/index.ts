@@ -114,20 +114,38 @@ function isValidForField(fieldKey: string, v: string): boolean {
   if (fieldKey === "website") return URL_RE.test(v.trim().replace(/\s+/g, ""));
   if (fieldKey === "domain") return DOMAIN_RE.test(v.trim().replace(/^https?:\/\//i, "").replace(/^www\./i, "").split("/")[0]);
   if (fieldKey.includes("phone")) return (v.match(/\d/g)?.length ?? 0) >= 7;
-  if (fieldKey === "company_name_raw") return v.length <= 120 && !/[.!?]+$/.test(v.trim());
+  if (fieldKey === "company_name_raw") { const t = v.trim(); return t.length <= 120 && !/[!?]$/.test(t) && t.split(/\s+/).length <= 20; }
   return true;
+}
+
+/**
+ * Decide whether an unmapped CSV header is company-level or contact-level so we
+ * can preserve it in the right .custom_fields bucket. Conservative: defaults to
+ * contact when unsure (matches the spec).
+ */
+function classifyCustomFieldScope(header: string): "contact" | "company" {
+  const h = header.toLowerCase().trim().replace(/[_\-\/\\.]+/g, " ").replace(/\s+/g, " ");
+  // Strong company prefixes
+  if (/^(company|organization|organisation|org|account|employer|firm|business)\b/.test(h)) return "company";
+  // Common company-side topical words anywhere in header
+  if (/\b(employees|headcount|revenue|funding|founded|industry|sic|naics|ticker|hq|headquarters|domain|website|technologies|tech stack|specialties|segments|territories)\b/.test(h)) return "company";
+  return "contact";
 }
 
 function normalizeRow(raw: Record<string, string>, mapping: Record<string, string>) {
   const normalized: Record<string, unknown> = {};
-  const customFields: Record<string, string> = {};
+  const contactCustom: Record<string, string> = {};
+  const companyCustom: Record<string, string> = {};
   const invalidFields: Record<string, string> = {};
 
-  // Preserve EVERY unmapped column as a custom field (raw, trimmed)
+  // Preserve EVERY unmapped column as a custom field, routed by header semantics.
   for (const [csvCol, rawVal] of Object.entries(raw)) {
     if (!mapping[csvCol]) {
       const t = (rawVal ?? "").trim();
-      if (t && !isEmptyLike(t)) customFields[csvCol] = t;
+      if (!t || isEmptyLike(t)) continue;
+      const scope = classifyCustomFieldScope(csvCol);
+      if (scope === "company") companyCustom[csvCol] = t;
+      else contactCustom[csvCol] = t;
     }
   }
 
@@ -136,7 +154,6 @@ function normalizeRow(raw: Record<string, string>, mapping: Record<string, strin
     let val = rawVal.trim().replace(/\s+/g, " ");
     if (isEmptyLike(val)) { normalized[fieldKey] = null; continue; }
 
-    // Type-safe gating: only normalize when value looks valid for the target field.
     if (!isValidForField(fieldKey, val)) {
       invalidFields[fieldKey] = val;
       normalized[fieldKey] = null;
@@ -155,10 +172,12 @@ function normalizeRow(raw: Record<string, string>, mapping: Record<string, strin
     normalized[fieldKey] = val;
   }
 
-  if (Object.keys(customFields).length > 0) (normalized as any)._custom_fields = customFields;
+  if (Object.keys(contactCustom).length > 0) (normalized as any)._contact_custom_fields = contactCustom;
+  if (Object.keys(companyCustom).length > 0) (normalized as any)._company_custom_fields = companyCustom;
   if (Object.keys(invalidFields).length > 0) (normalized as any)._invalid_values = invalidFields;
   return normalized;
 }
+
 
 
 function buildContactIndex(contacts: ExistingContact[]) {
@@ -640,6 +659,8 @@ Deno.serve(async (req: Request) => {
       const rowUpdates: any[] = [];
       const pendingContacts: Array<{ rowId: string; rowUpdate: any; contact: Record<string, unknown>; companyData: Record<string, unknown>; companyKey: string; companyName: string }> = [];
       const readyContacts: Array<{ rowId: string; rowUpdate: any; contact: Record<string, unknown> }> = [];
+      const mergeUpdates: Array<{ contactId: string; companyId: string | null; patch: Record<string, unknown>; contactCustom: Record<string, string>; companyCustom: Record<string, string> }> = [];
+
 
       for (let i = 0; i < pendingRows.length; i++) {
         const row = pendingRows[i] as any;
@@ -667,15 +688,18 @@ Deno.serve(async (req: Request) => {
           };
           const companyData: Record<string, unknown> = {};
           let hasCompanyFields = false;
-          const customFields = (normalized as any)._custom_fields ?? null;
+          const contactCustom = (normalized as any)._contact_custom_fields ?? null;
+          const companyCustom = (normalized as any)._company_custom_fields ?? null;
           for (const [key, value] of Object.entries(normalized)) {
-            if (key.startsWith("_")) continue; // skip _custom_fields / _original_values / _invalid_values
+            if (key.startsWith("_")) continue;
             if (value === null || value === undefined) continue;
             if (CONTACT_FIELDS.has(key)) contact[key] = value;
             if (COMPANY_FIELDS.has(key)) { companyData[key] = value; hasCompanyFields = true; }
           }
-          if (customFields && typeof customFields === "object" && Object.keys(customFields).length > 0) {
-            contact.custom_fields = customFields;
+          if (contactCustom && Object.keys(contactCustom).length > 0) contact.custom_fields = contactCustom;
+          if (companyCustom && Object.keys(companyCustom).length > 0) {
+            companyData.custom_fields = companyCustom;
+            hasCompanyFields = true;
           }
           if (!contact.city && normalized.company_city) contact.city = normalized.company_city;
           if (!contact.state && normalized.company_state) contact.state = normalized.company_state;
@@ -686,7 +710,6 @@ Deno.serve(async (req: Request) => {
           const matchedCompanyId = rowUpdate.company_id ?? (companyKey ? companyCache.get(companyKey) : null);
           if (matchedCompanyId) { contact.company_id = matchedCompanyId; rowUpdate.company_id = matchedCompanyId; }
 
-
           if (companyName && hasCompanyFields && !rowUpdate.company_id) {
             pendingContacts.push({ rowId: row.id, rowUpdate, contact, companyData, companyKey, companyName });
           } else if (contact.email || contact.first_name || contact.last_name) {
@@ -694,9 +717,29 @@ Deno.serve(async (req: Request) => {
           } else {
             rowUpdate.status = "error"; rowUpdate.error_message = "Missing required identity fields";
           }
+        } else if (rowAction.action === "update_missing_fields" && dupDetail.matchedContactId) {
+          // Merge import data into the existing contact WITHOUT overwriting non-empty values.
+          // Custom fields are merged key-by-key (existing wins on conflict).
+          const contactPatch: Record<string, unknown> = {};
+          for (const [key, value] of Object.entries(normalized)) {
+            if (key.startsWith("_")) continue;
+            if (value === null || value === undefined || value === "") continue;
+            if (CONTACT_FIELDS.has(key)) contactPatch[key] = value;
+          }
+          const newContactCustom = (normalized as any)._contact_custom_fields ?? {};
+          const newCompanyCustom = (normalized as any)._company_custom_fields ?? {};
+
+          mergeUpdates.push({
+            contactId: dupDetail.matchedContactId,
+            companyId: dupDetail.matchedCompanyId,
+            patch: contactPatch,
+            contactCustom: newContactCustom,
+            companyCustom: newCompanyCustom,
+          });
         }
         rowUpdates.push(rowUpdate);
       }
+
 
       // Company creation (batch)
       const companyStart = performance.now();
@@ -737,11 +780,59 @@ Deno.serve(async (req: Request) => {
       }
       const companyMs = Math.round(performance.now() - companyStart);
 
+      // Duplicate merge path: fill blank standard fields + merge custom_fields without overwriting.
+      const mergeStart = performance.now();
+      if (mergeUpdates.length > 0) {
+        const ids = Array.from(new Set(mergeUpdates.map((m) => m.contactId)));
+        const { data: existingForMerge } = await (supabase.from("contacts") as any)
+          .select("id, company_id, custom_fields, " + Array.from(CONTACT_FIELDS).join(", "))
+          .in("id", ids);
+        const existingById = new Map<string, any>();
+        for (const e of (existingForMerge ?? [])) existingById.set(e.id, e);
+
+        const companyIdsForMerge = Array.from(new Set(mergeUpdates
+          .map((m) => m.companyId || existingById.get(m.contactId)?.company_id)
+          .filter(Boolean))) as string[];
+        const existingCompaniesById = new Map<string, any>();
+        if (companyIdsForMerge.length > 0) {
+          const { data: ec } = await (supabase.from("companies") as any)
+            .select("id, custom_fields").in("id", companyIdsForMerge);
+          for (const c of (ec ?? [])) existingCompaniesById.set(c.id, c);
+        }
+
+        for (const m of mergeUpdates) {
+          const existing = existingById.get(m.contactId);
+          if (!existing) continue;
+          // Only fill blanks for standard fields — never overwrite non-empty existing data.
+          const patch: Record<string, unknown> = {};
+          for (const [k, v] of Object.entries(m.patch)) {
+            if (existing[k] === null || existing[k] === undefined || existing[k] === "") patch[k] = v;
+          }
+          // Merge contact custom_fields: existing wins on conflict.
+          if (Object.keys(m.contactCustom).length > 0) {
+            const merged = { ...(m.contactCustom), ...(existing.custom_fields || {}) };
+            patch.custom_fields = merged;
+          }
+          if (Object.keys(patch).length > 0) {
+            await (supabase.from("contacts") as any).update(patch).eq("id", m.contactId);
+          }
+          // Merge company custom_fields onto matched company (existing wins).
+          const cid = m.companyId || existing.company_id;
+          if (cid && Object.keys(m.companyCustom).length > 0) {
+            const existingCo = existingCompaniesById.get(cid);
+            const mergedCo = { ...(m.companyCustom), ...((existingCo?.custom_fields) || {}) };
+            await (supabase.from("companies") as any).update({ custom_fields: mergedCo }).eq("id", cid);
+          }
+        }
+      }
+      const mergeMs = Math.round(performance.now() - mergeStart);
+
       // Contact insertion with retry
       const insertStart = performance.now();
       const { inserted, failedEntries } = await insertContactsWithRetry(supabase, readyContacts, contactIndex);
       addToContactIndex(contactIndex, inserted);
       const insertMs = Math.round(performance.now() - insertStart);
+
 
       // List assignment
       const listStart = performance.now();

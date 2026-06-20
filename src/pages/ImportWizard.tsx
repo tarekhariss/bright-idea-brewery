@@ -582,8 +582,9 @@ export default function ImportWizardPage() {
 
               {columnAnalysis.length > 0 ? (() => {
                 const standardCount = columnAnalysis.filter((c) => c.storedAs === "standard_field").length;
-                const customCount = columnAnalysis.filter((c) => c.storedAs === "custom_field").length;
-                const skippedCount = columnAnalysis.filter((c) => c.storedAs === "skipped").length;
+                const contactCustomCount = columnAnalysis.filter((c) => c.storedAs === "contact_custom").length;
+                const companyCustomCount = columnAnalysis.filter((c) => c.storedAs === "company_custom").length;
+                const customCount = contactCustomCount + companyCustomCount;
                 const warningCount = columnAnalysis.filter((c) => c.warning).length;
                 const totalChanged = columnAnalysis.reduce((s, c) => s + c.changedRows, 0);
                 const totalInvalid = columnAnalysis.reduce((s, c) => s + c.invalidRows, 0);
@@ -597,7 +598,7 @@ export default function ImportWizardPage() {
                       </CardContent></Card>
                       <Card><CardContent className="p-3 text-center">
                         <p className="text-2xl font-bold text-primary">{customCount}</p>
-                        <p className="text-xs text-muted-foreground">Saved as custom fields</p>
+                        <p className="text-xs text-muted-foreground">Custom fields ({contactCustomCount} contact · {companyCustomCount} company)</p>
                       </CardContent></Card>
                       <Card><CardContent className="p-3 text-center">
                         <p className="text-2xl font-bold text-emerald-600">{totalChanged}</p>
@@ -615,11 +616,14 @@ export default function ImportWizardPage() {
                         <div>
                           <p className="font-medium">{customCount} unmapped {customCount === 1 ? "column" : "columns"} will be preserved as custom fields.</p>
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            Stored under each contact's <code>custom_fields</code> using the original CSV header as the key. Visible on the contact detail page and included in exports.
+                            {contactCustomCount > 0 && <>{contactCustomCount} stored on <code>contacts.custom_fields</code>. </>}
+                            {companyCustomCount > 0 && <>{companyCustomCount} stored on <code>companies.custom_fields</code>. </>}
+                            Original CSV header is used as the key. Visible on detail pages and included in exports.
                           </p>
                         </div>
                       </div>
                     )}
+
 
                     {warningCount > 0 && (
                       <div className="flex items-start gap-2 p-3 rounded-md bg-amber-500/10 border border-amber-200 text-sm">
@@ -665,9 +669,11 @@ export default function ImportWizardPage() {
                               </TableCell>
                               <TableCell className="text-xs align-top">
                                 {c.storedAs === "standard_field" && <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-700 border-emerald-200">Standard field</Badge>}
-                                {c.storedAs === "custom_field" && <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">Custom field</Badge>}
+                                {c.storedAs === "contact_custom" && <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">Contact custom</Badge>}
+                                {c.storedAs === "company_custom" && <Badge variant="outline" className="text-xs bg-indigo-500/10 text-indigo-700 border-indigo-200">Company custom</Badge>}
                                 {c.storedAs === "skipped" && <Badge variant="outline" className="text-xs text-muted-foreground">Empty</Badge>}
                               </TableCell>
+
                               <TableCell className="text-xs align-top">
                                 <div className="space-y-1 max-w-[280px]">
                                   {c.sampleOriginal.length === 0 ? (
@@ -695,7 +701,7 @@ export default function ImportWizardPage() {
                       </Table>
                     </div>
 
-                    {skippedCount === 0 && totalInvalid === 0 && totalChanged === 0 && (
+                    {customCount === 0 && totalInvalid === 0 && totalChanged === 0 && (
                       <div className="text-center py-4 text-sm text-emerald-600">
                         <CheckCircle2 className="h-5 w-5 mx-auto mb-1" /> Data looks clean — no normalization changes needed.
                       </div>

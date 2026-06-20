@@ -286,7 +286,13 @@ export const FIELD_VALIDATORS: Record<string, (v: string) => boolean> = {
   corporate_phone: (v) => (v.match(/\d/g)?.length ?? 0) >= 7,
   company_phone: (v) => (v.match(/\d/g)?.length ?? 0) >= 7,
   // For company names: only flag obviously-bad values (very long or contains sentence punctuation that suggests free-text)
-  company_name_raw: (v) => v.length <= 120 && !/[.!?]{1,}$/.test(v.trim()),
+  // Reject only obviously non-name values: very long text, sentence terminators (! ?),
+  // or > 20 whitespace-separated tokens (i.e. a description, not a name).
+  company_name_raw: (v) => {
+    const t = v.trim();
+    return t.length <= 120 && !/[!?]$/.test(t) && t.split(/\s+/).length <= 20;
+  },
+
 };
 
 export function isValidForField(fieldKey: string, value: string): boolean {
@@ -386,23 +392,41 @@ function titleCase(val: string): string {
     .replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase());
 }
 
+/**
+ * Decide whether an unmapped CSV header should be stored on the contact's
+ * custom_fields or the company's custom_fields. Conservative: defaults to
+ * contact-scope when unsure.
+ */
+export function classifyCustomFieldScope(header: string): "contact" | "company" {
+  const h = header.toLowerCase().trim().replace(/[_\-\/\\.]+/g, " ").replace(/\s+/g, " ");
+  if (/^(company|organization|organisation|org|account|employer|firm|business)\b/.test(h)) return "company";
+  if (/\b(employees|headcount|revenue|funding|founded|industry|sic|naics|ticker|hq|headquarters|domain|website|technologies|tech stack|specialties|segments|territories)\b/.test(h)) return "company";
+  return "contact";
+}
+
 export function normalizeRow(
   raw: Record<string, string>,
   mapping: Record<string, string>
 ): NormalizationResult {
   const normalized: Record<string, unknown> = {};
   const changes: NormalizationChange[] = [];
-  const customFields: Record<string, string> = {};
+  const contactCustom: Record<string, string> = {};
+  const companyCustom: Record<string, string> = {};
   const originals: Record<string, string> = {};
   const invalidFields: Record<string, string> = {};
 
-  // 1) Preserve EVERY unmapped column as a custom field (raw value)
+  // 1) Preserve EVERY unmapped column as a custom field, routed by header semantics.
   for (const [csvCol, rawVal] of Object.entries(raw)) {
     if (!mapping[csvCol]) {
       const trimmed = (rawVal ?? "").trim();
-      if (trimmed && !isEmptyLike(trimmed)) customFields[csvCol] = trimmed;
+      if (!trimmed || isEmptyLike(trimmed)) continue;
+      const scope = classifyCustomFieldScope(csvCol);
+      if (scope === "company") companyCustom[csvCol] = trimmed;
+      else contactCustom[csvCol] = trimmed;
     }
   }
+
+
 
   // 2) Process each mapped column
   for (const [csvCol, fieldKey] of Object.entries(mapping)) {
@@ -471,9 +495,11 @@ export function normalizeRow(
     normalized[fieldKey] = val;
   }
 
-  if (Object.keys(customFields).length > 0) normalized._custom_fields = customFields;
+  if (Object.keys(contactCustom).length > 0) normalized._contact_custom_fields = contactCustom;
+  if (Object.keys(companyCustom).length > 0) normalized._company_custom_fields = companyCustom;
   if (Object.keys(originals).length > 0) normalized._original_values = originals;
   if (Object.keys(invalidFields).length > 0) normalized._invalid_values = invalidFields;
+
 
   return { normalized, changes };
 }
@@ -485,7 +511,7 @@ export interface ColumnAnalysis {
   mappedField: string | null;
   fieldLabel: string | null;
   confidence: number | null;
-  storedAs: "standard_field" | "custom_field" | "skipped";
+  storedAs: "standard_field" | "contact_custom" | "company_custom" | "skipped";
   sampleOriginal: string[];
   sampleNormalized: string[];
   changedRows: number;
@@ -543,7 +569,12 @@ export function analyzeColumns(
       mappedField: fieldKey,
       fieldLabel: field?.label ?? null,
       confidence: fieldKey ? (suggestion?.confidence ?? null) : null,
-      storedAs: fieldKey ? "standard_field" : (nonEmpty > 0 ? "custom_field" : "skipped"),
+      storedAs: fieldKey
+        ? "standard_field"
+        : (nonEmpty > 0
+            ? (classifyCustomFieldScope(header) === "company" ? "company_custom" : "contact_custom")
+            : "skipped"),
+
       sampleOriginal,
       sampleNormalized,
       changedRows,
