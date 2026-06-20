@@ -780,11 +780,59 @@ Deno.serve(async (req: Request) => {
       }
       const companyMs = Math.round(performance.now() - companyStart);
 
+      // Duplicate merge path: fill blank standard fields + merge custom_fields without overwriting.
+      const mergeStart = performance.now();
+      if (mergeUpdates.length > 0) {
+        const ids = Array.from(new Set(mergeUpdates.map((m) => m.contactId)));
+        const { data: existingForMerge } = await (supabase.from("contacts") as any)
+          .select("id, company_id, custom_fields, " + Array.from(CONTACT_FIELDS).join(", "))
+          .in("id", ids);
+        const existingById = new Map<string, any>();
+        for (const e of (existingForMerge ?? [])) existingById.set(e.id, e);
+
+        const companyIdsForMerge = Array.from(new Set(mergeUpdates
+          .map((m) => m.companyId || existingById.get(m.contactId)?.company_id)
+          .filter(Boolean))) as string[];
+        const existingCompaniesById = new Map<string, any>();
+        if (companyIdsForMerge.length > 0) {
+          const { data: ec } = await (supabase.from("companies") as any)
+            .select("id, custom_fields").in("id", companyIdsForMerge);
+          for (const c of (ec ?? [])) existingCompaniesById.set(c.id, c);
+        }
+
+        for (const m of mergeUpdates) {
+          const existing = existingById.get(m.contactId);
+          if (!existing) continue;
+          // Only fill blanks for standard fields — never overwrite non-empty existing data.
+          const patch: Record<string, unknown> = {};
+          for (const [k, v] of Object.entries(m.patch)) {
+            if (existing[k] === null || existing[k] === undefined || existing[k] === "") patch[k] = v;
+          }
+          // Merge contact custom_fields: existing wins on conflict.
+          if (Object.keys(m.contactCustom).length > 0) {
+            const merged = { ...(m.contactCustom), ...(existing.custom_fields || {}) };
+            patch.custom_fields = merged;
+          }
+          if (Object.keys(patch).length > 0) {
+            await (supabase.from("contacts") as any).update(patch).eq("id", m.contactId);
+          }
+          // Merge company custom_fields onto matched company (existing wins).
+          const cid = m.companyId || existing.company_id;
+          if (cid && Object.keys(m.companyCustom).length > 0) {
+            const existingCo = existingCompaniesById.get(cid);
+            const mergedCo = { ...(m.companyCustom), ...((existingCo?.custom_fields) || {}) };
+            await (supabase.from("companies") as any).update({ custom_fields: mergedCo }).eq("id", cid);
+          }
+        }
+      }
+      const mergeMs = Math.round(performance.now() - mergeStart);
+
       // Contact insertion with retry
       const insertStart = performance.now();
       const { inserted, failedEntries } = await insertContactsWithRetry(supabase, readyContacts, contactIndex);
       addToContactIndex(contactIndex, inserted);
       const insertMs = Math.round(performance.now() - insertStart);
+
 
       // List assignment
       const listStart = performance.now();
