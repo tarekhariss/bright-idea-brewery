@@ -971,9 +971,11 @@ export default function ImportWizardPage() {
                 <Card>
                   <CardContent className="p-4 space-y-2">
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Mapping</p>
-                    <p className="font-medium">{mappedFieldCount} fields mapped</p>
+                    <p className="font-medium">
+                      {(parsed?.headers.length ?? 0) - excludedHeaders.length} of {parsed?.headers.length ?? 0} columns will be imported
+                    </p>
                     <p className="text-sm text-muted-foreground">
-                      {unmappedHeaders.length} columns will be stored as metadata
+                      {mappedFieldCount} standard · {customFieldHeaders.length} custom{excludedHeaders.length > 0 ? ` · ${excludedHeaders.length} excluded` : ""}
                     </p>
                   </CardContent>
                 </Card>
