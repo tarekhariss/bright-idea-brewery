@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
         last_name: "Test",
         source: "qa_phase1a_backend_test",
       }));
-      const { data, error } = await admin.from("contacts").upsert(rows, { onConflict: "workspace_id,email_normalized", ignoreDuplicates: false }).select("id, email_normalized, email_canonical_status, email_status_source, email_status_verified_at, email_confidence, email_is_role_based, email_is_disposable, email_is_catch_all");
+      const { data, error } = await admin.from("contacts").insert(rows).select("id, email_normalized, email_canonical_status, email_status_source, email_status_verified_at, email_confidence, email_is_role_based, email_is_disposable, email_is_catch_all");
       if (error) return new Response(JSON.stringify({ error: "seed_failed", detail: error.message }), { status: 500, headers: { ...cors, "Content-Type": "application/json" } });
       return new Response(JSON.stringify({ ok: true, inserted: data?.length ?? 0, contacts: data }), { headers: { ...cors, "Content-Type": "application/json" }, status: 200 });
     }
