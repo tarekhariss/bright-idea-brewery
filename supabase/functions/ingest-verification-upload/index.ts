@@ -274,18 +274,27 @@ Deno.serve(async (req) => {
     if (prepared.length) {
       const emails = Array.from(new Set(prepared.map(p => p.normalized_email)));
 
-      // DB-level idempotency: partial unique index on (workspace_id, dedupe_key)
-      // means re-uploads of identical rows are silently ignored.
-      for (let i = 0; i < prepared.length; i += 500) {
-        const chunk = prepared.slice(i, i + 500);
-        const { data: insertedRows, error } = await admin
-          .from("email_status_history")
-          .upsert(chunk, { onConflict: "workspace_id,dedupe_key", ignoreDuplicates: true })
-          .select("id");
+      // Pre-filter against existing dedupe keys to keep the operation idempotent
+      // across uploads. A BEFORE INSERT trigger also computes the same key and a
+      // unique index enforces uniqueness at the DB level as a safety net.
+      const { data: existing, error: exErr } = await admin
+        .from("email_status_history")
+        .select("dedupe_key")
+        .eq("workspace_id", body.workspace_id)
+        .in("normalized_email", emails);
+      if (exErr) throw exErr;
+      const existingKeys = new Set<string>((existing ?? []).map((r: any) => r.dedupe_key).filter(Boolean));
+
+      const toInsert = prepared.filter(p => {
+        if (existingKeys.has(p.dedupe_key)) { counters.duplicates++; return false; }
+        return true;
+      });
+
+      for (let i = 0; i < toInsert.length; i += 500) {
+        const chunk = toInsert.slice(i, i + 500);
+        const { error } = await admin.from("email_status_history").insert(chunk);
         if (error) throw error;
-        const insertedCount = insertedRows?.length ?? 0;
-        counters.inserted += insertedCount;
-        counters.duplicates += chunk.length - insertedCount;
+        counters.inserted += chunk.length;
       }
 
       // backward matching report — how many emails already exist as contacts
