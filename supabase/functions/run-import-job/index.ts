@@ -133,7 +133,7 @@ function classifyCustomFieldScope(header: string): "contact" | "company" {
   return "contact";
 }
 
-function normalizeRow(raw: Record<string, string>, mapping: Record<string, string>) {
+function normalizeRow(raw: Record<string, string>, mapping: Record<string, string>, excluded: Set<string> = new Set()) {
   const normalized: Record<string, unknown> = {};
   const contactCustom: Record<string, string> = {};
   const companyCustom: Record<string, string> = {};
