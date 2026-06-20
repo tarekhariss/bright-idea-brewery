@@ -63,16 +63,20 @@ export const ALL_CONTACT_EXPORT_COLUMNS = [
   "company_name_raw", "lifecycle_status", "outreach_status", "email_validity_status",
   "years_experience", "skills", "languages", "source", "import_tag",
   "data_quality_score", "owner_id", "created_at",
+  // Preserved CSV data
+  "custom_fields",          // contact-level unknown columns (JSON)
+  "company_custom_fields",  // company-level unknown columns from joined company (JSON)
 ];
 
 export const ALL_COMPANY_EXPORT_COLUMNS = [
-  "name", "domain", "website", "industry", "employee_count", "employee_range",
+  "name", "domain", "normalized_domain", "website", "industry", "employee_count", "employee_range",
   "revenue_range", "annual_revenue", "total_funding", "latest_funding", "latest_funding_amount",
   "funding_stage", "founded_year", "company_type", "headquarters",
   "country", "city", "state", "linkedin_url", "facebook_url", "twitter_url",
   "technologies", "keywords", "specialties", "market_segments", "territories",
   "sic_code", "naics_code", "stock_ticker", "headcount_growth_pct",
   "data_quality_score", "owner_id", "created_at",
+  "custom_fields", // preserved CSV columns (JSON)
 ];
 
 /** Sanitize workspace_id: convert empty strings to null */
@@ -276,8 +280,16 @@ export function useCreateExport() {
       await (supabase.from("export_jobs") as any).update({ status: "processing", started_at: new Date().toISOString() }).eq("id", job.id);
 
       const table = params.entityType === "contact" ? "contacts" : "companies";
+      // Strip the pseudo-column before building the select; we resolve it via the joined company row.
+      const wantsCompanyCustomFields = params.entityType === "contact"
+        && params.selectedColumns.includes("company_custom_fields");
+      const dbColumns = params.selectedColumns.filter((c) => c !== "company_custom_fields");
+      const selectExpr = wantsCompanyCustomFields
+        ? `${dbColumns.join(",")},companies:companies!contacts_company_id_fkey(custom_fields)`
+        : dbColumns.join(",");
+
       let dataQuery = (supabase.from(table) as any)
-        .select(params.selectedColumns.join(","))
+        .select(selectExpr)
         .limit(100000);
       if (cleanWorkspaceId) dataQuery = dataQuery.eq("workspace_id", cleanWorkspaceId);
       if (params.exportType === "selected" && params.selectedIds?.length) {
@@ -300,14 +312,20 @@ export function useCreateExport() {
       const csvRows = [params.selectedColumns.join(",")];
       for (const row of rows) {
         const vals = params.selectedColumns.map((col) => {
-          const v = row[col];
+          let v: unknown;
+          if (col === "company_custom_fields") v = row?.companies?.custom_fields ?? null;
+          else if (col === "custom_fields") v = row?.custom_fields ?? null;
+          else v = row[col];
           if (v === null || v === undefined) return "";
-          const str = Array.isArray(v) ? v.join("; ") : String(v);
+          const str = typeof v === "object" && !Array.isArray(v)
+            ? JSON.stringify(v)
+            : Array.isArray(v) ? v.join("; ") : String(v);
           return str.includes(",") || str.includes('"') || str.includes("\n")
             ? `"${str.replace(/"/g, '""')}"` : str;
         });
         csvRows.push(vals.join(","));
       }
+
 
       const blob = new Blob([csvRows.join("\n")], { type: "text/csv" });
       const url = URL.createObjectURL(blob);

@@ -29,6 +29,7 @@ type ExistingContact = {
 type ExistingCompany = {
   id: string; name: string; normalized_name: string | null;
   domain: string | null; external_account_id: string | null; website: string | null;
+  normalized_domain?: string | null; company_linkedin_url?: string | null;
 };
 type ImportSettings = {
   duplicate_strategy: string; skip_exact_duplicates: boolean;
@@ -204,15 +205,50 @@ function buildCompanyIndex(companies: ExistingCompany[]) {
   const domainMap = new Map<string, ExistingCompany>();
   const extIdMap = new Map<string, ExistingCompany>();
   const nameMap = new Map<string, ExistingCompany>();
+  const linkedinMap = new Map<string, ExistingCompany>();
   for (const c of companies) {
-    if (c.domain) domainMap.set(normalizeDomain(c.domain), c);
+    // Prefer the DB-computed normalized_domain; fall back to local normalization
+    const nd = (c.normalized_domain && c.normalized_domain.trim())
+      ? c.normalized_domain.trim().toLowerCase()
+      : (c.domain ? normalizeDomain(c.domain) : (c.website ? normalizeDomain(c.website) : ""));
+    if (nd) domainMap.set(nd, c);
     if (c.external_account_id) extIdMap.set(c.external_account_id, c);
     if (c.normalized_name) nameMap.set(c.normalized_name.toLowerCase(), c);
     else if (c.name) nameMap.set(normalizeCompanyName(c.name), c);
-    if (c.website) domainMap.set(normalizeDomain(c.website), c);
+    if (c.company_linkedin_url) linkedinMap.set(normalizeLinkedIn(c.company_linkedin_url), c);
   }
-  return { domainMap, extIdMap, nameMap };
+  return { domainMap, extIdMap, nameMap, linkedinMap };
 }
+
+/**
+ * Derive a normalized domain identity for an inbound row by checking the strongest
+ * signals in order: explicit domain → website → email host → company LinkedIn URL.
+ */
+function deriveRowDomain(r: Record<string, unknown>): string {
+  if (r.domain) {
+    const d = normalizeDomain(String(r.domain));
+    if (d && DOMAIN_RE.test(d)) return d;
+  }
+  if (r.website) {
+    const d = normalizeDomain(String(r.website));
+    if (d && DOMAIN_RE.test(d)) return d;
+  }
+  if (r.email) {
+    const parts = String(r.email).toLowerCase().split("@");
+    if (parts.length === 2) {
+      const host = parts[1].trim();
+      // Skip generic / free-mail hosts so we don't merge unrelated people
+      const generic = new Set([
+        "gmail.com","yahoo.com","hotmail.com","outlook.com","aol.com","icloud.com",
+        "me.com","mac.com","live.com","msn.com","proton.me","protonmail.com",
+        "googlemail.com","yandex.com","gmx.com","zoho.com","fastmail.com","mail.com",
+      ]);
+      if (host && DOMAIN_RE.test(host) && !generic.has(host)) return host;
+    }
+  }
+  return "";
+}
+
 
 function checkDuplicatesAdvanced(
   rows: Record<string, unknown>[],
@@ -233,7 +269,8 @@ function checkDuplicatesAdvanced(
     const fullName = [firstName, lastName].filter(Boolean).join(" ");
     const companyRaw = String(r.company_name_raw ?? "").trim();
     const companyNorm = companyRaw ? normalizeCompanyName(companyRaw) : "";
-    const domain = r.domain ? normalizeDomain(String(r.domain)) : "";
+    const domain = deriveRowDomain(r);
+    const companyLinkedin = r.company_linkedin_url ? normalizeLinkedIn(String(r.company_linkedin_url)) : "";
     const extAccountId = String(r.external_account_id ?? "").trim();
 
     if (!email && !secEmail && !firstName && !lastName) {
@@ -269,7 +306,9 @@ function checkDuplicatesAdvanced(
     let companyMatch: ExistingCompany | undefined;
     if (domain) companyMatch = companyIndex.domainMap.get(domain);
     if (!companyMatch && extAccountId) companyMatch = companyIndex.extIdMap.get(extAccountId);
+    if (!companyMatch && companyLinkedin) companyMatch = companyIndex.linkedinMap.get(companyLinkedin);
     if (!companyMatch && companyNorm) companyMatch = companyIndex.nameMap.get(companyNorm);
+
 
     if (match) {
       details.push({
@@ -549,7 +588,7 @@ Deno.serve(async (req: Request) => {
     // Preload existing data for dedup
     const preloadStart = performance.now();
     let contactsQuery = supabase.from("contacts").select("id, email, secondary_email, tertiary_email, linkedin_url, external_contact_id, first_name, last_name, company_name_raw, phone").is("merged_into", null).limit(200000);
-    let companiesQuery = supabase.from("companies").select("id, name, normalized_name, domain, external_account_id, website").limit(100000);
+    let companiesQuery = supabase.from("companies").select("id, name, normalized_name, domain, normalized_domain, external_account_id, website, company_linkedin_url").is("merged_into", null).limit(100000);
     if (job.workspace_id) {
       contactsQuery = contactsQuery.eq("workspace_id", job.workspace_id) as any;
       companiesQuery = companiesQuery.eq("workspace_id", job.workspace_id) as any;
@@ -559,11 +598,22 @@ Deno.serve(async (req: Request) => {
 
     const contactIndex = buildContactIndex((existingContacts ?? []) as ExistingContact[]);
     const companyIndex = buildCompanyIndex((existingCompanies ?? []) as ExistingCompany[]);
-    const companyCache = new Map<string, string>();
-    for (const c of (existingCompanies ?? []) as ExistingCompany[]) companyCache.set(normalizeCompanyName(c.name), c.id);
+    // Domain-first cache so importer never duplicates a company that shares a normalized domain.
+    const companyDomainCache = new Map<string, string>(); // normalized_domain -> company.id
+    const companyNameCache = new Map<string, string>();   // normalized_name    -> company.id
+    for (const c of (existingCompanies ?? []) as ExistingCompany[]) {
+      const nd = (c.normalized_domain && c.normalized_domain.trim())
+        ? c.normalized_domain.trim().toLowerCase()
+        : (c.domain ? normalizeDomain(c.domain) : (c.website ? normalizeDomain(c.website) : ""));
+      if (nd) companyDomainCache.set(nd, c.id);
+      companyNameCache.set(c.normalized_name || normalizeCompanyName(c.name), c.id);
+    }
 
     updateDiag({ timings: { preload_existing_ms: Math.round(performance.now() - preloadStart) } });
     console.log(`[import] Preloaded ${(existingContacts ?? []).length} contacts, ${(existingCompanies ?? []).length} companies in ${Math.round(performance.now() - preloadStart)}ms`);
+
+
+
 
     const settings = (job.settings ?? {}) as ImportSettings;
     const mapping = (job.column_mapping ?? {}) as Record<string, string>;
@@ -657,7 +707,7 @@ Deno.serve(async (req: Request) => {
       }
 
       const rowUpdates: any[] = [];
-      const pendingContacts: Array<{ rowId: string; rowUpdate: any; contact: Record<string, unknown>; companyData: Record<string, unknown>; companyKey: string; companyName: string }> = [];
+      const pendingContacts: Array<{ rowId: string; rowUpdate: any; contact: Record<string, unknown>; companyData: Record<string, unknown>; domainKey: string; nameKey: string; companyName: string }> = [];
       const readyContacts: Array<{ rowId: string; rowUpdate: any; contact: Record<string, unknown> }> = [];
       const mergeUpdates: Array<{ contactId: string; companyId: string | null; patch: Record<string, unknown>; contactCustom: Record<string, string>; companyCustom: Record<string, string> }> = [];
 
@@ -705,13 +755,29 @@ Deno.serve(async (req: Request) => {
           if (!contact.state && normalized.company_state) contact.state = normalized.company_state;
           if (!contact.country && normalized.company_country) contact.country = normalized.company_country;
 
+          // Derive a strong company identity. Domain wins; fall back to name.
+          const domainKey = deriveRowDomain(normalized as any);
+          if (domainKey && !companyData.domain) companyData.domain = domainKey;
           const companyName = String(contact.company_name_raw ?? "").trim();
-          const companyKey = companyName ? normalizeCompanyName(companyName) : "";
-          const matchedCompanyId = rowUpdate.company_id ?? (companyKey ? companyCache.get(companyKey) : null);
+          const nameKey = companyName ? normalizeCompanyName(companyName) : "";
+
+          let matchedCompanyId: string | null = rowUpdate.company_id ?? null;
+          if (!matchedCompanyId && domainKey) matchedCompanyId = companyDomainCache.get(domainKey) ?? null;
+          if (!matchedCompanyId && nameKey) matchedCompanyId = companyNameCache.get(nameKey) ?? null;
           if (matchedCompanyId) { contact.company_id = matchedCompanyId; rowUpdate.company_id = matchedCompanyId; }
 
-          if (companyName && hasCompanyFields && !rowUpdate.company_id) {
-            pendingContacts.push({ rowId: row.id, rowUpdate, contact, companyData, companyKey, companyName });
+          // Need to create a company only if we have at least an identity key (domain or name)
+          // AND we couldn't resolve to an existing one.
+          if (!rowUpdate.company_id && (domainKey || nameKey) && (companyName || domainKey)) {
+            // Ensure the new company has a name even when only a domain was provided
+            if (!companyName && domainKey) {
+              (companyData as any).__derivedName = domainKey;
+            }
+            pendingContacts.push({
+              rowId: row.id, rowUpdate, contact, companyData,
+              domainKey, nameKey,
+              companyName: companyName || domainKey,
+            });
           } else if (contact.email || contact.first_name || contact.last_name) {
             readyContacts.push({ rowId: row.id, rowUpdate, contact });
           } else {
@@ -741,43 +807,67 @@ Deno.serve(async (req: Request) => {
       }
 
 
-      // Company creation (batch)
+      // Company creation (batch) — domain-first dedupe.
+      // We collapse multiple pending rows that share a normalized_domain (or, lacking
+      // that, a normalized name) into a single new company row.
       const companyStart = performance.now();
       if (pendingContacts.length > 0) {
-        const uniqueCompanies = new Map<string, { companyData: Record<string, unknown>; companyName: string }>();
+        const uniqueCompanies = new Map<string, { companyData: Record<string, unknown>; companyName: string; domainKey: string; nameKey: string }>();
         for (const p of pendingContacts) {
-          if (!p.companyKey || companyCache.has(p.companyKey) || uniqueCompanies.has(p.companyKey)) continue;
-          uniqueCompanies.set(p.companyKey, { companyData: p.companyData, companyName: p.companyName });
+          const dedupeKey = p.domainKey ? `d:${p.domainKey}` : (p.nameKey ? `n:${p.nameKey}` : "");
+          if (!dedupeKey) continue;
+          if (p.domainKey && companyDomainCache.has(p.domainKey)) continue;
+          if (!p.domainKey && p.nameKey && companyNameCache.has(p.nameKey)) continue;
+          if (uniqueCompanies.has(dedupeKey)) continue;
+          uniqueCompanies.set(dedupeKey, {
+            companyData: p.companyData, companyName: p.companyName,
+            domainKey: p.domainKey, nameKey: p.nameKey,
+          });
         }
         if (uniqueCompanies.size > 0) {
-          const toCreate = Array.from(uniqueCompanies.entries()).map(([key, val]) => ({
-            name: val.companyName, normalized_name: key,
-            normalized_domain: val.companyData.domain ? normalizeDomain(String(val.companyData.domain)) : null,
-            workspace_id: job.workspace_id ?? null, created_by: userId, ...val.companyData,
-          }));
+          const toCreate = Array.from(uniqueCompanies.values()).map((val) => {
+            const cd = { ...val.companyData };
+            delete (cd as any).__derivedName;
+            return {
+              name: val.companyName,
+              normalized_name: val.nameKey || normalizeCompanyName(val.companyName),
+              // normalized_domain is GENERATED — don't set it directly
+              workspace_id: job.workspace_id ?? null, created_by: userId,
+              ...cd,
+            };
+          });
           const { data: created, error: compErr } = await (supabase.from("companies") as any)
-            .insert(toCreate).select("id, name, normalized_name, domain, external_account_id, website");
+            .insert(toCreate).select("id, name, normalized_name, domain, normalized_domain, external_account_id, website, company_linkedin_url");
           if (!compErr && created) {
             for (const c of created as ExistingCompany[]) {
-              const k = c.normalized_name || normalizeCompanyName(c.name);
-              companyCache.set(k, c.id);
-              companyIndex.nameMap.set(k, c);
-              if (c.domain) companyIndex.domainMap.set(normalizeDomain(c.domain), c);
-              if (c.website) companyIndex.domainMap.set(normalizeDomain(c.website), c);
+              const nameK = c.normalized_name || normalizeCompanyName(c.name);
+              companyNameCache.set(nameK, c.id);
+              companyIndex.nameMap.set(nameK, c);
+              const nd = (c.normalized_domain && c.normalized_domain.trim())
+                ? c.normalized_domain.trim().toLowerCase()
+                : (c.domain ? normalizeDomain(c.domain) : (c.website ? normalizeDomain(c.website) : ""));
+              if (nd) {
+                companyDomainCache.set(nd, c.id);
+                companyIndex.domainMap.set(nd, c);
+              }
               if (c.external_account_id) companyIndex.extIdMap.set(c.external_account_id, c);
+              if (c.company_linkedin_url) companyIndex.linkedinMap.set(normalizeLinkedIn(c.company_linkedin_url), c);
             }
           } else if (compErr) {
             console.warn(`[import] Company batch insert error: ${compErr.message}`);
           }
         }
         for (const p of pendingContacts) {
-          const cid = p.companyKey ? companyCache.get(p.companyKey) : null;
+          let cid: string | undefined;
+          if (p.domainKey) cid = companyDomainCache.get(p.domainKey);
+          if (!cid && p.nameKey) cid = companyNameCache.get(p.nameKey);
           if (cid) { p.contact.company_id = cid; p.rowUpdate.company_id = cid; }
           if (p.contact.email || p.contact.first_name || p.contact.last_name) {
             readyContacts.push({ rowId: p.rowId, rowUpdate: p.rowUpdate, contact: p.contact });
           } else { p.rowUpdate.status = "error"; p.rowUpdate.error_message = "Missing identity fields"; }
         }
       }
+
       const companyMs = Math.round(performance.now() - companyStart);
 
       // Duplicate merge path: fill blank standard fields + merge custom_fields without overwriting.
@@ -1011,6 +1101,20 @@ Deno.serve(async (req: Request) => {
       : null;
 
     console.log(`[import] Job ${job_id} completed: ${processedRows} processed, ${insertedRows} inserted, ${errorRows} errors, ${duplicateRows} dupes${mismatchWarning ? '. ' + mismatchWarning : ''}`);
+
+    // Final safety net: collapse any companies that ended up sharing a normalized
+    // domain (possible from concurrent batches or pre-existing dirty data).
+    try {
+      const { data: dedupeRes, error: dedupeErr } = await (supabase as any).rpc(
+        "dedupe_companies_by_domain",
+        { p_workspace_id: job.workspace_id ?? null, p_actor: userId }
+      );
+      if (dedupeErr) console.warn(`[import] dedupe_companies_by_domain warning: ${dedupeErr.message}`);
+      else if (Array.isArray(dedupeRes) && dedupeRes.length > 0) {
+        console.log(`[import] Dedupe merged ${dedupeRes.length} company groups by domain`);
+      }
+    } catch (e) { console.warn(`[import] dedupe call failed:`, e); }
+
 
     await supabase.from("import_jobs").update({
       status: "completed", processed_rows: processedRows, success_rows: successRows,

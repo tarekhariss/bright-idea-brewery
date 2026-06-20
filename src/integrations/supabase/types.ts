@@ -1465,6 +1465,9 @@ export type Database = {
           linkedin_url: string | null
           logo_url: string | null
           market_segments: string[] | null
+          merged_at: string | null
+          merged_by: string | null
+          merged_into: string | null
           naics_code: string | null
           name: string
           news_summary: string | null
@@ -1530,6 +1533,9 @@ export type Database = {
           linkedin_url?: string | null
           logo_url?: string | null
           market_segments?: string[] | null
+          merged_at?: string | null
+          merged_by?: string | null
+          merged_into?: string | null
           naics_code?: string | null
           name: string
           news_summary?: string | null
@@ -1595,6 +1601,9 @@ export type Database = {
           linkedin_url?: string | null
           logo_url?: string | null
           market_segments?: string[] | null
+          merged_at?: string | null
+          merged_by?: string | null
+          merged_into?: string | null
           naics_code?: string | null
           name?: string
           news_summary?: string | null
@@ -1621,6 +1630,13 @@ export type Database = {
           workspace_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "companies_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "companies_parent_company_id_fkey"
             columns: ["parent_company_id"]
@@ -10482,6 +10498,10 @@ export type Database = {
       }
     }
     Functions: {
+      _company_field_score: {
+        Args: { c: Database["public"]["Tables"]["companies"]["Row"] }
+        Returns: number
+      }
       approve_review_item: {
         Args: { p_id: string; p_overrides?: Json }
         Returns: Json
@@ -10634,6 +10654,14 @@ export type Database = {
       decide_verification_strategy: {
         Args: { _email: string; _workspace_id: string }
         Returns: Json
+      }
+      dedupe_companies_by_domain: {
+        Args: { p_actor?: string; p_workspace_id: string }
+        Returns: {
+          domain: string
+          merged_count: number
+          survivor: string
+        }[]
       }
       detect_provider: {
         Args: { _banner: string; _mx: string }
@@ -10835,6 +10863,10 @@ export type Database = {
           p_workspace_id: string
         }
         Returns: string
+      }
+      merge_company_pair: {
+        Args: { p_actor?: string; p_loser: string; p_survivor: string }
+        Returns: undefined
       }
       merge_duplicate_contacts_by_email: {
         Args: never

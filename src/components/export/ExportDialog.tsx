@@ -163,11 +163,12 @@ export function ExportDialog({
     const groups: Record<string, string[]> = {};
     for (const col of allColumns) {
       let group = "Other";
-      if (["first_name", "last_name", "email", "secondary_email", "tertiary_email", "personal_email", "job_title", "seniority_level", "department", "headline", "bio", "persona"].includes(col)) group = "Identity";
+      if (col === "custom_fields" || col === "company_custom_fields") group = "Custom Fields (preserved from CSV)";
+      else if (["first_name", "last_name", "email", "secondary_email", "tertiary_email", "personal_email", "job_title", "seniority_level", "department", "headline", "bio", "persona"].includes(col)) group = "Identity";
       else if (col.includes("phone")) group = "Phone";
       else if (["country", "city", "state", "address", "postal_code", "timezone", "headquarters"].includes(col)) group = "Location";
       else if (["linkedin_url", "twitter_url", "facebook_url", "github_url", "photo_url", "website"].includes(col)) group = "Social";
-      else if (["name", "domain", "industry", "employee_count", "employee_range", "revenue_range", "annual_revenue", "total_funding", "latest_funding", "latest_funding_amount", "funding_stage", "founded_year", "company_type", "company_name_raw"].includes(col)) group = "Company";
+      else if (["name", "domain", "normalized_domain", "industry", "employee_count", "employee_range", "revenue_range", "annual_revenue", "total_funding", "latest_funding", "latest_funding_amount", "funding_stage", "founded_year", "company_type", "company_name_raw"].includes(col)) group = "Company";
       else if (["technologies", "keywords", "specialties", "market_segments", "territories", "sic_code", "naics_code", "stock_ticker", "headcount_growth_pct"].includes(col)) group = "Firmographic";
       (groups[group] ??= []).push(col);
     }
