@@ -694,7 +694,8 @@ Deno.serve(async (req: Request) => {
 
       // Normalize + dedup
       const normalizeStart = performance.now();
-      const normalizedRows = pendingRows.map((row: any) => normalizeRow(row.raw_data ?? {}, mapping));
+      const excludedSet = new Set<string>(Array.isArray(settings.excluded_columns) ? settings.excluded_columns : []);
+      const normalizedRows = pendingRows.map((row: any) => normalizeRow(row.raw_data ?? {}, mapping, excludedSet));
       const duplicateDetails = checkDuplicatesAdvanced(normalizedRows, contactIndex, companyIndex);
       const normalizeMs = Math.round(performance.now() - normalizeStart);
 
