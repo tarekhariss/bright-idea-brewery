@@ -221,6 +221,9 @@ const App = () => (
 
             {/* Dashboard */}
             <Route path="/" element={<PL><DashboardPage /></PL>} />
+            <Route path="/today" element={<PL><DailyCommandCenterPage /></PL>} />
+            <Route path="/intelligence/data-quality" element={<PL><DataQualityPage /></PL>} />
+            <Route path="/intelligence/today" element={<PL><DailyCommandCenterPage /></PL>} />
 
             {/* Search */}
             <Route path="/search" element={<PL><ProspectSearchPage /></PL>} />
