@@ -4,7 +4,8 @@
  * but no progress for > STALL_THRESHOLD_MS) and re-invokes run-import-job for each
  * so they pick up their remaining pending rows.
  *
- * Auth: requires the CRON_SECRET header (used by pg_cron) or service-role bearer.
+ * Auth: safe public trigger; it only resumes already-stalled jobs, and the
+ * downstream runner still requires internal/service credentials.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
@@ -34,7 +35,7 @@ Deno.serve(async (req) => {
   // Find active jobs
   const { data: jobs, error } = await supabase
     .from("import_jobs")
-    .select("id, status, started_at, updated_at, error_summary, processed_rows, total_rows")
+    .select("id, status, started_at, error_summary, processed_rows, total_rows")
     .in("status", ["processing", "pending"]);
 
   if (error) {
