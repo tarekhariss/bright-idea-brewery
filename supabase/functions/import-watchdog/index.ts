@@ -87,12 +87,20 @@ Deno.serve(async (req) => {
       };
       if (cronSecret) headers["x-cron-secret"] = cronSecret;
 
-      // fire-and-forget; run-import-job will self-resume from here
-      fetch(`${supabaseUrl}/functions/v1/run-import-job`, {
+      // Keep the resume request alive. A bare unawaited fetch can be cancelled
+      // when the watchdog response returns, leaving the job marked processing but
+      // with no runner actually started.
+      const resumePromise = fetch(`${supabaseUrl}/functions/v1/run-import-job`, {
         method: "POST",
         headers,
         body: JSON.stringify({ job_id: job.id }),
+      }).then(async (res) => {
+        if (!res.ok) console.warn(`[import-watchdog] resume returned ${res.status} for ${job.id}: ${await res.text().catch(() => "")}`);
       }).catch((e) => console.warn(`[import-watchdog] resume failed for ${job.id}: ${e?.message}`));
+
+      const edgeRuntime = (globalThis as any).EdgeRuntime;
+      if (edgeRuntime?.waitUntil) edgeRuntime.waitUntil(resumePromise);
+      else await resumePromise;
 
       resumed.push(job.id);
       console.log(`[import-watchdog] resumed ${job.id} (idle ${Math.round(idleMs / 1000)}s, ${pendingCount} pending)`);
