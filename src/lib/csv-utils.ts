@@ -818,9 +818,10 @@ export function checkDuplicatesAdvanced(
       if (found) { match = found; matchType = "Name + company name match"; confidence = 70; }
     }
 
-    // Priority 6: Phone match (lower confidence)
+    // Priority 6: Phone match (exact digits, then last-10 fallback for country-code differences)
     if (!match && phone && phone.length >= 7) {
-      const found = contactIndex.phoneMap.get(phone);
+      const found = contactIndex.phoneMap.get(phone)
+        ?? contactIndex.phoneLast10Map.get(phoneLast10(phone));
       if (found) { match = found; matchType = "Phone number match"; confidence = 55; }
     }
 
