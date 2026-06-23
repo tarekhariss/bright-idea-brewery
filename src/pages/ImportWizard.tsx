@@ -877,7 +877,7 @@ export default function ImportWizardPage() {
                 <div className="flex flex-col items-center py-16 text-muted-foreground">
                   <Loader2 className="h-8 w-8 animate-spin mb-3" />
                   <p className="text-sm font-medium">Checking for duplicates…</p>
-                  <p className="text-xs mt-1">Comparing against existing contacts</p>
+                  <p className="text-xs mt-1">{dupProgress ?? "Comparing against existing contacts"}</p>
                 </div>
               ) : dupResult ? (
                 <div className="space-y-6">
