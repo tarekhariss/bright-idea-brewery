@@ -523,6 +523,7 @@ Deno.serve(async (req: Request) => {
   const supabase = createClient(supabaseUrl, serviceKey);
   let job: any = null;
   let diag: any = {};
+  let jobIdForCatch: string | null = null;
 
   function updateDiag(patch: Record<string, any>) {
     const prevDiag = diag.diagnostics ?? {};
@@ -535,15 +536,16 @@ Deno.serve(async (req: Request) => {
   try {
     const cronSecret = Deno.env.get("CRON_SECRET");
     const incomingCronSecret = req.headers.get("x-cron-secret");
-    const isInternal = !!cronSecret && incomingCronSecret === cronSecret;
+    const authHeader = req.headers.get("Authorization");
+    const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.replace("Bearer ", "") : null;
+    const isServiceRole = bearerToken === serviceKey;
+    const isInternal = isServiceRole || (!!cronSecret && incomingCronSecret === cronSecret);
 
     let userId: string | null = null;
     if (!isInternal) {
-      const authHeader = req.headers.get("Authorization");
       if (!authHeader?.startsWith("Bearer ")) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
-      const token = authHeader.replace("Bearer ", "");
       const anonClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
-      const { data: authData, error: authError } = await anonClient.auth.getUser(token);
+      const { data: authData, error: authError } = await anonClient.auth.getUser(bearerToken!);
       if (authError || !authData?.user) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
       userId = authData.user.id;
     }
@@ -551,10 +553,12 @@ Deno.serve(async (req: Request) => {
     const parsedBody = RequestSchema.safeParse(await req.json());
     if (!parsedBody.success) return new Response(JSON.stringify({ error: parsedBody.error.flatten().fieldErrors }), { status: 400, headers: corsHeaders });
     const { job_id } = parsedBody.data;
+    jobIdForCatch = job_id;
 
     const { data: fetchedJob, error: jobErr } = await supabase.from("import_jobs").select("*").eq("id", job_id).single();
     if (jobErr || !fetchedJob) return new Response(JSON.stringify({ error: "Job not found" }), { status: 404, headers: corsHeaders });
     job = fetchedJob;
+    if (isInternal && !userId && job.created_by) userId = job.created_by;
 
     if (!isInternal) {
       if (job.workspace_id) {
@@ -666,22 +670,27 @@ Deno.serve(async (req: Request) => {
           duplicate_rows: duplicateRows, review_rows: reviewRows,
           error_summary: diag,
         }).eq("id", job_id);
-        // Fire-and-forget re-invoke; prefer cron secret so the resume survives the
-        // original user token expiring during long imports.
+        // Schedule the next invocation before returning. Edge workers can cancel
+        // bare unawaited promises after the response, so keep the fetch alive with
+        // EdgeRuntime.waitUntil when available.
         try {
           const cronSecretEnv = Deno.env.get("CRON_SECRET");
-          const headers: Record<string, string> = { "Content-Type": "application/json", "apikey": anonKey };
-          if (cronSecretEnv) {
-            headers["x-cron-secret"] = cronSecretEnv;
-            headers["Authorization"] = `Bearer ${serviceKey}`;
-          } else {
-            headers["Authorization"] = req.headers.get("Authorization") ?? "";
-          }
-          fetch(`${supabaseUrl}/functions/v1/run-import-job`, {
+          const headers: Record<string, string> = {
+            "Content-Type": "application/json",
+            "apikey": serviceKey,
+            "Authorization": `Bearer ${serviceKey}`,
+          };
+          if (cronSecretEnv) headers["x-cron-secret"] = cronSecretEnv;
+          const resumePromise = fetch(`${supabaseUrl}/functions/v1/run-import-job`, {
             method: "POST",
             headers,
             body: JSON.stringify({ job_id }),
+          }).then(async (res) => {
+            if (!res.ok) console.warn(`[import] Self-resume returned ${res.status}: ${await res.text().catch(() => "")}`);
           }).catch((e) => console.warn(`[import] Self-resume invoke failed: ${e?.message}`));
+          const edgeRuntime = (globalThis as any).EdgeRuntime;
+          if (edgeRuntime?.waitUntil) edgeRuntime.waitUntil(resumePromise);
+          else await resumePromise;
         } catch (e: any) {
           console.warn(`[import] Self-resume could not be scheduled: ${e?.message}`);
         }
@@ -1165,12 +1174,12 @@ Deno.serve(async (req: Request) => {
 
   } catch (err: any) {
     console.error(`[import] Fatal error: ${err?.message}`, err?.stack);
-    if (job?.id) {
+    if (job?.id && jobIdForCatch) {
       updateDiag({ phase: "failed", last_progress_at: nowIso() });
       await supabase.from("import_jobs").update({
         status: "failed", completed_at: nowIso(),
         error_summary: { ...diag, reason: err?.message },
-      }).eq("id", job_id);
+      }).eq("id", jobIdForCatch);
     }
     return new Response(JSON.stringify({ error: err?.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
