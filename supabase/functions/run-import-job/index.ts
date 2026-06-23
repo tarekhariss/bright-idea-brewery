@@ -10,13 +10,15 @@ const corsHeaders = {
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-const BATCH_SIZE = 500;
+const BATCH_SIZE = 250;
 const RETRY_SUB_BATCH = 50;
 const MAX_RETRIES = 2;
 const MAX_TIMING_BATCHES = 30;
-// Self-continuation: when wall-clock exceeds this, exit cleanly and re-invoke ourselves so
-// imports of 100k+ rows don't get killed by the Deno edge function timeout (~5 min hard cap).
-const MAX_WALL_CLOCK_MS = 230_000; // 3m50s — well under the platform 5m budget
+// Self-continuation: edge functions have a CPU-time limit (not just wall clock) that kills
+// long-running invocations with WORKER_RESOURCE_LIMIT. Bail out aggressively and re-invoke
+// ourselves so each invocation stays well under the per-request CPU budget.
+const MAX_WALL_CLOCK_MS = 25_000; // 25s — keeps per-invocation CPU usage safe
+const MAX_BATCHES_PER_INVOCATION = 4; // hard cap so CPU never trips the worker limit
 
 const RequestSchema = z.object({ job_id: z.string().uuid() });
 
@@ -649,8 +651,9 @@ Deno.serve(async (req: Request) => {
     while (true) {
       // Self-continuation check: bail out before the platform kills us, and re-invoke ourselves
       // so the next invocation picks up the remaining pending rows seamlessly.
-      if (performance.now() - wallClockStart > MAX_WALL_CLOCK_MS) {
-        console.log(`[import] Wall-clock budget reached after batch ${batchIndex}. Self-resuming.`);
+      const batchesThisInvocation = batchIndex - (isResume ? (prevDiag?.total_batches ?? 0) : 0);
+      if (performance.now() - wallClockStart > MAX_WALL_CLOCK_MS || batchesThisInvocation >= MAX_BATCHES_PER_INVOCATION) {
+        console.log(`[import] Resource budget reached after batch ${batchIndex} (${batchesThisInvocation} this invocation). Self-resuming.`);
         updateDiag({
           phase: "self_resume_scheduled",
           last_progress_at: nowIso(),
