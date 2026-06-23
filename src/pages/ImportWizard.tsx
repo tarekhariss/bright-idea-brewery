@@ -177,33 +177,79 @@ export default function ImportWizardPage() {
 
   // ─── Step 4: Duplicate detection ──────────────────────────────────────────────
 
+  const [dupProgress, setDupProgress] = useState<string | null>(null);
+
   const runDuplicateCheck = useCallback(async () => {
     if (!parsed) return;
     setDupLoading(true);
+    setDupProgress(null);
     try {
-      // Fetch existing contacts for comparison
-      const { data: existingContacts } = await supabase
-        .from("contacts")
-        .select("id, email, secondary_email, tertiary_email, linkedin_url, external_contact_id, first_name, last_name, company_name_raw, phone")
-        .limit(50000);
+      // PostgREST caps a single response at ~1,000 rows regardless of .limit().
+      // Page through the full workspace so dedupe compares against every
+      // existing record, not just the first 1k.
+      const PAGE = 1000;
+      const fetchAll = async <T,>(
+        builder: () => any,
+        label: string,
+      ): Promise<T[]> => {
+        const out: T[] = [];
+        for (let from = 0; ; from += PAGE) {
+          const { data, error } = await builder().range(from, from + PAGE - 1);
+          if (error) throw error;
+          const batch = (data ?? []) as T[];
+          out.push(...batch);
+          setDupProgress(`Loading existing ${label}… ${out.length.toLocaleString()}`);
+          if (batch.length < PAGE) break;
+        }
+        return out;
+      };
 
-      // Fetch existing companies
-      const { data: existingCompanies } = await (supabase.from("companies") as any)
-        .select("id, domain, normalized_name, external_account_id, website")
-        .limit(50000);
+      const existingContacts = workspaceId
+        ? await fetchAll<ExistingContact>(
+            () =>
+              supabase
+                .from("contacts")
+                .select(
+                  "id, email, secondary_email, tertiary_email, linkedin_url, external_contact_id, first_name, last_name, company_name_raw, phone",
+                )
+                .eq("workspace_id", workspaceId)
+                .order("id"),
+            "contacts",
+          )
+        : [];
 
-      const contactIdx = buildContactIndex((existingContacts ?? []) as ExistingContact[]);
-      const companyIdx = buildCompanyIndex((existingCompanies ?? []) as ExistingCompany[]);
+      const existingCompanies = workspaceId
+        ? await fetchAll<ExistingCompany>(
+            () =>
+              (supabase.from("companies") as any)
+                .select("id, domain, normalized_name, external_account_id, website")
+                .eq("workspace_id", workspaceId)
+                .order("id"),
+            "companies",
+          )
+        : [];
 
-      const normalizedRows = parsed.rows.map((row) => normalizeRow(row, columnMapping).normalized);
+      setDupProgress(
+        `Matching ${parsed.rows.length.toLocaleString()} rows against ${existingContacts.length.toLocaleString()} contacts…`,
+      );
+
+      const contactIdx = buildContactIndex(existingContacts);
+      const companyIdx = buildCompanyIndex(existingCompanies);
+
+      const normalizedRows = parsed.rows.map(
+        (row) => normalizeRow(row, columnMapping).normalized,
+      );
       const result = checkDuplicatesAdvanced(normalizedRows, contactIdx, companyIdx);
       setDupResult(result);
+      setDupProgress(null);
     } catch (err) {
+      console.error("duplicate check failed", err);
       toast.error("Failed to check duplicates");
+      setDupProgress(null);
     } finally {
       setDupLoading(false);
     }
-  }, [parsed, columnMapping]);
+  }, [parsed, columnMapping, workspaceId]);
 
   // ─── Step 5: Confirm and create ───────────────────────────────────────────────
 
@@ -831,7 +877,7 @@ export default function ImportWizardPage() {
                 <div className="flex flex-col items-center py-16 text-muted-foreground">
                   <Loader2 className="h-8 w-8 animate-spin mb-3" />
                   <p className="text-sm font-medium">Checking for duplicates…</p>
-                  <p className="text-xs mt-1">Comparing against existing contacts</p>
+                  <p className="text-xs mt-1">{dupProgress ?? "Comparing against existing contacts"}</p>
                 </div>
               ) : dupResult ? (
                 <div className="space-y-6">

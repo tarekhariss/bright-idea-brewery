@@ -403,13 +403,20 @@ function normalizeWebsite(val: string): string {
   return url;
 }
 
-/** Normalize phone: keep digits and leading + only */
+/**
+ * Normalize a phone number into a canonical digits-only key.
+ * Strips '+', spaces, dashes, parentheses, dots, and anything non-numeric so
+ * "+1 (202) 555-0100", "1-202-555-0100" and "12025550100" all collapse to
+ * the same key. Callers that want a loose "last 10 digits" match can use
+ * phoneLast10().
+ */
 function normalizePhone(val: string): string {
-  const trimmed = val.trim();
-  // Keep + if it's the first character, then only digits
-  const hasPlus = trimmed.startsWith("+");
-  const digits = trimmed.replace(/\D/g, "");
-  return hasPlus ? "+" + digits : digits;
+  return val.replace(/\D/g, "");
+}
+
+/** Return the trailing 10 digits of a normalized phone, or "" if too short. */
+function phoneLast10(digits: string): string {
+  return digits.length >= 10 ? digits.slice(-10) : "";
 }
 
 /** Normalize company name for matching: lowercase, strip legal suffixes, collapse whitespace */
@@ -691,15 +698,27 @@ export function buildContactIndex(contacts: ExistingContact[]) {
   const linkedinMap = new Map<string, ExistingContact>();
   const extIdMap = new Map<string, ExistingContact>();
   const phoneMap = new Map<string, ExistingContact>();
+  const phoneLast10Map = new Map<string, ExistingContact>();
   const nameCompanyMap = new Map<string, ExistingContact>();
 
+  const addEmail = (raw: string | null | undefined) => {
+    if (!raw) return null;
+    const k = raw.toLowerCase().trim();
+    return k || null;
+  };
+
   for (const c of contacts) {
-    if (c.email) emailMap.set(c.email.toLowerCase(), c);
-    if (c.secondary_email) emailMap.set(c.secondary_email.toLowerCase(), c);
-    if (c.tertiary_email) emailMap.set(c.tertiary_email.toLowerCase(), c);
+    const e1 = addEmail(c.email); if (e1) emailMap.set(e1, c);
+    const e2 = addEmail(c.secondary_email); if (e2) emailMap.set(e2, c);
+    const e3 = addEmail(c.tertiary_email); if (e3) emailMap.set(e3, c);
     if (c.linkedin_url) linkedinMap.set(normalizeLinkedIn(c.linkedin_url), c);
     if (c.external_contact_id) extIdMap.set(c.external_contact_id, c);
-    if (c.phone) phoneMap.set(normalizePhone(c.phone), c);
+    if (c.phone) {
+      const p = normalizePhone(c.phone);
+      if (p.length >= 7) phoneMap.set(p, c);
+      const last10 = phoneLast10(p);
+      if (last10) phoneLast10Map.set(last10, c);
+    }
 
     // Name+company composite key
     const fullName = [c.first_name, c.last_name].filter(Boolean).join(" ").toLowerCase().trim();
@@ -709,7 +728,7 @@ export function buildContactIndex(contacts: ExistingContact[]) {
     }
   }
 
-  return { emailMap, linkedinMap, extIdMap, phoneMap, nameCompanyMap };
+  return { emailMap, linkedinMap, extIdMap, phoneMap, phoneLast10Map, nameCompanyMap };
 }
 
 export function buildCompanyIndex(companies: ExistingCompany[]) {
@@ -799,9 +818,10 @@ export function checkDuplicatesAdvanced(
       if (found) { match = found; matchType = "Name + company name match"; confidence = 70; }
     }
 
-    // Priority 6: Phone match (lower confidence)
+    // Priority 6: Phone match (exact digits, then last-10 fallback for country-code differences)
     if (!match && phone && phone.length >= 7) {
-      const found = contactIndex.phoneMap.get(phone);
+      const found = contactIndex.phoneMap.get(phone)
+        ?? contactIndex.phoneLast10Map.get(phoneLast10(phone));
       if (found) { match = found; matchType = "Phone number match"; confidence = 55; }
     }
 
