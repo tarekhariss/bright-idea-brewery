@@ -651,8 +651,9 @@ Deno.serve(async (req: Request) => {
     while (true) {
       // Self-continuation check: bail out before the platform kills us, and re-invoke ourselves
       // so the next invocation picks up the remaining pending rows seamlessly.
-      if (performance.now() - wallClockStart > MAX_WALL_CLOCK_MS) {
-        console.log(`[import] Wall-clock budget reached after batch ${batchIndex}. Self-resuming.`);
+      const batchesThisInvocation = batchIndex - (isResume ? (prevDiag?.total_batches ?? 0) : 0);
+      if (performance.now() - wallClockStart > MAX_WALL_CLOCK_MS || batchesThisInvocation >= MAX_BATCHES_PER_INVOCATION) {
+        console.log(`[import] Resource budget reached after batch ${batchIndex} (${batchesThisInvocation} this invocation). Self-resuming.`);
         updateDiag({
           phase: "self_resume_scheduled",
           last_progress_at: nowIso(),
