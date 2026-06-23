@@ -663,12 +663,20 @@ Deno.serve(async (req: Request) => {
           duplicate_rows: duplicateRows, review_rows: reviewRows,
           error_summary: diag,
         }).eq("id", job_id);
-        // Fire-and-forget re-invoke; do not await so we return immediately.
+        // Fire-and-forget re-invoke; prefer cron secret so the resume survives the
+        // original user token expiring during long imports.
         try {
-          const authHeader = req.headers.get("Authorization") ?? "";
+          const cronSecretEnv = Deno.env.get("CRON_SECRET");
+          const headers: Record<string, string> = { "Content-Type": "application/json", "apikey": anonKey };
+          if (cronSecretEnv) {
+            headers["x-cron-secret"] = cronSecretEnv;
+            headers["Authorization"] = `Bearer ${serviceKey}`;
+          } else {
+            headers["Authorization"] = req.headers.get("Authorization") ?? "";
+          }
           fetch(`${supabaseUrl}/functions/v1/run-import-job`, {
             method: "POST",
-            headers: { "Content-Type": "application/json", "Authorization": authHeader, "apikey": anonKey },
+            headers,
             body: JSON.stringify({ job_id }),
           }).catch((e) => console.warn(`[import] Self-resume invoke failed: ${e?.message}`));
         } catch (e: any) {
