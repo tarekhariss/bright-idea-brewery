@@ -698,15 +698,27 @@ export function buildContactIndex(contacts: ExistingContact[]) {
   const linkedinMap = new Map<string, ExistingContact>();
   const extIdMap = new Map<string, ExistingContact>();
   const phoneMap = new Map<string, ExistingContact>();
+  const phoneLast10Map = new Map<string, ExistingContact>();
   const nameCompanyMap = new Map<string, ExistingContact>();
 
+  const addEmail = (raw: string | null | undefined) => {
+    if (!raw) return null;
+    const k = raw.toLowerCase().trim();
+    return k || null;
+  };
+
   for (const c of contacts) {
-    if (c.email) emailMap.set(c.email.toLowerCase(), c);
-    if (c.secondary_email) emailMap.set(c.secondary_email.toLowerCase(), c);
-    if (c.tertiary_email) emailMap.set(c.tertiary_email.toLowerCase(), c);
+    const e1 = addEmail(c.email); if (e1) emailMap.set(e1, c);
+    const e2 = addEmail(c.secondary_email); if (e2) emailMap.set(e2, c);
+    const e3 = addEmail(c.tertiary_email); if (e3) emailMap.set(e3, c);
     if (c.linkedin_url) linkedinMap.set(normalizeLinkedIn(c.linkedin_url), c);
     if (c.external_contact_id) extIdMap.set(c.external_contact_id, c);
-    if (c.phone) phoneMap.set(normalizePhone(c.phone), c);
+    if (c.phone) {
+      const p = normalizePhone(c.phone);
+      if (p.length >= 7) phoneMap.set(p, c);
+      const last10 = phoneLast10(p);
+      if (last10) phoneLast10Map.set(last10, c);
+    }
 
     // Name+company composite key
     const fullName = [c.first_name, c.last_name].filter(Boolean).join(" ").toLowerCase().trim();
@@ -716,7 +728,7 @@ export function buildContactIndex(contacts: ExistingContact[]) {
     }
   }
 
-  return { emailMap, linkedinMap, extIdMap, phoneMap, nameCompanyMap };
+  return { emailMap, linkedinMap, extIdMap, phoneMap, phoneLast10Map, nameCompanyMap };
 }
 
 export function buildCompanyIndex(companies: ExistingCompany[]) {
