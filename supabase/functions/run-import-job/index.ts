@@ -531,13 +531,20 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
-    const token = authHeader.replace("Bearer ", "");
-    const anonClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
-    const { data: authData, error: authError } = await anonClient.auth.getUser(token);
-    if (authError || !authData?.user) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
-    const userId = authData.user.id;
+    const cronSecret = Deno.env.get("CRON_SECRET");
+    const incomingCronSecret = req.headers.get("x-cron-secret");
+    const isInternal = !!cronSecret && incomingCronSecret === cronSecret;
+
+    let userId: string | null = null;
+    if (!isInternal) {
+      const authHeader = req.headers.get("Authorization");
+      if (!authHeader?.startsWith("Bearer ")) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
+      const token = authHeader.replace("Bearer ", "");
+      const anonClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
+      const { data: authData, error: authError } = await anonClient.auth.getUser(token);
+      if (authError || !authData?.user) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
+      userId = authData.user.id;
+    }
 
     const parsedBody = RequestSchema.safeParse(await req.json());
     if (!parsedBody.success) return new Response(JSON.stringify({ error: parsedBody.error.flatten().fieldErrors }), { status: 400, headers: corsHeaders });
@@ -547,11 +554,13 @@ Deno.serve(async (req: Request) => {
     if (jobErr || !fetchedJob) return new Response(JSON.stringify({ error: "Job not found" }), { status: 404, headers: corsHeaders });
     job = fetchedJob;
 
-    if (job.workspace_id) {
-      const { data: membership } = await supabase.from("workspace_members").select("user_id").eq("user_id", userId).eq("workspace_id", job.workspace_id).maybeSingle();
-      if (!membership) return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: corsHeaders });
-    } else if (job.created_by !== userId) {
-      return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: corsHeaders });
+    if (!isInternal) {
+      if (job.workspace_id) {
+        const { data: membership } = await supabase.from("workspace_members").select("user_id").eq("user_id", userId).eq("workspace_id", job.workspace_id).maybeSingle();
+        if (!membership) return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: corsHeaders });
+      } else if (job.created_by !== userId) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: corsHeaders });
+      }
     }
 
     // Detect continuation vs. fresh start: a resume case is when the job is already
