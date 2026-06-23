@@ -368,89 +368,91 @@ export default function ProspectSearchPage() {
 
         {/* Results table */}
         <div className="flex-1 overflow-auto">
-          <Table>
-            <TableHeader className="sticky top-0 bg-background z-10">
-              <TableRow>
-                <TableHead className="w-10">
-                  <Checkbox
-                    checked={allSelected}
-                    onCheckedChange={(checked) => {
-                      if (checked) state.selectAll(rows.map((r: any) => r.id));
-                      else state.clearSelection();
-                    }}
-                  />
-                </TableHead>
-                {columns.map((col) => (
-                  <TableHead key={col.key} className={cn("text-xs", col.className)}>
-                    {col.sortable ? (
-                      <button
-                        className="flex items-center gap-1 hover:text-foreground transition-colors"
-                        onClick={() => handleSort(col.key)}
-                      >
-                        {col.label}
-                        <ArrowUpDown className="h-3 w-3" />
-                      </button>
-                    ) : (
-                      col.label
-                    )}
-                  </TableHead>
-                ))}
-                <TableHead className="w-20 text-right text-xs">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {searchResult.isLoading ? (
-                Array.from({ length: state.pageSize }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell><Skeleton className="h-4 w-4" /></TableCell>
-                    {columns.map((col) => (
-                      <TableCell key={col.key}><Skeleton className="h-4 w-20" /></TableCell>
-                    ))}
-                  </TableRow>
-                ))
-              ) : rows.length === 0 ? (
+          <div className="min-w-max">
+            <Table>
+              <TableHeader className="sticky top-0 bg-background z-10">
                 <TableRow>
-                  <TableCell colSpan={columns.length + 2} className="text-center py-16 text-muted-foreground">
-                    No {state.entityType === "contact" ? "contacts" : "companies"} found. Try adjusting your filters.
-                  </TableCell>
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={allSelected}
+                      onCheckedChange={(checked) => {
+                        if (checked) state.selectAll(rows.map((r: any) => r.id));
+                        else state.clearSelection();
+                      }}
+                    />
+                  </TableHead>
+                  {columns.map((col) => (
+                    <TableHead key={col.key} className={cn("text-xs whitespace-nowrap", col.className)}>
+                      {col.sortable ? (
+                        <button
+                          className="flex items-center gap-1 hover:text-foreground transition-colors"
+                          onClick={() => handleSort(col.key)}
+                        >
+                          {col.label}
+                          <ArrowUpDown className="h-3 w-3" />
+                        </button>
+                      ) : (
+                        col.label
+                      )}
+                    </TableHead>
+                  ))}
+                  <TableHead className="w-20 text-right text-xs whitespace-nowrap">Actions</TableHead>
                 </TableRow>
-              ) : (
-                rows.map((row: any) => (
-                  <TableRow
-                    key={row.id}
-                    className={cn(
-                      "cursor-pointer hover:bg-muted/50 transition-colors",
-                      state.selectedRows.has(row.id) && "bg-primary/5"
-                    )}
-                    onClick={() => setPreviewRecord(row)}
-                  >
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      <Checkbox
-                        checked={state.selectedRows.has(row.id)}
-                        onCheckedChange={() => state.toggleRow(row.id)}
-                      />
-                    </TableCell>
-                    {columns.map((col) => (
-                      <TableCell key={col.key} className="py-2">
-                        {col.render ? col.render(row) : <span className="text-xs">{row[col.key] ?? "—"}</span>}
-                      </TableCell>
-                    ))}
-                    <TableCell className="py-2 text-right" onClick={(e) => e.stopPropagation()}>
-                      <PushToCrmButton
-                        size="sm"
-                        variant="ghost"
-                        label="CRM"
-                        className="h-7 px-2 text-[11px]"
-                        contactId={state.entityType === "contact" ? row.id : null}
-                        companyId={state.entityType === "company" ? row.id : null}
-                        sourceChannel="prospect_search"
-                      />
+              </TableHeader>
+              <TableBody>
+                {searchResult.isLoading ? (
+                  Array.from({ length: state.pageSize }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell><Skeleton className="h-4 w-4" /></TableCell>
+                      {columns.map((col) => (
+                        <TableCell key={col.key}><Skeleton className="h-4 w-20" /></TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : rows.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={columns.length + 2} className="text-center py-16 text-muted-foreground">
+                      No {state.entityType === "contact" ? "contacts" : "companies"} found. Try adjusting your filters.
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ) : (
+                  rows.map((row: any) => (
+                    <TableRow
+                      key={row.id}
+                      className={cn(
+                        "cursor-pointer hover:bg-muted/50 transition-colors",
+                        state.selectedRows.has(row.id) && "bg-primary/5"
+                      )}
+                      onClick={() => setPreviewRecord(row)}
+                    >
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={state.selectedRows.has(row.id)}
+                          onCheckedChange={() => state.toggleRow(row.id)}
+                        />
+                      </TableCell>
+                      {columns.map((col) => (
+                        <TableCell key={col.key} className="py-2 whitespace-nowrap">
+                          {col.render ? col.render(row) : <span className="text-xs">{row[col.key] ?? "—"}</span>}
+                        </TableCell>
+                      ))}
+                      <TableCell className="py-2 text-right" onClick={(e) => e.stopPropagation()}>
+                        <PushToCrmButton
+                          size="sm"
+                          variant="ghost"
+                          label="CRM"
+                          className="h-7 px-2 text-[11px]"
+                          contactId={state.entityType === "contact" ? row.id : null}
+                          companyId={state.entityType === "company" ? row.id : null}
+                          sourceChannel="prospect_search"
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </div>
 
         {/* Pagination */}
