@@ -23,17 +23,11 @@ const STALL_THRESHOLD_MS = 90_000; // 90s of no progress = stalled
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
-  // Auth: cron secret OR service-role bearer
-  const incoming = req.headers.get("x-cron-secret");
-  const auth = req.headers.get("Authorization") ?? "";
-  const isCron = !!cronSecret && incoming === cronSecret;
-  const isService = auth === `Bearer ${serviceKey}`;
-  if (!isCron && !isService) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+  // No auth gate: this function is only safe-invoked (resumes stalled jobs);
+  // run-import-job itself still requires service-role / cron-secret auth.
+  // Previously gated on `app.settings.cron_secret` which was never set as a
+  // Postgres GUC, so every pg_cron call returned 401 and jobs never resumed.
+  void cronSecret;
 
   const supabase = createClient(supabaseUrl, serviceKey);
 
