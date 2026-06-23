@@ -403,13 +403,20 @@ function normalizeWebsite(val: string): string {
   return url;
 }
 
-/** Normalize phone: keep digits and leading + only */
+/**
+ * Normalize a phone number into a canonical digits-only key.
+ * Strips '+', spaces, dashes, parentheses, dots, and anything non-numeric so
+ * "+1 (202) 555-0100", "1-202-555-0100" and "12025550100" all collapse to
+ * the same key. Callers that want a loose "last 10 digits" match can use
+ * phoneLast10().
+ */
 function normalizePhone(val: string): string {
-  const trimmed = val.trim();
-  // Keep + if it's the first character, then only digits
-  const hasPlus = trimmed.startsWith("+");
-  const digits = trimmed.replace(/\D/g, "");
-  return hasPlus ? "+" + digits : digits;
+  return val.replace(/\D/g, "");
+}
+
+/** Return the trailing 10 digits of a normalized phone, or "" if too short. */
+function phoneLast10(digits: string): string {
+  return digits.length >= 10 ? digits.slice(-10) : "";
 }
 
 /** Normalize company name for matching: lowercase, strip legal suffixes, collapse whitespace */
