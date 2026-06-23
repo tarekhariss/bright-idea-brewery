@@ -14,45 +14,77 @@ export interface ParsedCSV {
 
 export function parseCSVText(text: string, maxRows?: number): ParsedCSV {
   const errors: string[] = [];
-  const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
-  if (lines.length === 0) return { headers: [], rows: [], totalRows: 0, errors: ["File is empty"] };
+  // Strip BOM if present
+  if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
 
-  const headers = parseCSVLine(lines[0]);
-  if (headers.length === 0) return { headers: [], rows: [], totalRows: 0, errors: ["No headers detected"] };
+  const allRows = parseCSVAll(text);
+  while (allRows.length && allRows[allRows.length - 1].every((c) => c.trim() === "")) {
+    allRows.pop();
+  }
+  if (allRows.length === 0) return { headers: [], rows: [], totalRows: 0, errors: ["File is empty"] };
 
-  const totalRows = lines.length - 1;
+  const headers = allRows[0].map((h) => h.trim());
+  if (headers.length === 0 || headers.every((h) => h === "")) {
+    return { headers: [], rows: [], totalRows: 0, errors: ["No headers detected"] };
+  }
+
+  const dataRows = allRows.slice(1).filter((r) => r.some((c) => c.trim() !== ""));
+  const totalRows = dataRows.length;
   const limit = maxRows != null ? Math.min(maxRows, totalRows) : totalRows;
   const rows: Record<string, string>[] = [];
-  for (let i = 1; i <= limit; i++) {
-    const values = parseCSVLine(lines[i]);
+  for (let i = 0; i < limit; i++) {
+    const values = dataRows[i];
     if (values.length !== headers.length) {
-      errors.push(`Row ${i}: expected ${headers.length} columns, got ${values.length}`);
+      errors.push(`Row ${i + 1}: expected ${headers.length} columns, got ${values.length}`);
     }
     const row: Record<string, string> = {};
-    headers.forEach((h, idx) => { row[h] = values[idx] ?? ""; });
+    headers.forEach((h, idx) => { row[h] = (values[idx] ?? "").trim(); });
     rows.push(row);
   }
   return { headers, rows, totalRows, errors };
 }
 
-function parseCSVLine(line: string): string[] {
-  const result: string[] = [];
+/**
+ * Full CSV parser that correctly handles quoted fields containing
+ * commas, embedded newlines (\n, \r\n), and escaped quotes ("").
+ * The previous line-based parser broke column alignment whenever a
+ * quoted cell (e.g. a multi-line company description) contained a
+ * newline, causing fragments of that cell to bleed into later columns
+ * like First Name.
+ */
+function parseCSVAll(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
   let current = "";
   let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
     if (inQuotes) {
-      if (char === '"' && line[i + 1] === '"') { current += '"'; i++; }
-      else if (char === '"') inQuotes = false;
-      else current += char;
+      if (char === '"') {
+        if (text[i + 1] === '"') { current += '"'; i++; }
+        else inQuotes = false;
+      } else {
+        current += char;
+      }
     } else {
-      if (char === '"') inQuotes = true;
-      else if (char === ",") { result.push(current.trim()); current = ""; }
-      else current += char;
+      if (char === '"') {
+        inQuotes = true;
+      } else if (char === ",") {
+        row.push(current); current = "";
+      } else if (char === "\n" || char === "\r") {
+        row.push(current); current = "";
+        rows.push(row); row = [];
+        if (char === "\r" && text[i + 1] === "\n") i++;
+      } else {
+        current += char;
+      }
     }
   }
-  result.push(current.trim());
-  return result;
+  if (current.length > 0 || row.length > 0) {
+    row.push(current);
+    rows.push(row);
+  }
+  return rows;
 }
 
 // ─── Mappable fields ────────────────────────────────────────────────────────────
