@@ -148,7 +148,9 @@ export default function ImportWizardPage() {
     setFile(f);
     try {
       const text = await f.text();
-      const result = parseCSVText(text, 500); // preview only
+      // Parse the full file so step 4 duplicate detection reflects every row,
+      // not just the first 500. The actual import re-parses anyway at submit.
+      const result = parseCSVText(text);
       if (result.headers.length === 0) {
         setParseError("Could not detect columns in this file.");
         return;
