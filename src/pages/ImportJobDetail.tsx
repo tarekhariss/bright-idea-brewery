@@ -245,6 +245,12 @@ export default function ImportJobDetailPage() {
               Retry Failed ({job.error_rows})
             </Button>
           )}
+          {(job.status === "processing" || job.status === "pending" || job.status === "failed") && (
+            <Button variant="outline" size="sm" className="gap-2" onClick={handleResume} disabled={resuming}>
+              {resuming ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+              Resume Import
+            </Button>
+          )}
         </div>
       </div>
 
