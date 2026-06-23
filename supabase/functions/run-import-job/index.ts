@@ -677,7 +677,7 @@ Deno.serve(async (req: Request) => {
           const cronSecretEnv = Deno.env.get("CRON_SECRET");
           const headers: Record<string, string> = {
             "Content-Type": "application/json",
-            "apikey": anonKey,
+            "apikey": serviceKey,
             "Authorization": `Bearer ${serviceKey}`,
           };
           if (cronSecretEnv) headers["x-cron-secret"] = cronSecretEnv;

@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
     try {
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
-        "apikey": anonKey,
+        "apikey": serviceKey,
         "Authorization": `Bearer ${serviceKey}`,
       };
       if (cronSecret) headers["x-cron-secret"] = cronSecret;
