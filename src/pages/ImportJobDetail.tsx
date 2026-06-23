@@ -60,6 +60,7 @@ export default function ImportJobDetailPage() {
   const [reviewRow, setReviewRow] = useState<any | null>(null);
   const [selectedRow, setSelectedRow] = useState<any | null>(null);
   const [retrying, setRetrying] = useState(false);
+  const [resuming, setResuming] = useState(false);
 
   const handleRetryFailed = useCallback(async () => {
     if (!id) return;
@@ -83,6 +84,23 @@ export default function ImportJobDetailPage() {
       toast.error("Failed to retry rows");
     } finally {
       setRetrying(false);
+    }
+  }, [id, queryClient]);
+
+  const handleResume = useCallback(async () => {
+    if (!id) return;
+    setResuming(true);
+    try {
+      await (supabase.from("import_jobs") as any).update({ status: "processing" }).eq("id", id);
+      const { error } = await supabase.functions.invoke("run-import-job", { body: { job_id: id } });
+      if (error) throw error;
+      toast.success("Import resumed — processing remaining rows");
+      queryClient.invalidateQueries({ queryKey: ["import-job", id] });
+      queryClient.invalidateQueries({ queryKey: ["import-job-rows"] });
+    } catch (e: any) {
+      toast.error(`Failed to resume: ${e?.message ?? "unknown error"}`);
+    } finally {
+      setResuming(false);
     }
   }, [id, queryClient]);
 
@@ -225,6 +243,12 @@ export default function ImportJobDetailPage() {
             <Button variant="outline" size="sm" className="gap-2" onClick={handleRetryFailed} disabled={retrying}>
               {retrying ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
               Retry Failed ({job.error_rows})
+            </Button>
+          )}
+          {(job.status === "processing" || job.status === "pending" || job.status === "failed") && (
+            <Button variant="outline" size="sm" className="gap-2" onClick={handleResume} disabled={resuming}>
+              {resuming ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+              Resume Import
             </Button>
           )}
         </div>

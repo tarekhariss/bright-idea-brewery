@@ -4,7 +4,7 @@ import { z } from "https://esm.sh/zod@3.23.8";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
 };
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -531,13 +531,20 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
-    const token = authHeader.replace("Bearer ", "");
-    const anonClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
-    const { data: authData, error: authError } = await anonClient.auth.getUser(token);
-    if (authError || !authData?.user) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
-    const userId = authData.user.id;
+    const cronSecret = Deno.env.get("CRON_SECRET");
+    const incomingCronSecret = req.headers.get("x-cron-secret");
+    const isInternal = !!cronSecret && incomingCronSecret === cronSecret;
+
+    let userId: string | null = null;
+    if (!isInternal) {
+      const authHeader = req.headers.get("Authorization");
+      if (!authHeader?.startsWith("Bearer ")) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
+      const token = authHeader.replace("Bearer ", "");
+      const anonClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
+      const { data: authData, error: authError } = await anonClient.auth.getUser(token);
+      if (authError || !authData?.user) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
+      userId = authData.user.id;
+    }
 
     const parsedBody = RequestSchema.safeParse(await req.json());
     if (!parsedBody.success) return new Response(JSON.stringify({ error: parsedBody.error.flatten().fieldErrors }), { status: 400, headers: corsHeaders });
@@ -547,11 +554,13 @@ Deno.serve(async (req: Request) => {
     if (jobErr || !fetchedJob) return new Response(JSON.stringify({ error: "Job not found" }), { status: 404, headers: corsHeaders });
     job = fetchedJob;
 
-    if (job.workspace_id) {
-      const { data: membership } = await supabase.from("workspace_members").select("user_id").eq("user_id", userId).eq("workspace_id", job.workspace_id).maybeSingle();
-      if (!membership) return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: corsHeaders });
-    } else if (job.created_by !== userId) {
-      return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: corsHeaders });
+    if (!isInternal) {
+      if (job.workspace_id) {
+        const { data: membership } = await supabase.from("workspace_members").select("user_id").eq("user_id", userId).eq("workspace_id", job.workspace_id).maybeSingle();
+        if (!membership) return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: corsHeaders });
+      } else if (job.created_by !== userId) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: corsHeaders });
+      }
     }
 
     // Detect continuation vs. fresh start: a resume case is when the job is already
@@ -654,12 +663,20 @@ Deno.serve(async (req: Request) => {
           duplicate_rows: duplicateRows, review_rows: reviewRows,
           error_summary: diag,
         }).eq("id", job_id);
-        // Fire-and-forget re-invoke; do not await so we return immediately.
+        // Fire-and-forget re-invoke; prefer cron secret so the resume survives the
+        // original user token expiring during long imports.
         try {
-          const authHeader = req.headers.get("Authorization") ?? "";
+          const cronSecretEnv = Deno.env.get("CRON_SECRET");
+          const headers: Record<string, string> = { "Content-Type": "application/json", "apikey": anonKey };
+          if (cronSecretEnv) {
+            headers["x-cron-secret"] = cronSecretEnv;
+            headers["Authorization"] = `Bearer ${serviceKey}`;
+          } else {
+            headers["Authorization"] = req.headers.get("Authorization") ?? "";
+          }
           fetch(`${supabaseUrl}/functions/v1/run-import-job`, {
             method: "POST",
-            headers: { "Content-Type": "application/json", "Authorization": authHeader, "apikey": anonKey },
+            headers,
             body: JSON.stringify({ job_id }),
           }).catch((e) => console.warn(`[import] Self-resume invoke failed: ${e?.message}`));
         } catch (e: any) {
