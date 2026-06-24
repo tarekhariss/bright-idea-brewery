@@ -266,7 +266,7 @@ export default function ImportWizardPage() {
     if (!parsed || !file || !user) return;
     setSubmitting(true);
 
-    let createdJobId: string | null = null;
+    const createdJobIds: string[] = [];
 
     try {
       const parseStartedAt = performance.now();
@@ -277,156 +277,168 @@ export default function ImportWizardPage() {
       const settings: Record<string, unknown> = {
         ...importSettings,
         duplicate_strategy: dupStrategy,
-        // Columns that will be preserved as contact/company custom_fields (not skipped).
         unmapped_columns: customFieldHeaders,
-        // Columns the user explicitly told us to drop.
         excluded_columns: excludedHeaders,
       };
 
+      // ─── Apollo-style automatic batching ──────────────────────────────────
+      // Files larger than BATCH_THRESHOLD rows are split into BATCH_SIZE-row
+      // child import_jobs. Each child is independent and resumable. A parent
+      // job ties them together for rollup/progress. Small files (≤10K) are
+      // unchanged — one job, no parent.
+      const BATCH_SIZE = 10000;
+      const BATCH_THRESHOLD = BATCH_SIZE;
+      const needsBatching = allRows.length > BATCH_THRESHOLD;
+      const batchCount = needsBatching ? Math.ceil(allRows.length / BATCH_SIZE) : 1;
 
-      const initialDiagnostics = {
-        diagnostics: {
-          phase: "uploading_rows",
-          uploaded_rows: 0,
-          total_rows: allRows.length,
-          batch_size: 2000,
-          last_progress_at: new Date().toISOString(),
-          timings: {
-            parse_csv_ms: Math.round(performance.now() - parseStartedAt),
-          },
-          recent_batches: [],
-        },
+      const baseJobPayload = {
+        column_mapping: columnMapping as unknown as Json,
+        settings: settings as unknown as Json,
+        started_at: new Date().toISOString(),
+        created_by: user.id,
+        workspace_id: workspaceId || null,
       };
 
-      const { data: job, error: jobErr } = await (supabase.from("import_jobs") as any)
-        .insert({
-          file_name: file.name,
+      let parentJobId: string | null = null;
+      if (needsBatching) {
+        const { data: parent, error: parentErr } = await (supabase.from("import_jobs") as any)
+          .insert({
+            ...baseJobPayload,
+            file_name: file.name,
+            status: "processing" as const,
+            total_rows: allRows.length,
+            processed_rows: 0,
+            success_rows: 0,
+            inserted_rows: 0,
+            error_rows: 0,
+            duplicate_rows: 0,
+            review_rows: 0,
+            batch_total: batchCount,
+            error_summary: {
+              diagnostics: {
+                phase: "parent_batching",
+                total_rows: allRows.length,
+                batch_size: BATCH_SIZE,
+                batch_total: batchCount,
+                last_progress_at: new Date().toISOString(),
+                timings: { parse_csv_ms: Math.round(performance.now() - parseStartedAt) },
+              },
+            } as unknown as Json,
+          })
+          .select()
+          .single();
+        if (parentErr || !parent) throw new Error(parentErr?.message || "Failed to create parent job");
+        parentJobId = parent.id;
+        createdJobIds.push(parent.id);
+        toast.info(`Large file detected — splitting into ${batchCount} batches of ${BATCH_SIZE.toLocaleString()} rows.`);
+      }
+
+      const UPLOAD_BATCH_SIZE = 2000;
+      for (let b = 0; b < batchCount; b++) {
+        const rowStart = b * BATCH_SIZE;
+        const rowEnd = Math.min(rowStart + BATCH_SIZE, allRows.length);
+        const childRows = allRows.slice(rowStart, rowEnd);
+
+        const childPayload: Record<string, unknown> = {
+          ...baseJobPayload,
+          file_name: needsBatching ? `${file.name} [batch ${b + 1}/${batchCount}]` : file.name,
           status: "pending" as const,
-          total_rows: allRows.length,
+          total_rows: childRows.length,
           processed_rows: 0,
           success_rows: 0,
           inserted_rows: 0,
           error_rows: 0,
           duplicate_rows: 0,
           review_rows: 0,
-          column_mapping: columnMapping as unknown as Json,
-          settings: settings as unknown as Json,
-          error_summary: initialDiagnostics as unknown as Json,
-          started_at: new Date().toISOString(),
-          created_by: user.id,
-          workspace_id: workspaceId || null,
-        })
-        .select()
-        .single();
-
-      if (jobErr || !job) {
-        throw new Error(jobErr?.message || "Unknown error creating import job");
-      }
-
-      createdJobId = job.id;
-
-      const UPLOAD_BATCH_SIZE = 2000;
-      let uploadedRows = 0;
-      for (let i = 0; i < allRows.length; i += UPLOAD_BATCH_SIZE) {
-        const batch = allRows.slice(i, i + UPLOAD_BATCH_SIZE);
-        const rawBatchRows = batch.map((raw, idx) => ({
-          import_job_id: job.id,
-          row_number: i + idx + 1,
-          raw_data: raw as unknown as Json,
-          status: "pending",
-          review_required: false,
-        }));
-
-        const { error: rowInsertError } = await (supabase.from("import_job_rows") as any).insert(rawBatchRows);
-        if (rowInsertError) throw rowInsertError;
-
-        uploadedRows += batch.length;
-
-        if (((i / UPLOAD_BATCH_SIZE) + 1) % 3 === 0 || uploadedRows === allRows.length) {
-          await (supabase.from("import_jobs") as any)
-            .update({
-              error_summary: {
-                diagnostics: {
-                  phase: "uploading_rows",
-                  uploaded_rows: uploadedRows,
-                  total_rows: allRows.length,
-                  batch_size: UPLOAD_BATCH_SIZE,
-                  last_progress_at: new Date().toISOString(),
-                  recent_batches: [
-                    {
-                      phase: "uploading_rows",
-                      uploaded_rows: uploadedRows,
-                      batch_rows: batch.length,
-                      at: new Date().toISOString(),
-                    },
-                  ],
-                },
-              },
-            })
-            .eq("id", job.id);
-        }
-      }
-
-      await (supabase.from("import_jobs") as any)
-        .update({
-          status: "processing",
           error_summary: {
             diagnostics: {
-              phase: "queued_server_processing",
-              uploaded_rows: allRows.length,
-              total_rows: allRows.length,
+              phase: "uploading_rows",
+              uploaded_rows: 0,
+              total_rows: childRows.length,
               batch_size: UPLOAD_BATCH_SIZE,
               last_progress_at: new Date().toISOString(),
-              recent_batches: [
-                {
-                  phase: "queued_server_processing",
-                  uploaded_rows: allRows.length,
-                  at: new Date().toISOString(),
-                },
-              ],
+              recent_batches: [],
             },
-          },
-        })
-        .eq("id", job.id);
+          } as unknown as Json,
+        };
+        if (parentJobId) {
+          childPayload.parent_job_id = parentJobId;
+          childPayload.batch_index = b + 1;
+          childPayload.batch_total = batchCount;
+          childPayload.batch_row_start = rowStart + 1;
+          childPayload.batch_row_end = rowEnd;
+        }
 
-      void supabase.functions.invoke("run-import-job", {
-        body: { job_id: job.id },
-      }).catch(async (invokeErr) => {
+        const { data: job, error: jobErr } = await (supabase.from("import_jobs") as any)
+          .insert(childPayload)
+          .select()
+          .single();
+        if (jobErr || !job) throw new Error(jobErr?.message || "Failed to create import job");
+        createdJobIds.push(job.id);
+
+        for (let i = 0; i < childRows.length; i += UPLOAD_BATCH_SIZE) {
+          const batch = childRows.slice(i, i + UPLOAD_BATCH_SIZE);
+          const rawBatchRows = batch.map((raw, idx) => ({
+            import_job_id: job.id,
+            row_number: i + idx + 1,
+            raw_data: raw as unknown as Json,
+            status: "pending",
+            review_required: false,
+          }));
+          const { error: rowInsertError } = await (supabase.from("import_job_rows") as any).insert(rawBatchRows);
+          if (rowInsertError) throw rowInsertError;
+        }
+
         await (supabase.from("import_jobs") as any)
           .update({
-            status: "failed",
-            completed_at: new Date().toISOString(),
+            status: "processing",
             error_summary: {
-              reason: invokeErr?.message || "Failed to start import processor",
               diagnostics: {
-                phase: "failed_to_start_processor",
-                uploaded_rows: allRows.length,
-                total_rows: allRows.length,
+                phase: "queued_server_processing",
+                uploaded_rows: childRows.length,
+                total_rows: childRows.length,
+                batch_size: UPLOAD_BATCH_SIZE,
                 last_progress_at: new Date().toISOString(),
               },
             },
           })
           .eq("id", job.id);
-      });
 
-      toast.success(`Import started for ${allRows.length.toLocaleString()} rows`);
-      navigate(`/imports/${job.id}`);
+        void supabase.functions.invoke("run-import-job", {
+          body: { job_id: job.id },
+        }).catch(async (invokeErr) => {
+          await (supabase.from("import_jobs") as any)
+            .update({
+              status: "failed",
+              completed_at: new Date().toISOString(),
+              error_summary: {
+                reason: invokeErr?.message || "Failed to start import processor",
+                diagnostics: { phase: "failed_to_start_processor", last_progress_at: new Date().toISOString() },
+              },
+            })
+            .eq("id", job.id);
+        });
+      }
+
+      toast.success(
+        needsBatching
+          ? `Import queued — ${batchCount} batches of up to ${BATCH_SIZE.toLocaleString()} rows`
+          : `Import started for ${allRows.length.toLocaleString()} rows`
+      );
+      navigate(`/imports/${parentJobId ?? createdJobIds[0]}`);
     } catch (err: any) {
       const msg = err?.message || "Unknown error";
-      if (createdJobId) {
+      for (const jid of createdJobIds) {
         await (supabase.from("import_jobs") as any)
           .update({
             status: "failed",
             completed_at: new Date().toISOString(),
             error_summary: {
               reason: msg,
-              diagnostics: {
-                phase: "upload_failed",
-                last_progress_at: new Date().toISOString(),
-              },
+              diagnostics: { phase: "upload_failed", last_progress_at: new Date().toISOString() },
             },
           })
-          .eq("id", createdJobId);
+          .eq("id", jid);
       }
       toast.error(`Import failed: ${msg}`);
       console.error("Import error:", err);
