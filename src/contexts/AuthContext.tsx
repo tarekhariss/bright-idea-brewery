@@ -132,8 +132,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq("user_id", userId)
         .maybeSingle();
 
-      const activeId = pref?.active_workspace_id;
-      const active = wsList.find((w) => w.id === activeId) ?? wsList[0];
+      let active = wsList.find((w) => w.id === pref?.active_workspace_id) ?? null;
+
+      // Safeguard: never land on an empty workspace when the user has access
+      // to one with real data. Rank workspaces by contact count and prefer
+      // a "TLBG"-named workspace with data.
+      const counts: Record<string, number> = {};
+      await Promise.all(
+        wsList.map(async (w) => {
+          const { count } = await (supabase as any)
+            .from("contacts")
+            .select("*", { count: "exact", head: true })
+            .eq("workspace_id", w.id);
+          counts[w.id] = count ?? 0;
+        })
+      );
+
+      const activeHasData = active ? (counts[active.id] ?? 0) > 0 : false;
+      if (!active || !activeHasData) {
+        const tlbg = wsList.find((w) => /tlbg/i.test(w.name) && (counts[w.id] ?? 0) > 0);
+        const byCount = [...wsList].sort((a, b) => (counts[b.id] ?? 0) - (counts[a.id] ?? 0))[0];
+        const fallback = tlbg ?? (byCount && (counts[byCount.id] ?? 0) > 0 ? byCount : null) ?? wsList[0];
+        if (fallback && fallback.id !== active?.id) {
+          active = fallback;
+          await (supabase as any)
+            .from("user_workspace_preferences")
+            .upsert({ user_id: userId, active_workspace_id: fallback.id }, { onConflict: "user_id" });
+        }
+      }
+
       setWorkspace(active);
     } catch (e) {
       console.error("Failed to load workspaces:", e);
