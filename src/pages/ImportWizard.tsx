@@ -186,17 +186,34 @@ export default function ImportWizardPage() {
     try {
       // PostgREST caps a single response at ~1,000 rows regardless of .limit().
       // Page through the full workspace so dedupe compares against every
-      // existing record, not just the first 1k.
-      const PAGE = 1000;
+      // existing record, not just the first 1k. Keep pages small and retry on
+      // statement timeouts — large workspaces (50k+ rows) can occasionally hit
+      // the 8s PostgREST timeout on a single page.
+      const PAGE = 500;
       const fetchAll = async <T,>(
         builder: () => any,
         label: string,
       ): Promise<T[]> => {
         const out: T[] = [];
         for (let from = 0; ; from += PAGE) {
-          const { data, error } = await builder().range(from, from + PAGE - 1);
-          if (error) throw error;
-          const batch = (data ?? []) as T[];
+          let attempt = 0;
+          let batch: T[] = [];
+          // up to 3 retries per page on transient timeouts
+          while (true) {
+            const { data, error } = await builder().range(from, from + PAGE - 1);
+            if (!error) {
+              batch = (data ?? []) as T[];
+              break;
+            }
+            const msg = String((error as any)?.message ?? error);
+            const isTimeout = /statement timeout|canceling statement|57014/i.test(msg);
+            if (isTimeout && attempt < 3) {
+              attempt++;
+              await new Promise((r) => setTimeout(r, 500 * attempt));
+              continue;
+            }
+            throw error;
+          }
           out.push(...batch);
           setDupProgress(`Loading existing ${label}… ${out.length.toLocaleString()}`);
           if (batch.length < PAGE) break;
@@ -228,6 +245,7 @@ export default function ImportWizardPage() {
             "companies",
           )
         : [];
+
 
       setDupProgress(
         `Matching ${parsed.rows.length.toLocaleString()} rows against ${existingContacts.length.toLocaleString()} contacts…`,
