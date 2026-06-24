@@ -221,17 +221,33 @@ export default function ImportJobDetailPage() {
     );
   }
 
+  // Aggregate child stats when this job is a batched parent
+  const childAgg = isParent && childJobs
+    ? childJobs.reduce(
+        (acc, c) => ({
+          processed_rows: acc.processed_rows + (c.processed_rows ?? 0),
+          inserted_rows: acc.inserted_rows + (c.inserted_rows ?? 0),
+          duplicate_rows: acc.duplicate_rows + (c.duplicate_rows ?? 0),
+          error_rows: acc.error_rows + (c.error_rows ?? 0),
+          review_rows: acc.review_rows + (c.review_rows ?? 0),
+          success_rows: acc.success_rows + (c.success_rows ?? 0),
+        }),
+        { processed_rows: 0, inserted_rows: 0, duplicate_rows: 0, error_rows: 0, review_rows: 0, success_rows: 0 }
+      )
+    : null;
+  const displayJob = childAgg ? { ...job, ...childAgg } : job;
+
   const totalStaged = diagnostics.total_staged_rows ?? job.total_rows ?? 0;
-  const progressPct = totalStaged > 0 ? Math.min(100, Math.round((job.processed_rows / totalStaged) * 100)) : 0;
-  const hasErrors = (job.error_rows ?? 0) > 0;
+  const progressPct = totalStaged > 0 ? Math.min(100, Math.round((displayJob.processed_rows / totalStaged) * 100)) : 0;
+  const hasErrors = (displayJob.error_rows ?? 0) > 0;
   const importTag = settingsObj.import_tag as string | undefined;
   const importSource = settingsObj.source as string | undefined;
   const fieldReport = errorSummary.field_report as Record<string, { inserted: number; blank: number; target: string }> | undefined;
 
   // Integrity check
-  const counterSum = (job.success_rows ?? 0) + (job.error_rows ?? 0) + (job.duplicate_rows ?? 0) + (job.review_rows ?? 0);
-  const integrityOk = (job.processed_rows ?? 0) <= totalStaged && counterSum <= totalStaged;
-  const countersInflated = (job.processed_rows ?? 0) > totalStaged * 1.1;
+  const counterSum = (displayJob.success_rows ?? 0) + (displayJob.error_rows ?? 0) + (displayJob.duplicate_rows ?? 0) + (displayJob.review_rows ?? 0);
+  const integrityOk = (displayJob.processed_rows ?? 0) <= totalStaged && counterSum <= totalStaged;
+  const countersInflated = (displayJob.processed_rows ?? 0) > totalStaged * 1.1;
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
