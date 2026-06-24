@@ -155,6 +155,34 @@ export default function ImportJobDetailPage() {
     enabled: !!id,
   });
 
+  // ─── Child batches (Apollo-style batching) ────────────────────────────────
+  const { data: childJobs } = useQuery({
+    queryKey: ["import-job-children", id],
+    queryFn: async () => {
+      const { data, error } = await (supabase.from("import_jobs") as any)
+        .select("id,file_name,status,total_rows,processed_rows,inserted_rows,duplicate_rows,error_rows,review_rows,batch_index,batch_total,batch_row_start,batch_row_end,completed_at")
+        .eq("parent_job_id", id!)
+        .order("batch_index", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+    enabled: !!id,
+    refetchInterval: job && isActive(job.status) ? 5000 : false,
+  });
+
+  const isParent = (childJobs?.length ?? 0) > 0;
+
+  const handleResumeChild = useCallback(async (childId: string) => {
+    try {
+      await (supabase.from("import_jobs") as any).update({ status: "processing" }).eq("id", childId);
+      await supabase.functions.invoke("run-import-job", { body: { job_id: childId } });
+      toast.success("Batch resumed");
+      queryClient.invalidateQueries({ queryKey: ["import-job-children", id] });
+    } catch (e: any) {
+      toast.error(`Resume failed: ${e?.message ?? "unknown"}`);
+    }
+  }, [id, queryClient]);
+
   const totalPages = Math.ceil((rowsData?.total ?? 0) / PAGE_SIZE);
   const settingsObj = (job?.settings ?? {}) as Record<string, unknown>;
 
