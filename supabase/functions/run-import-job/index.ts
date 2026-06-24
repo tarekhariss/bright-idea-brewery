@@ -1141,20 +1141,8 @@ Deno.serve(async (req: Request) => {
 
     console.log(`[import] Job ${job_id} completed: ${processedRows} processed, ${insertedRows} inserted, ${errorRows} errors, ${duplicateRows} dupes${mismatchWarning ? '. ' + mismatchWarning : ''}`);
 
-    // Final safety net: collapse any companies that ended up sharing a normalized
-    // domain (possible from concurrent batches or pre-existing dirty data).
-    try {
-      const { data: dedupeRes, error: dedupeErr } = await (supabase as any).rpc(
-        "dedupe_companies_by_domain",
-        { p_workspace_id: job.workspace_id ?? null, p_actor: userId }
-      );
-      if (dedupeErr) console.warn(`[import] dedupe_companies_by_domain warning: ${dedupeErr.message}`);
-      else if (Array.isArray(dedupeRes) && dedupeRes.length > 0) {
-        console.log(`[import] Dedupe merged ${dedupeRes.length} company groups by domain`);
-      }
-    } catch (e) { console.warn(`[import] dedupe call failed:`, e); }
-
-
+    // Mark this job (child or standalone) completed FIRST so the parent finalize
+    // claim can correctly see all siblings as done.
     await supabase.from("import_jobs").update({
       status: "completed", processed_rows: processedRows, success_rows: successRows,
       inserted_rows: insertedRows, error_rows: errorRows, duplicate_rows: duplicateRows,
@@ -1166,6 +1154,43 @@ Deno.serve(async (req: Request) => {
         field_report: fieldReport,
       },
     }).eq("id", job_id);
+
+    // Post-processing: company-domain dedupe.
+    //  - For a child of a parent batch import: only run once at the parent level,
+    //    after all siblings are completed. Uses try_claim_parent_finalize() for
+    //    atomic idempotency so concurrent child completions can't double-fire.
+    //  - For a standalone import: kick off the workspace dedupe in the background
+    //    so it never blocks job completion (and never trips a statement timeout).
+    try {
+      const parentId = (job as any).parent_job_id as string | null | undefined;
+      if (parentId) {
+        const { data: claimed, error: claimErr } = await (supabase as any).rpc(
+          "try_claim_parent_finalize", { p_parent_job_id: parentId }
+        );
+        if (claimErr) {
+          console.warn(`[import] try_claim_parent_finalize warning: ${claimErr.message}`);
+        } else if (claimed === true) {
+          console.log(`[import] Won parent finalize claim for ${parentId} — invoking run-company-dedupe`);
+          // Fire-and-forget; the edge function runs in background via waitUntil.
+          void supabase.functions.invoke("run-company-dedupe", {
+            body: {
+              workspace_id: job.workspace_id,
+              parent_job_id: parentId,
+              chunk: 15,
+            },
+          }).catch((e) => console.warn(`[import] run-company-dedupe (parent) invoke failed:`, e));
+        } else {
+          console.log(`[import] Parent ${parentId} not ready to finalize yet (siblings pending or already claimed)`);
+        }
+      } else if (job.workspace_id) {
+        // Standalone import → background dedupe sweep
+        void supabase.functions.invoke("run-company-dedupe", {
+          body: { workspace_id: job.workspace_id, chunk: 15 },
+        }).catch((e) => console.warn(`[import] run-company-dedupe (standalone) invoke failed:`, e));
+      }
+    } catch (e) {
+      console.warn(`[import] post-processing dispatch failed:`, e);
+    }
 
     return new Response(JSON.stringify({
       success: true, job_id, processed_rows: processedRows, inserted_rows: insertedRows,

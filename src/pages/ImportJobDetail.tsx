@@ -19,7 +19,7 @@ import {
 import {
   ArrowLeft, FileSpreadsheet, CheckCircle2, XCircle, AlertTriangle,
   MinusCircle, Eye, ChevronLeft, ChevronRight, GitMerge, Shield,
-  RotateCcw, Loader2, Tag, Clock, Activity, Zap, ExternalLink,
+  RotateCcw, Loader2, Tag, Clock, Activity, Zap, ExternalLink, Sparkles,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -338,6 +338,17 @@ export default function ImportJobDetailPage() {
           <AlertTriangle className="h-4 w-4 flex-shrink-0" />
           <span>{verificationWarning}</span>
         </div>
+      )}
+
+      {/* Parent post-processing status (Apollo-style batching) */}
+      {isParent && (
+        <ParentPostProcessingCard
+          job={job}
+          childJobs={childJobs ?? []}
+          onResume={() => {
+            queryClient.invalidateQueries({ queryKey: ["import-job", id] });
+          }}
+        />
       )}
 
       {/* Child batches table (Apollo-style batching) */}
@@ -738,5 +749,152 @@ function RowDetailSheet({ row, open, onOpenChange }: { row: any; open: boolean; 
         </div>
       </SheetContent>
     </Sheet>
+  );
+}
+
+// ─── Parent Post-Processing Status Card ──────────────────────────────────────
+const POST_STAGE_LABEL: Record<string, string> = {
+  processing_batches: "Processing batches",
+  dedupe_companies: "Dedupe companies",
+  final_validation: "Final validation",
+  completed: "Completed",
+  failed: "Post-processing failed",
+};
+
+function ParentPostProcessingCard({ job, childJobs, onResume }: {
+  job: any;
+  childJobs: any[];
+  onResume: () => void;
+}) {
+  const total = childJobs.length;
+  const completed = childJobs.filter((c) => c.status === "completed").length;
+  const failed = childJobs.filter((c) => c.status === "failed").length;
+  const inFlight = childJobs.filter((c) => c.status === "processing" || c.status === "pending").length;
+  const allDone = total > 0 && completed === total;
+  const rawStage: string | null = job?.post_processing_stage ?? null;
+
+  // Derive stage: prefer DB column; fall back to client-side computation
+  const stage: string =
+    rawStage ??
+    (allDone ? "final_validation" : "processing_batches");
+
+  const stages: Array<{ key: string; label: string }> = [
+    { key: "processing_batches", label: "Processing batches" },
+    { key: "dedupe_companies", label: "Dedupe companies" },
+    { key: "final_validation", label: "Final validation" },
+    { key: "completed", label: "Completed" },
+  ];
+  const stageIdx = Math.max(0, stages.findIndex((s) => s.key === stage));
+  const isFailed = stage === "failed" || failed > 0;
+  const isDedupeRunning = stage === "dedupe_companies";
+
+  const handleRetryFinalize = async () => {
+    try {
+      // Reset stage so the claim helper can pick it up again, then dispatch.
+      await (supabase.from("import_jobs") as any)
+        .update({ post_processing_stage: null })
+        .eq("id", job.id);
+      await supabase.functions.invoke("run-company-dedupe", {
+        body: { workspace_id: job.workspace_id, parent_job_id: job.id, chunk: 15 },
+      });
+      toast.success("Post-processing restarted");
+      onResume();
+    } catch (e: any) {
+      toast.error(`Retry failed: ${e?.message ?? "unknown"}`);
+    }
+  };
+
+  return (
+    <Card>
+      <CardContent className="p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+            <Sparkles className="h-3.5 w-3.5" /> Parent Import Post-Processing
+          </p>
+          <Badge
+            variant="outline"
+            className={`text-xs ${
+              stage === "completed"
+                ? "bg-emerald-500/10 text-emerald-600 border-emerald-200"
+                : isFailed
+                ? "bg-destructive/10 text-destructive border-destructive/20"
+                : "bg-primary/10 text-primary border-primary/20"
+            }`}
+          >
+            {POST_STAGE_LABEL[stage] ?? stage}
+          </Badge>
+        </div>
+
+        {/* Stepper */}
+        <div className="flex items-center gap-2">
+          {stages.map((s, i) => {
+            const reached = i <= stageIdx && !isFailed;
+            const active = i === stageIdx && stage !== "completed" && !isFailed;
+            return (
+              <div key={s.key} className="flex items-center gap-2 flex-1">
+                <div
+                  className={`flex items-center gap-2 text-xs ${
+                    reached ? "text-foreground" : "text-muted-foreground"
+                  }`}
+                >
+                  {active ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                  ) : reached ? (
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                  ) : (
+                    <div className="h-3.5 w-3.5 rounded-full border border-muted-foreground/40" />
+                  )}
+                  <span className={active ? "font-medium" : ""}>{s.label}</span>
+                </div>
+                {i < stages.length - 1 && (
+                  <div
+                    className={`flex-1 h-px ${
+                      i < stageIdx ? "bg-emerald-500/40" : "bg-muted"
+                    }`}
+                  />
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Batch counters */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
+          <div className="p-2 rounded bg-muted/40">
+            <p className="text-muted-foreground">Total batches</p>
+            <p className="font-semibold text-sm">{total}</p>
+          </div>
+          <div className="p-2 rounded bg-muted/40">
+            <p className="text-muted-foreground">Completed</p>
+            <p className="font-semibold text-sm text-emerald-600">{completed}</p>
+          </div>
+          <div className="p-2 rounded bg-muted/40">
+            <p className="text-muted-foreground">In progress</p>
+            <p className="font-semibold text-sm text-primary">{inFlight}</p>
+          </div>
+          <div className="p-2 rounded bg-muted/40">
+            <p className="text-muted-foreground">Failed</p>
+            <p className="font-semibold text-sm text-destructive">{failed}</p>
+          </div>
+          <div className="p-2 rounded bg-muted/40">
+            <p className="text-muted-foreground">Company dedupe</p>
+            <p className="font-semibold text-sm">
+              {isDedupeRunning ? "Running…" : stage === "completed" ? "Done" : allDone ? "Pending" : "Waits for batches"}
+            </p>
+          </div>
+        </div>
+
+        {isFailed && (
+          <div className="flex items-center justify-between p-3 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+            <span>
+              <strong>Post-processing failed.</strong> Successful child batches will not be reprocessed — only finalization will resume.
+            </span>
+            <Button size="sm" variant="outline" className="gap-1" onClick={handleRetryFinalize}>
+              <RotateCcw className="h-3.5 w-3.5" /> Retry finalize
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

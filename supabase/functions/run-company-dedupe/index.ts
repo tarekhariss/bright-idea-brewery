@@ -23,49 +23,89 @@ Deno.serve(async (req) => {
   );
 
   const work = async () => {
-    if (parentJobId) {
-      await supabase
-        .from("import_jobs")
-        .update({ post_processing_stage: "dedupe_companies", updated_at: new Date().toISOString() })
-        .eq("id", parentJobId);
-    }
+    let failed = false;
+    let lastError: string | null = null;
 
-    let totalMerged = 0;
-    let totalGroups = 0;
-    let iterations = 0;
-    const start = Date.now();
-    const maxMs = 25 * 60 * 1000;
-
-    while (Date.now() - start < maxMs) {
-      iterations++;
-      const { data, error } = await supabase.rpc("dedupe_companies_by_domain_chunk", {
-        p_workspace_id: workspaceId,
-        p_limit: chunk,
-        p_actor: null,
-      });
-      if (error) {
-        console.error("chunk error", error);
-        await new Promise((r) => setTimeout(r, 1500));
-        continue;
+    try {
+      if (parentJobId) {
+        await supabase
+          .from("import_jobs")
+          .update({ post_processing_stage: "dedupe_companies", updated_at: new Date().toISOString() })
+          .eq("id", parentJobId);
       }
-      const rows = (data ?? []) as Array<{ merged_count: number }>;
-      if (rows.length === 0) break;
-      totalGroups += rows.length;
-      totalMerged += rows.reduce((s, r) => s + (r.merged_count ?? 0), 0);
+
+      let totalMerged = 0;
+      let totalGroups = 0;
+      let iterations = 0;
+      const start = Date.now();
+      const maxMs = 25 * 60 * 1000;
+      let consecutiveErrors = 0;
+
+      while (Date.now() - start < maxMs) {
+        iterations++;
+        const { data, error } = await supabase.rpc("dedupe_companies_by_domain_chunk", {
+          p_workspace_id: workspaceId,
+          p_limit: chunk,
+          p_actor: null,
+        });
+        if (error) {
+          console.error("chunk error", error);
+          lastError = error.message;
+          consecutiveErrors++;
+          if (consecutiveErrors >= 5) { failed = true; break; }
+          await new Promise((r) => setTimeout(r, 1500));
+          continue;
+        }
+        consecutiveErrors = 0;
+        const rows = (data ?? []) as Array<{ merged_count: number }>;
+        if (rows.length === 0) break;
+        totalGroups += rows.length;
+        totalMerged += rows.reduce((s, r) => s + (r.merged_count ?? 0), 0);
+      }
+
+      console.log("dedupe loop done", { workspaceId, iterations, totalGroups, totalMerged, elapsed_ms: Date.now() - start });
+
+      if (parentJobId && !failed) {
+        await supabase
+          .from("import_jobs")
+          .update({ post_processing_stage: "final_validation", updated_at: new Date().toISOString() })
+          .eq("id", parentJobId);
+
+        // Final validation pass: drain any stragglers
+        for (let i = 0; i < 50; i++) {
+          const { data: d } = await supabase.rpc("dedupe_companies_by_domain_chunk", {
+            p_workspace_id: workspaceId, p_limit: chunk, p_actor: null,
+          });
+          if (!Array.isArray(d) || d.length === 0) break;
+        }
+      }
+    } catch (e: any) {
+      console.error("dedupe fatal", e);
+      failed = true;
+      lastError = String(e?.message ?? e);
     }
 
     if (parentJobId) {
-      await supabase
-        .from("import_jobs")
-        .update({
-          post_processing_stage: "completed",
-          status: "completed",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", parentJobId);
+      if (failed) {
+        await supabase
+          .from("import_jobs")
+          .update({
+            post_processing_stage: "failed",
+            updated_at: new Date().toISOString(),
+            error_summary: { post_processing_error: lastError ?? "unknown" },
+          })
+          .eq("id", parentJobId);
+      } else {
+        await supabase
+          .from("import_jobs")
+          .update({
+            post_processing_stage: "completed",
+            status: "completed",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", parentJobId);
+      }
     }
-
-    console.log("dedupe finished", { workspaceId, iterations, totalGroups, totalMerged, elapsed_ms: Date.now() - start });
   };
 
   if (background) {
