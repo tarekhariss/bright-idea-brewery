@@ -174,7 +174,18 @@ import {
   ImportsExportsSettings,
 } from "./pages/settings/SettingsPages";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Don't hard-refetch every query when the user re-focuses the tab.
+      // Background data still refreshes on mount / staleTime expiry / manual refetch.
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      staleTime: 30_000,
+      retry: 1,
+    },
+  },
+});
 
 function PL({ children }: { children: React.ReactNode }) {
   return <ProtectedRoute><AppLayout>{children}</AppLayout></ProtectedRoute>;

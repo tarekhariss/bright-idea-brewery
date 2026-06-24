@@ -4,6 +4,7 @@
  */
 import { useState, useMemo, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Search, RefreshCw, Users, Building2, ChevronLeft, ChevronRight,
   ChevronsLeft, ChevronsRight, ArrowUpDown, SlidersHorizontal,
-  Bookmark, ChevronDown,
+  Bookmark, ChevronDown, RotateCcw,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -35,6 +36,7 @@ import { useSavedSearches, type SavedSearch } from "@/hooks/use-saved-searches";
 import { countActiveConditions } from "@/lib/advanced-filter-engine";
 import type { FilterDefinition } from "@/lib/advanced-filter-types";
 import { createEmptyFilterDefinition } from "@/lib/advanced-filter-types";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { CanonicalStatusBadge, ModifierChips } from "@/components/email-memory/CanonicalEmailBadges";
 
@@ -226,6 +228,38 @@ export default function ProspectSearchPage() {
     await createSearch({ name, filter_definition: state.filterDefinition });
   };
 
+  // Workspace-wide contact/company total for the diagnostic strip.
+  const { data: workspaceTotal } = useQuery({
+    queryKey: ["prospect-workspace-total", state.entityType, workspaceId],
+    enabled: !!workspaceId,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const table = state.entityType === "contact" ? "contacts" : "companies";
+      const { count } = await (supabase.from(table) as any)
+        .select("id", { count: "exact", head: true })
+        .eq("workspace_id", workspaceId);
+      return count ?? 0;
+    },
+  });
+
+  const includeListCount = (effectiveFilter.includeLists ?? []).length;
+  const excludeListCount = (effectiveFilter.excludeLists ?? []).length;
+  const savedSearchActive = false; // saved searches just hydrate filterDefinition, no separate flag
+  const hasActiveSearch = !!state.search;
+  const hasActiveUrlScope = !!(sourceFile || importTag || listIdParam);
+  const anyActiveFilter = filterCount > 0 || hasActiveSearch || hasActiveUrlScope;
+
+  // Full reset — clears advanced filters, search text, URL scope, selection, sort, page.
+  const handleResetAll = () => {
+    state.clearFilters();
+    state.setSearch("");
+    state.clearSelection();
+    state.setSortBy("updated_at");
+    state.setSortDirection("desc");
+    state.setPage(0);
+    setSearchParams({});
+  };
+
   return (
     <div className="flex h-[calc(100vh-3.5rem)] animate-fade-in">
       {/* Left filter sidebar */}
@@ -243,6 +277,39 @@ export default function ProspectSearchPage() {
 
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
+        {/* Diagnostic strip — workspace total vs filtered, with one-click reset */}
+        <div className="px-4 py-2 border-b bg-muted/30 flex items-center gap-3 flex-wrap text-xs">
+          <span className="text-muted-foreground">
+            Workspace total:{" "}
+            <strong className="text-foreground">{(workspaceTotal ?? 0).toLocaleString()}</strong>
+          </span>
+          <span className="text-muted-foreground">·</span>
+          <span className="text-muted-foreground">
+            Showing:{" "}
+            <strong className="text-foreground">
+              {searchResult.isLoading ? "…" : totalCount.toLocaleString()}
+            </strong>
+          </span>
+          {filterCount > 0 && <Badge variant="secondary" className="text-[10px]">{filterCount} filter{filterCount > 1 ? "s" : ""}</Badge>}
+          {hasActiveSearch && <Badge variant="secondary" className="text-[10px]">search: "{state.search}"</Badge>}
+          {listIdParam && <Badge variant="secondary" className="text-[10px]">list filter</Badge>}
+          {includeListCount > 0 && <Badge variant="secondary" className="text-[10px]">{includeListCount} include list{includeListCount > 1 ? "s" : ""}</Badge>}
+          {excludeListCount > 0 && <Badge variant="secondary" className="text-[10px]">{excludeListCount} exclude list{excludeListCount > 1 ? "s" : ""}</Badge>}
+          {sourceFile && <Badge variant="secondary" className="text-[10px]">source: {sourceFile}</Badge>}
+          {importTag && <Badge variant="secondary" className="text-[10px]">tag: {importTag}</Badge>}
+          <div className="ml-auto">
+            <Button
+              variant={anyActiveFilter ? "default" : "outline"}
+              size="sm"
+              className="h-7 text-xs gap-1"
+              onClick={handleResetAll}
+              disabled={!anyActiveFilter}
+            >
+              <RotateCcw className="h-3 w-3" /> Reset all filters
+            </Button>
+          </div>
+        </div>
+
         {/* Import filter banner */}
         {(sourceFile || listIdParam) && (
           <div className="px-4 py-2 bg-primary/5 border-b flex items-center justify-between">

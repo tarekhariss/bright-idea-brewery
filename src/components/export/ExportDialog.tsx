@@ -271,10 +271,14 @@ export function ExportDialog({
           {/* Column picker */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label className="text-sm">Columns ({selectedColumns.length} selected)</Label>
+              <Label className="text-sm">
+                Columns ({selectedColumns.length}/{allColumns.length} selected)
+              </Label>
               <div className="flex gap-2">
-                <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={selectAll}>All</Button>
-                <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={selectNone}>None</Button>
+                <Button variant="outline" size="sm" className="h-6 text-xs" onClick={selectAll}>
+                  Select all columns
+                </Button>
+                <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={selectNone}>Clear</Button>
               </div>
             </div>
             <ScrollArea className="h-[240px] border rounded-md p-3">
