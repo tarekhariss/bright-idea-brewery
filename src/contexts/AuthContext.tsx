@@ -58,13 +58,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
+      (event, newSession) => {
+        // Always keep the session ref fresh so requests get the new access_token
+        setSession(newSession);
         setLoading(false);
-        if (session?.user) {
-          fetchRole(session.user.id);
-          fetchWorkspaces(session.user.id);
-        } else {
+
+        // TOKEN_REFRESHED / USER_UPDATED / INITIAL_SESSION fire on tab-focus and
+        // periodic refresh. Re-fetching role + workspaces on those events causes
+        // visible app churn (loading flashes, refetch storms). Only react to
+        // actual sign-in / sign-out transitions.
+        if (event === "SIGNED_IN" && newSession?.user) {
+          fetchRole(newSession.user.id);
+          fetchWorkspaces(newSession.user.id);
+        } else if (event === "SIGNED_OUT") {
           setRole(null);
           setWorkspace(null);
           setWorkspaces([]);

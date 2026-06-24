@@ -42,42 +42,42 @@ export interface ExportTemplate {
   created_at: string;
 }
 
-export const DEFAULT_CONTACT_EXPORT_COLUMNS = [
-  "first_name", "last_name", "email", "secondary_email", "job_title",
-  "seniority_level", "department", "linkedin_url", "phone", "mobile_phone",
-  "company_name_raw", "country", "city", "state", "industry",
-];
-
-export const DEFAULT_COMPANY_EXPORT_COLUMNS = [
-  "name", "domain", "industry", "employee_count", "employee_range",
-  "revenue_range", "country", "city", "website", "linkedin_url",
-  "annual_revenue", "technologies", "funding_stage",
-];
-
 export const ALL_CONTACT_EXPORT_COLUMNS = [
   "first_name", "last_name", "email", "secondary_email", "tertiary_email", "personal_email",
+  "email_canonical_status", "email_validity_status", "email_status_source", "email_status_verified_at",
   "job_title", "seniority_level", "department", "headline", "bio", "persona",
   "linkedin_url", "twitter_url", "facebook_url", "github_url", "photo_url",
-  "phone", "work_direct_phone", "mobile_phone", "corporate_phone", "home_phone", "other_phone",
+  "phone", "phone_status", "work_direct_phone", "mobile_phone", "corporate_phone", "home_phone", "other_phone",
   "country", "city", "state", "address", "postal_code", "timezone",
-  "company_name_raw", "lifecycle_status", "outreach_status", "email_validity_status",
-  "years_experience", "skills", "languages", "source", "import_tag",
-  "data_quality_score", "owner_id", "created_at",
-  // Preserved CSV data
+  "company_name_raw", "company_id",
+  "lifecycle_status", "outreach_status",
+  "years_experience", "skills", "languages",
+  "source", "source_file", "import_tag",
+  "data_quality_score", "owner_id", "last_contacted_at",
+  "created_at", "updated_at",
+  // Preserved CSV data — always present, never silently dropped
   "custom_fields",          // contact-level unknown columns (JSON)
   "company_custom_fields",  // company-level unknown columns from joined company (JSON)
 ];
 
 export const ALL_COMPANY_EXPORT_COLUMNS = [
-  "name", "domain", "normalized_domain", "website", "industry", "employee_count", "employee_range",
+  "name", "company_name_for_emails", "domain", "normalized_domain", "website",
+  "industry", "employee_count", "employee_range",
   "revenue_range", "annual_revenue", "total_funding", "latest_funding", "latest_funding_amount",
   "funding_stage", "founded_year", "company_type", "headquarters",
-  "country", "city", "state", "linkedin_url", "facebook_url", "twitter_url",
+  "country", "city", "state", "company_city", "company_state", "company_country",
+  "linkedin_url", "company_linkedin_url", "facebook_url", "twitter_url",
   "technologies", "keywords", "specialties", "market_segments", "territories",
   "sic_code", "naics_code", "stock_ticker", "headcount_growth_pct",
-  "data_quality_score", "owner_id", "created_at",
+  "data_quality_score", "owner_id",
+  "created_at", "updated_at",
   "custom_fields", // preserved CSV columns (JSON)
 ];
+
+// Defaults now mirror ALL columns so a fresh export never silently drops fields.
+// Users can still uncheck columns or save a smaller template per export.
+export const DEFAULT_CONTACT_EXPORT_COLUMNS = [...ALL_CONTACT_EXPORT_COLUMNS];
+export const DEFAULT_COMPANY_EXPORT_COLUMNS = [...ALL_COMPANY_EXPORT_COLUMNS];
 
 /** Sanitize workspace_id: convert empty strings to null */
 function sanitizeUuid(val: string | null | undefined): string | null {
