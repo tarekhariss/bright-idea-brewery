@@ -11372,6 +11372,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      try_claim_parent_finalize: {
+        Args: { p_parent_job_id: string }
+        Returns: boolean
+      }
       user_workspace_ids: { Args: never; Returns: string[] }
       worker_heartbeat: {
         Args: {
