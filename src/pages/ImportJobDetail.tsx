@@ -410,11 +410,11 @@ export default function ImportJobDetailPage() {
         {[
           { label: "File Total", value: job.total_rows, icon: FileSpreadsheet, color: "text-foreground" },
           { label: "Staged", value: totalStaged, icon: FileSpreadsheet, color: "text-foreground" },
-          { label: "Processed", value: Math.min(job.processed_rows ?? 0, totalStaged), icon: CheckCircle2, color: "text-foreground" },
-          { label: "Inserted", value: job.inserted_rows ?? 0, icon: CheckCircle2, color: "text-emerald-600" },
-          { label: "Duplicates", value: job.duplicate_rows, icon: MinusCircle, color: "text-amber-600" },
-          { label: "Errors", value: job.error_rows, icon: XCircle, color: "text-destructive" },
-          { label: "Review", value: job.review_rows, icon: AlertTriangle, color: "text-primary" },
+          { label: "Processed", value: Math.min(displayJob.processed_rows ?? 0, totalStaged), icon: CheckCircle2, color: "text-foreground" },
+          { label: "Inserted", value: displayJob.inserted_rows ?? 0, icon: CheckCircle2, color: "text-emerald-600" },
+          { label: "Duplicates", value: displayJob.duplicate_rows, icon: MinusCircle, color: "text-amber-600" },
+          { label: "Errors", value: displayJob.error_rows, icon: XCircle, color: "text-destructive" },
+          { label: "Review", value: displayJob.review_rows, icon: AlertTriangle, color: "text-primary" },
           { label: "Verified DB", value: verifiedDbCount ?? "—", icon: Shield, color: "text-foreground" },
         ].map((s) => (
           <Card key={s.label}>
