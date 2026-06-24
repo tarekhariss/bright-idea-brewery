@@ -4493,6 +4493,7 @@ export type Database = {
           id: string
           inserted_rows: number
           parent_job_id: string | null
+          post_processing_stage: string | null
           processed_rows: number
           review_rows: number
           settings: Json | null
@@ -4519,6 +4520,7 @@ export type Database = {
           id?: string
           inserted_rows?: number
           parent_job_id?: string | null
+          post_processing_stage?: string | null
           processed_rows?: number
           review_rows?: number
           settings?: Json | null
@@ -4545,6 +4547,7 @@ export type Database = {
           id?: string
           inserted_rows?: number
           parent_job_id?: string | null
+          post_processing_stage?: string | null
           processed_rows?: number
           review_rows?: number
           settings?: Json | null
@@ -10963,6 +10966,14 @@ export type Database = {
           survivor: string
         }[]
       }
+      dedupe_companies_by_domain_chunk: {
+        Args: { p_actor?: string; p_limit?: number; p_workspace_id: string }
+        Returns: {
+          domain: string
+          merged_count: number
+          survivor: string
+        }[]
+      }
       detect_provider: {
         Args: { _banner: string; _mx: string }
         Returns: string
@@ -11019,6 +11030,10 @@ export type Database = {
         Returns: boolean
       }
       ensure_crm_pipeline: { Args: { _workspace_id: string }; Returns: string }
+      finalize_import_parent: {
+        Args: { p_parent_job_id: string }
+        Returns: Json
+      }
       generate_workspace_slug: { Args: { p_name: string }; Returns: string }
       get_daily_command_center: {
         Args: { p_workspace_id: string }
