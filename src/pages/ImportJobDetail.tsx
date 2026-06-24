@@ -155,6 +155,34 @@ export default function ImportJobDetailPage() {
     enabled: !!id,
   });
 
+  // ─── Child batches (Apollo-style batching) ────────────────────────────────
+  const { data: childJobs } = useQuery({
+    queryKey: ["import-job-children", id],
+    queryFn: async () => {
+      const { data, error } = await (supabase.from("import_jobs") as any)
+        .select("id,file_name,status,total_rows,processed_rows,inserted_rows,duplicate_rows,error_rows,review_rows,batch_index,batch_total,batch_row_start,batch_row_end,completed_at")
+        .eq("parent_job_id", id!)
+        .order("batch_index", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+    enabled: !!id,
+    refetchInterval: job && isActive(job.status) ? 5000 : false,
+  });
+
+  const isParent = (childJobs?.length ?? 0) > 0;
+
+  const handleResumeChild = useCallback(async (childId: string) => {
+    try {
+      await (supabase.from("import_jobs") as any).update({ status: "processing" }).eq("id", childId);
+      await supabase.functions.invoke("run-import-job", { body: { job_id: childId } });
+      toast.success("Batch resumed");
+      queryClient.invalidateQueries({ queryKey: ["import-job-children", id] });
+    } catch (e: any) {
+      toast.error(`Resume failed: ${e?.message ?? "unknown"}`);
+    }
+  }, [id, queryClient]);
+
   const totalPages = Math.ceil((rowsData?.total ?? 0) / PAGE_SIZE);
   const settingsObj = (job?.settings ?? {}) as Record<string, unknown>;
 
@@ -193,17 +221,33 @@ export default function ImportJobDetailPage() {
     );
   }
 
+  // Aggregate child stats when this job is a batched parent
+  const childAgg = isParent && childJobs
+    ? childJobs.reduce(
+        (acc, c) => ({
+          processed_rows: acc.processed_rows + (c.processed_rows ?? 0),
+          inserted_rows: acc.inserted_rows + (c.inserted_rows ?? 0),
+          duplicate_rows: acc.duplicate_rows + (c.duplicate_rows ?? 0),
+          error_rows: acc.error_rows + (c.error_rows ?? 0),
+          review_rows: acc.review_rows + (c.review_rows ?? 0),
+          success_rows: acc.success_rows + (c.success_rows ?? 0),
+        }),
+        { processed_rows: 0, inserted_rows: 0, duplicate_rows: 0, error_rows: 0, review_rows: 0, success_rows: 0 }
+      )
+    : null;
+  const displayJob = childAgg ? { ...job, ...childAgg } : job;
+
   const totalStaged = diagnostics.total_staged_rows ?? job.total_rows ?? 0;
-  const progressPct = totalStaged > 0 ? Math.min(100, Math.round((job.processed_rows / totalStaged) * 100)) : 0;
-  const hasErrors = (job.error_rows ?? 0) > 0;
+  const progressPct = totalStaged > 0 ? Math.min(100, Math.round((displayJob.processed_rows / totalStaged) * 100)) : 0;
+  const hasErrors = (displayJob.error_rows ?? 0) > 0;
   const importTag = settingsObj.import_tag as string | undefined;
   const importSource = settingsObj.source as string | undefined;
   const fieldReport = errorSummary.field_report as Record<string, { inserted: number; blank: number; target: string }> | undefined;
 
   // Integrity check
-  const counterSum = (job.success_rows ?? 0) + (job.error_rows ?? 0) + (job.duplicate_rows ?? 0) + (job.review_rows ?? 0);
-  const integrityOk = (job.processed_rows ?? 0) <= totalStaged && counterSum <= totalStaged;
-  const countersInflated = (job.processed_rows ?? 0) > totalStaged * 1.1;
+  const counterSum = (displayJob.success_rows ?? 0) + (displayJob.error_rows ?? 0) + (displayJob.duplicate_rows ?? 0) + (displayJob.review_rows ?? 0);
+  const integrityOk = (displayJob.processed_rows ?? 0) <= totalStaged && counterSum <= totalStaged;
+  const countersInflated = (displayJob.processed_rows ?? 0) > totalStaged * 1.1;
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
@@ -296,16 +340,81 @@ export default function ImportJobDetailPage() {
         </div>
       )}
 
+      {/* Child batches table (Apollo-style batching) */}
+      {isParent && childJobs && (
+        <Card>
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                <GitMerge className="h-3.5 w-3.5" /> Batches ({childJobs.length})
+              </p>
+              <span className="text-xs text-muted-foreground">
+                {childJobs.filter((c) => c.status === "completed").length} completed ·{" "}
+                {childJobs.filter((c) => c.status === "processing" || c.status === "pending").length} in progress ·{" "}
+                {childJobs.filter((c) => c.status === "failed").length} failed
+              </span>
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-16">#</TableHead>
+                  <TableHead>Rows</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Processed</TableHead>
+                  <TableHead className="text-right">Inserted</TableHead>
+                  <TableHead className="text-right">Dupes</TableHead>
+                  <TableHead className="text-right">Errors</TableHead>
+                  <TableHead className="w-32"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {childJobs.map((c) => (
+                  <TableRow key={c.id}>
+                    <TableCell className="font-medium">{c.batch_index}/{c.batch_total}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {c.batch_row_start?.toLocaleString()}–{c.batch_row_end?.toLocaleString()}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={`capitalize text-xs ${JOB_STATUS_STYLES[c.status] ?? ""}`}>
+                        {c.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">{(c.processed_rows ?? 0).toLocaleString()}/{(c.total_rows ?? 0).toLocaleString()}</TableCell>
+                    <TableCell className="text-right tabular-nums text-emerald-600">{(c.inserted_rows ?? 0).toLocaleString()}</TableCell>
+                    <TableCell className="text-right tabular-nums text-amber-600">{(c.duplicate_rows ?? 0).toLocaleString()}</TableCell>
+                    <TableCell className="text-right tabular-nums text-destructive">{(c.error_rows ?? 0).toLocaleString()}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => navigate(`/imports/${c.id}`)}>
+                          Open
+                        </Button>
+                        {(c.status === "failed" || c.status === "pending") && (
+                          <Button variant="outline" size="sm" className="h-7 px-2 gap-1" onClick={() => handleResumeChild(c.id)}>
+                            <RotateCcw className="h-3 w-3" /> Resume
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+
+
       {/* Summary Cards — reconciled */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
         {[
           { label: "File Total", value: job.total_rows, icon: FileSpreadsheet, color: "text-foreground" },
           { label: "Staged", value: totalStaged, icon: FileSpreadsheet, color: "text-foreground" },
-          { label: "Processed", value: Math.min(job.processed_rows ?? 0, totalStaged), icon: CheckCircle2, color: "text-foreground" },
-          { label: "Inserted", value: job.inserted_rows ?? 0, icon: CheckCircle2, color: "text-emerald-600" },
-          { label: "Duplicates", value: job.duplicate_rows, icon: MinusCircle, color: "text-amber-600" },
-          { label: "Errors", value: job.error_rows, icon: XCircle, color: "text-destructive" },
-          { label: "Review", value: job.review_rows, icon: AlertTriangle, color: "text-primary" },
+          { label: "Processed", value: Math.min(displayJob.processed_rows ?? 0, totalStaged), icon: CheckCircle2, color: "text-foreground" },
+          { label: "Inserted", value: displayJob.inserted_rows ?? 0, icon: CheckCircle2, color: "text-emerald-600" },
+          { label: "Duplicates", value: displayJob.duplicate_rows, icon: MinusCircle, color: "text-amber-600" },
+          { label: "Errors", value: displayJob.error_rows, icon: XCircle, color: "text-destructive" },
+          { label: "Review", value: displayJob.review_rows, icon: AlertTriangle, color: "text-primary" },
           { label: "Verified DB", value: verifiedDbCount ?? "—", icon: Shield, color: "text-foreground" },
         ].map((s) => (
           <Card key={s.label}>

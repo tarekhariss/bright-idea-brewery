@@ -4477,6 +4477,10 @@ export type Database = {
       }
       import_jobs: {
         Row: {
+          batch_index: number | null
+          batch_row_end: number | null
+          batch_row_start: number | null
+          batch_total: number | null
           column_mapping: Json | null
           completed_at: string | null
           created_at: string | null
@@ -4488,6 +4492,7 @@ export type Database = {
           file_url: string | null
           id: string
           inserted_rows: number
+          parent_job_id: string | null
           processed_rows: number
           review_rows: number
           settings: Json | null
@@ -4498,6 +4503,10 @@ export type Database = {
           workspace_id: string | null
         }
         Insert: {
+          batch_index?: number | null
+          batch_row_end?: number | null
+          batch_row_start?: number | null
+          batch_total?: number | null
           column_mapping?: Json | null
           completed_at?: string | null
           created_at?: string | null
@@ -4509,6 +4518,7 @@ export type Database = {
           file_url?: string | null
           id?: string
           inserted_rows?: number
+          parent_job_id?: string | null
           processed_rows?: number
           review_rows?: number
           settings?: Json | null
@@ -4519,6 +4529,10 @@ export type Database = {
           workspace_id?: string | null
         }
         Update: {
+          batch_index?: number | null
+          batch_row_end?: number | null
+          batch_row_start?: number | null
+          batch_total?: number | null
           column_mapping?: Json | null
           completed_at?: string | null
           created_at?: string | null
@@ -4530,6 +4544,7 @@ export type Database = {
           file_url?: string | null
           id?: string
           inserted_rows?: number
+          parent_job_id?: string | null
           processed_rows?: number
           review_rows?: number
           settings?: Json | null
@@ -4540,6 +4555,13 @@ export type Database = {
           workspace_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "import_jobs_parent_job_id_fkey"
+            columns: ["parent_job_id"]
+            isOneToOne: false
+            referencedRelation: "import_jobs"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "import_jobs_workspace_id_fkey"
             columns: ["workspace_id"]
@@ -11001,6 +11023,22 @@ export type Database = {
       get_daily_command_center: {
         Args: { p_workspace_id: string }
         Returns: Json
+      }
+      get_import_parent_rollup: {
+        Args: { p_parent: string }
+        Returns: {
+          completed_batches: number
+          duplicate_rows: number
+          error_rows: number
+          failed_batches: number
+          inserted_rows: number
+          pending_batches: number
+          processed_rows: number
+          processing_batches: number
+          review_rows: number
+          total_batches: number
+          total_rows: number
+        }[]
       }
       get_segment_performance: {
         Args: { p_list_id: string; p_workspace_id: string }
