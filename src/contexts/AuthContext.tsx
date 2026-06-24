@@ -57,6 +57,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [workspaceLoading, setWorkspaceLoading] = useState(true);
 
   useEffect(() => {
+    // Track which user we've already bootstrapped role+workspaces for so we
+    // don't re-fetch (and flash the full-screen loader) when gotrue re-emits
+    // SIGNED_IN on tab focus / token refresh.
+    let bootstrappedUserId: string | null = null;
+
+    const bootstrap = (userId: string) => {
+      if (bootstrappedUserId === userId) return;
+      bootstrappedUserId = userId;
+      fetchRole(userId);
+      fetchWorkspaces(userId);
+    };
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, newSession) => {
         // Always keep the session ref fresh so requests get the new access_token
@@ -66,11 +78,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // TOKEN_REFRESHED / USER_UPDATED / INITIAL_SESSION fire on tab-focus and
         // periodic refresh. Re-fetching role + workspaces on those events causes
         // visible app churn (loading flashes, refetch storms). Only react to
-        // actual sign-in / sign-out transitions.
+        // actual sign-in / sign-out transitions, and dedupe SIGNED_IN events
+        // for the same user (gotrue re-emits SIGNED_IN on tab visibility).
         if (event === "SIGNED_IN" && newSession?.user) {
-          fetchRole(newSession.user.id);
-          fetchWorkspaces(newSession.user.id);
+          bootstrap(newSession.user.id);
         } else if (event === "SIGNED_OUT") {
+          bootstrappedUserId = null;
           setRole(null);
           setWorkspace(null);
           setWorkspaces([]);
@@ -83,8 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setLoading(false);
       if (session?.user) {
-        fetchRole(session.user.id);
-        fetchWorkspaces(session.user.id);
+        bootstrap(session.user.id);
       } else {
         setWorkspaceLoading(false);
       }
@@ -92,6 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => subscription.unsubscribe();
   }, []);
+
 
   async function fetchRole(userId: string) {
     const { data } = await supabase
