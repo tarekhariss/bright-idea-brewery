@@ -340,6 +340,17 @@ export default function ImportJobDetailPage() {
         </div>
       )}
 
+      {/* Parent post-processing status (Apollo-style batching) */}
+      {isParent && (
+        <ParentPostProcessingCard
+          job={job}
+          childJobs={childJobs ?? []}
+          onResume={() => {
+            queryClient.invalidateQueries({ queryKey: ["import-job", id] });
+          }}
+        />
+      )}
+
       {/* Child batches table (Apollo-style batching) */}
       {isParent && childJobs && (
         <Card>
