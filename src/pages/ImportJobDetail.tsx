@@ -324,6 +324,71 @@ export default function ImportJobDetailPage() {
         </div>
       )}
 
+      {/* Child batches table (Apollo-style batching) */}
+      {isParent && childJobs && (
+        <Card>
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                <GitMerge className="h-3.5 w-3.5" /> Batches ({childJobs.length})
+              </p>
+              <span className="text-xs text-muted-foreground">
+                {childJobs.filter((c) => c.status === "completed").length} completed ·{" "}
+                {childJobs.filter((c) => c.status === "processing" || c.status === "pending").length} in progress ·{" "}
+                {childJobs.filter((c) => c.status === "failed").length} failed
+              </span>
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-16">#</TableHead>
+                  <TableHead>Rows</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Processed</TableHead>
+                  <TableHead className="text-right">Inserted</TableHead>
+                  <TableHead className="text-right">Dupes</TableHead>
+                  <TableHead className="text-right">Errors</TableHead>
+                  <TableHead className="w-32"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {childJobs.map((c) => (
+                  <TableRow key={c.id}>
+                    <TableCell className="font-medium">{c.batch_index}/{c.batch_total}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {c.batch_row_start?.toLocaleString()}–{c.batch_row_end?.toLocaleString()}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={`capitalize text-xs ${JOB_STATUS_STYLES[c.status] ?? ""}`}>
+                        {c.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">{(c.processed_rows ?? 0).toLocaleString()}/{(c.total_rows ?? 0).toLocaleString()}</TableCell>
+                    <TableCell className="text-right tabular-nums text-emerald-600">{(c.inserted_rows ?? 0).toLocaleString()}</TableCell>
+                    <TableCell className="text-right tabular-nums text-amber-600">{(c.duplicate_rows ?? 0).toLocaleString()}</TableCell>
+                    <TableCell className="text-right tabular-nums text-destructive">{(c.error_rows ?? 0).toLocaleString()}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => navigate(`/imports/${c.id}`)}>
+                          Open
+                        </Button>
+                        {(c.status === "failed" || c.status === "pending") && (
+                          <Button variant="outline" size="sm" className="h-7 px-2 gap-1" onClick={() => handleResumeChild(c.id)}>
+                            <RotateCcw className="h-3 w-3" /> Resume
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+
+
       {/* Summary Cards — reconciled */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
         {[
