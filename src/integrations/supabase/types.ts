@@ -11300,6 +11300,15 @@ export type Database = {
         Args: { _email: string; _event: string; _workspace_id: string }
         Returns: undefined
       }
+      record_login_attempt: {
+        Args: {
+          p_email: string
+          p_error_message?: string
+          p_success: boolean
+          p_user_agent?: string
+        }
+        Returns: undefined
+      }
       record_smtp_pattern: {
         Args: {
           _inferred: Database["public"]["Enums"]["verification_status"]
