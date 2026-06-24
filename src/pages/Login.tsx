@@ -18,11 +18,11 @@ export default function LoginPage() {
 
   const logAttempt = async (success: boolean, errorMessage?: string) => {
     try {
-      await (supabase as any).from("login_audit_log").insert({
-        email,
-        success,
-        error_message: errorMessage ?? null,
-        user_agent: navigator.userAgent,
+      await (supabase as any).rpc("record_login_attempt", {
+        p_email: email,
+        p_success: success,
+        p_error_message: errorMessage ?? null,
+        p_user_agent: navigator.userAgent,
       });
     } catch {
       // audit logging should never block login flow
