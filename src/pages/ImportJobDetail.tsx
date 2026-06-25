@@ -533,8 +533,8 @@ export default function ImportJobDetailPage() {
         </Card>
       )}
 
-      {/* Field Mapping Report */}
-      {fieldReport && Object.keys(fieldReport).length > 0 && (
+      {/* Field Mapping Report — hidden on parent batch jobs (they have no per-row stats) */}
+      {!isParent && fieldReport && Object.keys(fieldReport).length > 0 && Object.values(fieldReport).some(v => (v.inserted ?? 0) + (v.blank ?? 0) > 0) && (
         <Card>
           <CardContent className="p-4 space-y-3">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
