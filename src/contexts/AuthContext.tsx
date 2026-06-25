@@ -40,6 +40,7 @@ const AuthContext = createContext<AuthContextType>({
   workspaceId: null,
   workspace: null,
   workspaces: [],
+  accessibleWorkspaceIds: [],
   workspaceLoading: true,
   switchWorkspace: async () => {},
   createWorkspace: async () => null,
