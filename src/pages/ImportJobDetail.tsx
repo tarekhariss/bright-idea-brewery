@@ -237,7 +237,13 @@ export default function ImportJobDetailPage() {
     : null;
   const displayJob = childAgg ? { ...job, ...childAgg } : job;
 
-  const totalStaged = diagnostics.total_staged_rows ?? job.total_rows ?? 0;
+  // For parent jobs, denominator must come from child total_rows (parent itself has no staged rows).
+  const childTotalSum = isParent && childJobs
+    ? childJobs.reduce((acc, c) => acc + (c.total_rows ?? 0), 0)
+    : 0;
+  const totalStaged = isParent
+    ? (childTotalSum > 0 ? childTotalSum : (job.total_rows ?? 0))
+    : (diagnostics.total_staged_rows ?? job.total_rows ?? 0);
   const progressPct = totalStaged > 0 ? Math.min(100, Math.round((displayJob.processed_rows / totalStaged) * 100)) : 0;
   const hasErrors = (displayJob.error_rows ?? 0) > 0;
   const importTag = settingsObj.import_tag as string | undefined;
@@ -247,7 +253,14 @@ export default function ImportJobDetailPage() {
   // Integrity check
   const counterSum = (displayJob.success_rows ?? 0) + (displayJob.error_rows ?? 0) + (displayJob.duplicate_rows ?? 0) + (displayJob.review_rows ?? 0);
   const integrityOk = (displayJob.processed_rows ?? 0) <= totalStaged && counterSum <= totalStaged;
-  const countersInflated = (displayJob.processed_rows ?? 0) > totalStaged * 1.1;
+  // Only warn when we actually have a meaningful denominator AND processed clearly exceeds it.
+  // Suppress on parent jobs while children are still loading (totalStaged could be 0 momentarily).
+  const countersInflated = totalStaged > 0 && (displayJob.processed_rows ?? 0) > totalStaged * 1.1;
+
+  // Detect a parent whose child shells were never fully created (e.g. browser closed mid-upload).
+  const expectedBatches = job.batch_total ?? 0;
+  const actualChildCount = childJobs?.length ?? 0;
+  const missingChildBatches = isParent && expectedBatches > 0 ? Math.max(0, expectedBatches - actualChildCount) : 0;
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
