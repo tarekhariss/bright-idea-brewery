@@ -40,6 +40,24 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { CanonicalStatusBadge, ModifierChips } from "@/components/email-memory/CanonicalEmailBadges";
 
+// Small inline cell that resolves a workspace_id to its name using the
+// workspaces the signed-in user can access. Falls back to a short id chip.
+function WorkspaceCell({ workspaceId, sourceFile }: { workspaceId?: string | null; sourceFile?: string | null }) {
+  const { workspaces } = useAuth();
+  const name = workspaces.find((w) => w.id === workspaceId)?.name;
+  if (!workspaceId) return <span className="text-xs text-muted-foreground">—</span>;
+  return (
+    <div className="min-w-[120px]">
+      <Badge variant="outline" className="text-[10px] max-w-[140px] truncate">
+        {name ?? workspaceId.slice(0, 8)}
+      </Badge>
+      {sourceFile && (
+        <div className="text-[10px] text-muted-foreground truncate max-w-[140px] mt-0.5">{sourceFile}</div>
+      )}
+    </div>
+  );
+}
+
 // ─── Column definitions ──────────────────────────────────────
 interface ColDef {
   key: string;
