@@ -222,20 +222,20 @@ export default function DashboardPage() {
           <p className="text-sm text-muted-foreground">
             {scopeToWorkspace
               ? `Workspace overview · ${workspaces.find((w) => w.id === workspaceId)?.name ?? "Active workspace"}`
-              : "Platform-wide overview (all workspaces)"}
+              : `Account overview · All accessible data (${accessibleWorkspaceIds.length} workspace${accessibleWorkspaceIds.length === 1 ? "" : "s"})`}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {isAdmin && (
+          {workspaces.length > 1 && (
             <Button
-              variant={globalView ? "default" : "outline"}
+              variant={singleWorkspaceView ? "default" : "outline"}
               size="sm"
               className="h-8 gap-1.5 text-xs"
-              onClick={() => setGlobalView((v) => !v)}
-              title="Toggle platform-wide vs workspace-scoped view"
+              onClick={() => setSingleWorkspaceView((v) => !v)}
+              title="Toggle account-wide vs current-workspace view"
             >
               <Globe className="h-3.5 w-3.5" />
-              {globalView ? "Global view" : "Workspace view"}
+              {singleWorkspaceView ? "Workspace view" : "Account view"}
             </Button>
           )}
           {s.reviewQueueCount > 0 && (
