@@ -30,8 +30,8 @@ function Metric({ label, value, loading, active }: MetricProps) {
   );
 }
 
-function applyOwnerFilter(query: any, workspaceId: string | null, userId: string) {
-  if (workspaceId) return query.eq("workspace_id", workspaceId);
+function applyOwnerFilter(query: any, accessibleWorkspaceIds: string[], userId: string) {
+  if (accessibleWorkspaceIds.length > 0) return query.in("workspace_id", accessibleWorkspaceIds);
   return query.is("workspace_id", null).eq("created_by", userId);
 }
 
@@ -42,39 +42,41 @@ interface ProspectMetricsBarProps {
 }
 
 export function ProspectMetricsBar({ entityType, filteredCount, filteredLoading }: ProspectMetricsBarProps) {
-  const { workspaceId, user } = useAuth();
+  const { accessibleWorkspaceIds, user } = useAuth();
   const table = entityType === "contact" ? "contacts" : "companies";
   const userId = user?.id;
+  const wsKey = accessibleWorkspaceIds.slice().sort().join(",");
 
   const { data: globalCount, isLoading: globalLoading } = useQuery({
-    queryKey: ["prospect-metrics-global", table, workspaceId, userId],
+    queryKey: ["prospect-metrics-global", table, wsKey, userId],
     enabled: !!userId,
     staleTime: 30_000,
     queryFn: async () => {
       let q = (supabase as any).from(table).select("*", { count: "exact", head: true });
-      q = applyOwnerFilter(q, workspaceId, userId!);
+      q = applyOwnerFilter(q, accessibleWorkspaceIds, userId!);
       const { count } = await q;
       return count ?? 0;
     },
   });
 
   const { data: netNewCount, isLoading: netNewLoading } = useQuery({
-    queryKey: ["prospect-metrics-netnew", table, workspaceId, userId],
+    queryKey: ["prospect-metrics-netnew", table, wsKey, userId],
     enabled: !!userId,
     staleTime: 30_000,
     queryFn: async () => {
       const since = new Date();
       since.setDate(since.getDate() - 7);
       let q = (supabase as any).from(table).select("*", { count: "exact", head: true });
-      q = applyOwnerFilter(q, workspaceId, userId!);
+      q = applyOwnerFilter(q, accessibleWorkspaceIds, userId!);
       q = q.gte("created_at", since.toISOString());
       const { count } = await q;
       return count ?? 0;
     },
   });
 
+
   const { data: savedCount, isLoading: savedLoading } = useQuery({
-    queryKey: ["prospect-metrics-saved", table, workspaceId, userId],
+    queryKey: ["prospect-metrics-saved", table, wsKey, userId],
     enabled: !!userId,
     staleTime: 30_000,
     queryFn: async () => {
