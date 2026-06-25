@@ -560,6 +560,18 @@ Deno.serve(async (req: Request) => {
     job = fetchedJob;
     if (isInternal && !userId && job.created_by) userId = job.created_by;
 
+    // ─── Parent-job guard ────────────────────────────────────────────────────
+    // Parent batched jobs (parent_job_id IS NULL AND batch_total > 0) own no staged
+    // rows themselves — their counters are aggregated from children. The runner
+    // must never process or auto-complete a parent; finalization happens via
+    // try_claim_parent_finalize() when the last child completes.
+    if (!job.parent_job_id && (job.batch_total ?? 0) > 0) {
+      console.log(`[import] Skipping parent job ${job_id} — runner only processes children.`);
+      return new Response(JSON.stringify({
+        success: true, skipped: true, reason: "parent_job_no_op", job_id,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     if (!isInternal) {
       if (job.workspace_id) {
         const { data: membership } = await supabase.from("workspace_members").select("user_id").eq("user_id", userId).eq("workspace_id", job.workspace_id).maybeSingle();

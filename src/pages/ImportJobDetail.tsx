@@ -237,7 +237,13 @@ export default function ImportJobDetailPage() {
     : null;
   const displayJob = childAgg ? { ...job, ...childAgg } : job;
 
-  const totalStaged = diagnostics.total_staged_rows ?? job.total_rows ?? 0;
+  // For parent jobs, denominator must come from child total_rows (parent itself has no staged rows).
+  const childTotalSum = isParent && childJobs
+    ? childJobs.reduce((acc, c) => acc + (c.total_rows ?? 0), 0)
+    : 0;
+  const totalStaged = isParent
+    ? (childTotalSum > 0 ? childTotalSum : (job.total_rows ?? 0))
+    : (diagnostics.total_staged_rows ?? job.total_rows ?? 0);
   const progressPct = totalStaged > 0 ? Math.min(100, Math.round((displayJob.processed_rows / totalStaged) * 100)) : 0;
   const hasErrors = (displayJob.error_rows ?? 0) > 0;
   const importTag = settingsObj.import_tag as string | undefined;
@@ -247,7 +253,14 @@ export default function ImportJobDetailPage() {
   // Integrity check
   const counterSum = (displayJob.success_rows ?? 0) + (displayJob.error_rows ?? 0) + (displayJob.duplicate_rows ?? 0) + (displayJob.review_rows ?? 0);
   const integrityOk = (displayJob.processed_rows ?? 0) <= totalStaged && counterSum <= totalStaged;
-  const countersInflated = (displayJob.processed_rows ?? 0) > totalStaged * 1.1;
+  // Only warn when we actually have a meaningful denominator AND processed clearly exceeds it.
+  // Suppress on parent jobs while children are still loading (totalStaged could be 0 momentarily).
+  const countersInflated = totalStaged > 0 && (displayJob.processed_rows ?? 0) > totalStaged * 1.1;
+
+  // Detect a parent whose child shells were never fully created (e.g. browser closed mid-upload).
+  const expectedBatches = job.batch_total ?? 0;
+  const actualChildCount = childJobs?.length ?? 0;
+  const missingChildBatches = isParent && expectedBatches > 0 ? Math.max(0, expectedBatches - actualChildCount) : 0;
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
@@ -320,7 +333,19 @@ export default function ImportJobDetailPage() {
       {countersInflated && (
         <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
           <Shield className="h-4 w-4 flex-shrink-0" />
-          <span><strong>Integrity Issue:</strong> Processed count ({(job.processed_rows ?? 0).toLocaleString()}) exceeds file total ({totalStaged.toLocaleString()}). This job had a processing bug — please re-import.</span>
+          <span><strong>Integrity Issue:</strong> Processed count ({(displayJob.processed_rows ?? 0).toLocaleString()}) exceeds expected total ({totalStaged.toLocaleString()}).</span>
+        </div>
+      )}
+
+      {/* Missing child batches warning (parent only) */}
+      {missingChildBatches > 0 && (
+        <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-300/40 text-amber-700 text-sm">
+          <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+          <div>
+            <strong>Incomplete batch creation:</strong> Expected {expectedBatches} child batches, only {actualChildCount} were created.
+            The browser-side upload aborted before all batches were staged. Re-upload the remaining rows on the same list
+            (with <em>Skip exact duplicates</em> enabled) to complete the import — the dedupe will skip rows already inserted.
+          </div>
         </div>
       )}
 
@@ -508,8 +533,8 @@ export default function ImportJobDetailPage() {
         </Card>
       )}
 
-      {/* Field Mapping Report */}
-      {fieldReport && Object.keys(fieldReport).length > 0 && (
+      {/* Field Mapping Report — hidden on parent batch jobs (they have no per-row stats) */}
+      {!isParent && fieldReport && Object.keys(fieldReport).length > 0 && Object.values(fieldReport).some(v => (v.inserted ?? 0) + (v.blank ?? 0) > 0) && (
         <Card>
           <CardContent className="p-4 space-y-3">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
