@@ -122,6 +122,10 @@ const CONTACT_COLUMNS: ColDef[] = [
     render: (r) => r.lifecycle_status ? <Badge variant="secondary" className="text-[10px]">{r.lifecycle_status}</Badge> : <span className="text-xs text-muted-foreground">—</span>,
   },
   {
+    key: "workspace_id", label: "Workspace",
+    render: (r) => <WorkspaceCell workspaceId={r.workspace_id} sourceFile={r.source_file} />,
+  },
+  {
     key: "updated_at", label: "Updated", sortable: true,
     render: (r) => <span className="text-xs text-muted-foreground">{r.updated_at ? new Date(r.updated_at).toLocaleDateString() : "—"}</span>,
   },
