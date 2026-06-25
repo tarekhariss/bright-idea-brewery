@@ -144,7 +144,8 @@ export function useLinkedinWebhooks() {
     enabled: !!workspaceId,
     queryFn: async () => {
       const { data, error } = await from("linkedin_webhooks")
-        .select("*").eq("workspace_id", workspaceId).order("created_at", { ascending: false });
+        .select("id, workspace_id, name, url, events, is_active, created_by, created_at, updated_at")
+        .eq("workspace_id", workspaceId).order("created_at", { ascending: false });
       if (error) throw error;
       return data as any[];
     },
