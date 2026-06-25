@@ -455,50 +455,6 @@ export default function ImportWizardPage() {
         });
       }
 
-        for (let i = 0; i < childRows.length; i += UPLOAD_BATCH_SIZE) {
-          const batch = childRows.slice(i, i + UPLOAD_BATCH_SIZE);
-          const rawBatchRows = batch.map((raw, idx) => ({
-            import_job_id: job.id,
-            row_number: i + idx + 1,
-            raw_data: raw as unknown as Json,
-            status: "pending",
-            review_required: false,
-          }));
-          const { error: rowInsertError } = await (supabase.from("import_job_rows") as any).insert(rawBatchRows);
-          if (rowInsertError) throw rowInsertError;
-        }
-
-        await (supabase.from("import_jobs") as any)
-          .update({
-            status: "processing",
-            error_summary: {
-              diagnostics: {
-                phase: "queued_server_processing",
-                uploaded_rows: childRows.length,
-                total_rows: childRows.length,
-                batch_size: UPLOAD_BATCH_SIZE,
-                last_progress_at: new Date().toISOString(),
-              },
-            },
-          })
-          .eq("id", job.id);
-
-        void supabase.functions.invoke("run-import-job", {
-          body: { job_id: job.id },
-        }).catch(async (invokeErr) => {
-          await (supabase.from("import_jobs") as any)
-            .update({
-              status: "failed",
-              completed_at: new Date().toISOString(),
-              error_summary: {
-                reason: invokeErr?.message || "Failed to start import processor",
-                diagnostics: { phase: "failed_to_start_processor", last_progress_at: new Date().toISOString() },
-              },
-            })
-            .eq("id", job.id);
-        });
-      }
-
       toast.success(
         needsBatching
           ? `Import queued — ${batchCount} batches of up to ${BATCH_SIZE.toLocaleString()} rows`
