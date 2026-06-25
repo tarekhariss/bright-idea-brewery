@@ -21,6 +21,7 @@ interface AuthContextType {
   workspaceId: string | null;
   workspace: Workspace | null;
   workspaces: Workspace[];
+  accessibleWorkspaceIds: string[];
   workspaceLoading: boolean;
   switchWorkspace: (id: string) => Promise<void>;
   createWorkspace: (name: string) => Promise<Workspace | null>;
