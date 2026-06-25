@@ -235,6 +235,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       workspaceId: workspace?.id ?? null,
       workspace,
       workspaces,
+      accessibleWorkspaceIds: workspaces.map((w) => w.id),
       workspaceLoading,
       switchWorkspace,
       createWorkspace,
