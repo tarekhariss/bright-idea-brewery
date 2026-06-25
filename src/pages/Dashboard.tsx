@@ -51,12 +51,14 @@ const EMPTY: DashboardStats = {
 
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const { workspaceId, workspaces, isAdmin } = useAuth();
+  const { workspaceId, workspaces, accessibleWorkspaceIds, isAdmin } = useAuth();
   const [s, setS] = useState<DashboardStats>(EMPTY);
   const [loading, setLoading] = useState(true);
-  const [globalView, setGlobalView] = useState(false);
+  // "Account-wide" is now the default. Admins can flip to a single-workspace
+  // view for a focused breakdown.
+  const [singleWorkspaceView, setSingleWorkspaceView] = useState(false);
   const hasWorkspace = !!workspaceId || workspaces.length > 0;
-  const scopeToWorkspace = !!workspaceId && !(isAdmin && globalView);
+  const scopeToWorkspace = singleWorkspaceView && !!workspaceId;
 
   useEffect(() => {
     if (!hasWorkspace) {
@@ -66,11 +68,16 @@ export default function DashboardPage() {
     }
     setLoading(true);
     fetchAll();
-    // re-fetch when workspace or global toggle changes
-  }, [hasWorkspace, workspaceId, globalView]);
+    // re-fetch when the set of accessible workspaces or scope toggle changes
+  }, [hasWorkspace, workspaceId, singleWorkspaceView, accessibleWorkspaceIds.join(",")]);
 
-  // Apply workspace scoping to a query (chainable). Pass null to skip.
-  const scope = (q: any) => (scopeToWorkspace ? q.eq("workspace_id", workspaceId) : q);
+  // Account-wide scoping by default: include every workspace the user can
+  // access. Falls back to single workspace when the admin toggle is on.
+  const scope = (q: any) => {
+    if (scopeToWorkspace) return q.eq("workspace_id", workspaceId);
+    if (accessibleWorkspaceIds.length > 0) return q.in("workspace_id", accessibleWorkspaceIds);
+    return q;
+  };
 
   async function fetchAll() {
     const now = new Date();
