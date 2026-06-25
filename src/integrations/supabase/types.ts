@@ -10942,6 +10942,19 @@ export type Database = {
         Args: { _count: number; _workspace_id: string }
         Returns: Json
       }
+      create_import_children_atomic: {
+        Args: {
+          p_batch_size?: number
+          p_parent_id: string
+          p_total_rows: number
+        }
+        Returns: {
+          batch_index: number
+          batch_row_end: number
+          batch_row_start: number
+          child_id: string
+        }[]
+      }
       create_workspace_for_user: {
         Args: { p_name: string; p_user_id: string }
         Returns: Json
@@ -11038,6 +11051,18 @@ export type Database = {
       get_daily_command_center: {
         Args: { p_workspace_id: string }
         Returns: Json
+      }
+      get_import_parent_integrity: {
+        Args: { p_parent_id: string }
+        Returns: {
+          actual_children: number
+          completed_children: number
+          expected_children: number
+          failed_children: number
+          total_rows_expected: number
+          total_rows_processed: number
+          total_rows_staged: number
+        }[]
       }
       get_import_parent_rollup: {
         Args: { p_parent: string }
