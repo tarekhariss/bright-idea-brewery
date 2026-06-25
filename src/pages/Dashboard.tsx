@@ -51,12 +51,14 @@ const EMPTY: DashboardStats = {
 
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const { workspaceId, workspaces, isAdmin } = useAuth();
+  const { workspaceId, workspaces, accessibleWorkspaceIds, isAdmin } = useAuth();
   const [s, setS] = useState<DashboardStats>(EMPTY);
   const [loading, setLoading] = useState(true);
-  const [globalView, setGlobalView] = useState(false);
+  // "Account-wide" is now the default. Admins can flip to a single-workspace
+  // view for a focused breakdown.
+  const [singleWorkspaceView, setSingleWorkspaceView] = useState(false);
   const hasWorkspace = !!workspaceId || workspaces.length > 0;
-  const scopeToWorkspace = !!workspaceId && !(isAdmin && globalView);
+  const scopeToWorkspace = singleWorkspaceView && !!workspaceId;
 
   useEffect(() => {
     if (!hasWorkspace) {
@@ -66,11 +68,16 @@ export default function DashboardPage() {
     }
     setLoading(true);
     fetchAll();
-    // re-fetch when workspace or global toggle changes
-  }, [hasWorkspace, workspaceId, globalView]);
+    // re-fetch when the set of accessible workspaces or scope toggle changes
+  }, [hasWorkspace, workspaceId, singleWorkspaceView, accessibleWorkspaceIds.join(",")]);
 
-  // Apply workspace scoping to a query (chainable). Pass null to skip.
-  const scope = (q: any) => (scopeToWorkspace ? q.eq("workspace_id", workspaceId) : q);
+  // Account-wide scoping by default: include every workspace the user can
+  // access. Falls back to single workspace when the admin toggle is on.
+  const scope = (q: any) => {
+    if (scopeToWorkspace) return q.eq("workspace_id", workspaceId);
+    if (accessibleWorkspaceIds.length > 0) return q.in("workspace_id", accessibleWorkspaceIds);
+    return q;
+  };
 
   async function fetchAll() {
     const now = new Date();
@@ -215,20 +222,20 @@ export default function DashboardPage() {
           <p className="text-sm text-muted-foreground">
             {scopeToWorkspace
               ? `Workspace overview · ${workspaces.find((w) => w.id === workspaceId)?.name ?? "Active workspace"}`
-              : "Platform-wide overview (all workspaces)"}
+              : `Account overview · All accessible data (${accessibleWorkspaceIds.length} workspace${accessibleWorkspaceIds.length === 1 ? "" : "s"})`}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {isAdmin && (
+          {workspaces.length > 1 && (
             <Button
-              variant={globalView ? "default" : "outline"}
+              variant={singleWorkspaceView ? "default" : "outline"}
               size="sm"
               className="h-8 gap-1.5 text-xs"
-              onClick={() => setGlobalView((v) => !v)}
-              title="Toggle platform-wide vs workspace-scoped view"
+              onClick={() => setSingleWorkspaceView((v) => !v)}
+              title="Toggle account-wide vs current-workspace view"
             >
               <Globe className="h-3.5 w-3.5" />
-              {globalView ? "Global view" : "Workspace view"}
+              {singleWorkspaceView ? "Workspace view" : "Account view"}
             </Button>
           )}
           {s.reviewQueueCount > 0 && (

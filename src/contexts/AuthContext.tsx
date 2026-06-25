@@ -21,6 +21,7 @@ interface AuthContextType {
   workspaceId: string | null;
   workspace: Workspace | null;
   workspaces: Workspace[];
+  accessibleWorkspaceIds: string[];
   workspaceLoading: boolean;
   switchWorkspace: (id: string) => Promise<void>;
   createWorkspace: (name: string) => Promise<Workspace | null>;
@@ -39,6 +40,7 @@ const AuthContext = createContext<AuthContextType>({
   workspaceId: null,
   workspace: null,
   workspaces: [],
+  accessibleWorkspaceIds: [],
   workspaceLoading: true,
   switchWorkspace: async () => {},
   createWorkspace: async () => null,
@@ -233,6 +235,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       workspaceId: workspace?.id ?? null,
       workspace,
       workspaces,
+      accessibleWorkspaceIds: workspaces.map((w) => w.id),
       workspaceLoading,
       switchWorkspace,
       createWorkspace,

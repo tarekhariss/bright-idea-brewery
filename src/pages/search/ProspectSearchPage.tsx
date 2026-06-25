@@ -40,6 +40,24 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { CanonicalStatusBadge, ModifierChips } from "@/components/email-memory/CanonicalEmailBadges";
 
+// Small inline cell that resolves a workspace_id to its name using the
+// workspaces the signed-in user can access. Falls back to a short id chip.
+function WorkspaceCell({ workspaceId, sourceFile }: { workspaceId?: string | null; sourceFile?: string | null }) {
+  const { workspaces } = useAuth();
+  const name = workspaces.find((w) => w.id === workspaceId)?.name;
+  if (!workspaceId) return <span className="text-xs text-muted-foreground">—</span>;
+  return (
+    <div className="min-w-[120px]">
+      <Badge variant="outline" className="text-[10px] max-w-[140px] truncate">
+        {name ?? workspaceId.slice(0, 8)}
+      </Badge>
+      {sourceFile && (
+        <div className="text-[10px] text-muted-foreground truncate max-w-[140px] mt-0.5">{sourceFile}</div>
+      )}
+    </div>
+  );
+}
+
 // ─── Column definitions ──────────────────────────────────────
 interface ColDef {
   key: string;
@@ -122,6 +140,10 @@ const CONTACT_COLUMNS: ColDef[] = [
     render: (r) => r.lifecycle_status ? <Badge variant="secondary" className="text-[10px]">{r.lifecycle_status}</Badge> : <span className="text-xs text-muted-foreground">—</span>,
   },
   {
+    key: "workspace_id", label: "Workspace",
+    render: (r) => <WorkspaceCell workspaceId={r.workspace_id} sourceFile={r.source_file} />,
+  },
+  {
     key: "updated_at", label: "Updated", sortable: true,
     render: (r) => <span className="text-xs text-muted-foreground">{r.updated_at ? new Date(r.updated_at).toLocaleDateString() : "—"}</span>,
   },
@@ -178,7 +200,7 @@ export default function ProspectSearchPage() {
   const importTag = searchParams.get("import_tag") || undefined;
   const listIdParam = searchParams.get("list_id") || undefined;
 
-  const { workspaceId: authWorkspaceId } = useAuth();
+  const { workspaceId: authWorkspaceId, accessibleWorkspaceIds } = useAuth();
   const workspaceId = authWorkspaceId || "";
 
   const { searches, create: createSearch, isCreating } = useSavedSearches(state.entityType, workspaceId);
@@ -228,16 +250,16 @@ export default function ProspectSearchPage() {
     await createSearch({ name, filter_definition: state.filterDefinition });
   };
 
-  // Workspace-wide contact/company total for the diagnostic strip.
+  // Account-wide contact/company total for the diagnostic strip.
   const { data: workspaceTotal } = useQuery({
-    queryKey: ["prospect-workspace-total", state.entityType, workspaceId],
-    enabled: !!workspaceId,
+    queryKey: ["prospect-account-total", state.entityType, accessibleWorkspaceIds.slice().sort().join(",")],
+    enabled: accessibleWorkspaceIds.length > 0,
     staleTime: 60_000,
     queryFn: async () => {
       const table = state.entityType === "contact" ? "contacts" : "companies";
       const { count } = await (supabase.from(table) as any)
         .select("id", { count: "exact", head: true })
-        .eq("workspace_id", workspaceId);
+        .in("workspace_id", accessibleWorkspaceIds);
       return count ?? 0;
     },
   });

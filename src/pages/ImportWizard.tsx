@@ -318,6 +318,9 @@ export default function ImportWizardPage() {
       };
 
       let parentJobId: string | null = null;
+      type ChildShell = { child_id: string; batch_index: number; batch_row_start: number; batch_row_end: number };
+      let childShells: ChildShell[] = [];
+
       if (needsBatching) {
         const { data: parent, error: parentErr } = await (supabase.from("import_jobs") as any)
           .insert({
@@ -334,7 +337,7 @@ export default function ImportWizardPage() {
             batch_total: batchCount,
             error_summary: {
               diagnostics: {
-                phase: "parent_batching",
+                phase: "creating_child_shells",
                 total_rows: allRows.length,
                 batch_size: BATCH_SIZE,
                 batch_total: batchCount,
@@ -348,7 +351,24 @@ export default function ImportWizardPage() {
         if (parentErr || !parent) throw new Error(parentErr?.message || "Failed to create parent job");
         parentJobId = parent.id;
         createdJobIds.push(parent.id);
-        toast.info(`Large file detected — splitting into ${batchCount} batches of ${BATCH_SIZE.toLocaleString()} rows.`);
+
+        // ─── Atomic child creation ──────────────────────────────────────
+        // Create EVERY child shell up front, inside a single RPC/transaction.
+        // This prevents the "only 2 of 5 batches created" failure mode where
+        // a browser interruption left the parent with missing children.
+        const { data: shells, error: rpcErr } = await (supabase as any).rpc(
+          "create_import_children_atomic",
+          { p_parent_id: parent.id, p_total_rows: allRows.length, p_batch_size: BATCH_SIZE }
+        );
+        if (rpcErr || !shells || shells.length !== batchCount) {
+          throw new Error(
+            rpcErr?.message ||
+            `Atomic child creation failed: expected ${batchCount} children, got ${shells?.length ?? 0}`
+          );
+        }
+        childShells = shells as ChildShell[];
+        for (const c of childShells) createdJobIds.push(c.child_id);
+        toast.info(`Large file detected — created ${batchCount} child batches of ${BATCH_SIZE.toLocaleString()} rows.`);
       }
 
       const UPLOAD_BATCH_SIZE = 2000;
@@ -357,47 +377,44 @@ export default function ImportWizardPage() {
         const rowEnd = Math.min(rowStart + BATCH_SIZE, allRows.length);
         const childRows = allRows.slice(rowStart, rowEnd);
 
-        const childPayload: Record<string, unknown> = {
-          ...baseJobPayload,
-          file_name: needsBatching ? `${file.name} [batch ${b + 1}/${batchCount}]` : file.name,
-          status: "pending" as const,
-          total_rows: childRows.length,
-          processed_rows: 0,
-          success_rows: 0,
-          inserted_rows: 0,
-          error_rows: 0,
-          duplicate_rows: 0,
-          review_rows: 0,
-          error_summary: {
-            diagnostics: {
-              phase: "uploading_rows",
-              uploaded_rows: 0,
-              total_rows: childRows.length,
-              batch_size: UPLOAD_BATCH_SIZE,
-              last_progress_at: new Date().toISOString(),
-              recent_batches: [],
-            },
-          } as unknown as Json,
-        };
-        if (parentJobId) {
-          childPayload.parent_job_id = parentJobId;
-          childPayload.batch_index = b + 1;
-          childPayload.batch_total = batchCount;
-          childPayload.batch_row_start = rowStart + 1;
-          childPayload.batch_row_end = rowEnd;
+        let childJobId: string;
+        if (needsBatching) {
+          childJobId = childShells[b].child_id;
+        } else {
+          // Single-job path (≤10K rows): create the lone job inline.
+          const childPayload: Record<string, unknown> = {
+            ...baseJobPayload,
+            file_name: file.name,
+            status: "pending" as const,
+            total_rows: childRows.length,
+            processed_rows: 0,
+            success_rows: 0,
+            inserted_rows: 0,
+            error_rows: 0,
+            duplicate_rows: 0,
+            review_rows: 0,
+            error_summary: {
+              diagnostics: {
+                phase: "uploading_rows",
+                uploaded_rows: 0,
+                total_rows: childRows.length,
+                batch_size: UPLOAD_BATCH_SIZE,
+                last_progress_at: new Date().toISOString(),
+                recent_batches: [],
+              },
+            } as unknown as Json,
+          };
+          const { data: job, error: jobErr } = await (supabase.from("import_jobs") as any)
+            .insert(childPayload).select().single();
+          if (jobErr || !job) throw new Error(jobErr?.message || "Failed to create import job");
+          childJobId = job.id;
+          createdJobIds.push(job.id);
         }
-
-        const { data: job, error: jobErr } = await (supabase.from("import_jobs") as any)
-          .insert(childPayload)
-          .select()
-          .single();
-        if (jobErr || !job) throw new Error(jobErr?.message || "Failed to create import job");
-        createdJobIds.push(job.id);
 
         for (let i = 0; i < childRows.length; i += UPLOAD_BATCH_SIZE) {
           const batch = childRows.slice(i, i + UPLOAD_BATCH_SIZE);
           const rawBatchRows = batch.map((raw, idx) => ({
-            import_job_id: job.id,
+            import_job_id: childJobId,
             row_number: i + idx + 1,
             raw_data: raw as unknown as Json,
             status: "pending",
@@ -420,10 +437,10 @@ export default function ImportWizardPage() {
               },
             },
           })
-          .eq("id", job.id);
+          .eq("id", childJobId);
 
         void supabase.functions.invoke("run-import-job", {
-          body: { job_id: job.id },
+          body: { job_id: childJobId },
         }).catch(async (invokeErr) => {
           await (supabase.from("import_jobs") as any)
             .update({
@@ -434,7 +451,7 @@ export default function ImportWizardPage() {
                 diagnostics: { phase: "failed_to_start_processor", last_progress_at: new Date().toISOString() },
               },
             })
-            .eq("id", job.id);
+            .eq("id", childJobId);
         });
       }
 
