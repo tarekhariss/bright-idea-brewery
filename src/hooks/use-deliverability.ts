@@ -91,6 +91,11 @@ export function useDeleteDomain() {
 }
 
 // ── Mailboxes ──
+// Sensitive credential columns (smtp_password_encrypted, oauth_access_token,
+// oauth_refresh_token) are NOT granted to authenticated clients at the DB
+// level. All client SELECTs must therefore enumerate safe columns explicitly.
+const MAILBOX_SAFE_COLUMNS =
+  "id,email,display_name,domain_id,provider_type,smtp_host,smtp_port,smtp_username,smtp_secure,imap_host,imap_port,imap_username,imap_secure,connection_status,warmup_enabled,warmup_progress,sending_health,daily_sending_limit,emails_sent_today,last_checked_at,notes,owner_id,created_by,created_at,updated_at,provider_id,oauth_expires_at,workspace_id,first_name,last_name,sender_name,signature,tags,reply_to_email,daily_campaign_limit,min_wait_seconds,slow_ramp_enabled,daily_inbox_placement_test_limit,tracking_domain,tracking_subdomain,tracking_cname_target,tracking_cname_verified,tracking_ssl_verified,tracking_last_checked_at,warmup_started_at,last_send_at,next_send_eligible_at";
 
 export function useMailboxes() {
   const { workspaceId } = useAuth();
@@ -99,7 +104,7 @@ export function useMailboxes() {
     enabled: !!workspaceId,
     queryFn: async () => {
       const { data, error } = await from("mailboxes")
-        .select("*, sending_domains(id, domain_name, status)")
+        .select(`${MAILBOX_SAFE_COLUMNS}, sending_domains(id, domain_name, status)`)
         .eq("workspace_id", workspaceId)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -113,7 +118,9 @@ export function useMailbox(id: string | null) {
     queryKey: ["mailboxes", id],
     enabled: !!id,
     queryFn: async () => {
-      const { data, error } = await from("mailboxes").select("*, sending_domains(id, domain_name, status)").eq("id", id!).single();
+      const { data, error } = await from("mailboxes")
+        .select(`${MAILBOX_SAFE_COLUMNS}, sending_domains(id, domain_name, status)`)
+        .eq("id", id!).single();
       if (error) throw error;
       return data as Mailbox & { sending_domains: { id: string; domain_name: string; status: string } | null };
     },
@@ -127,7 +134,7 @@ export function useCreateMailbox() {
     mutationFn: async (vals: Omit<MailboxInsert, "owner_id" | "created_by" | "workspace_id">) => {
       const { data, error } = await from("mailboxes")
         .insert({ ...vals, owner_id: user?.id, created_by: user?.id, workspace_id: workspaceId })
-        .select().single();
+        .select(MAILBOX_SAFE_COLUMNS).single();
       if (error) throw error;
       await from("system_activity_log").insert({ action: "mailbox_created", entity_type: "mailbox", entity_id: data.id, performed_by: user?.id, details: { email: vals.email, provider_type: vals.provider_type } });
       return data as Mailbox;
@@ -142,7 +149,9 @@ export function useUpdateMailbox() {
   const { user } = useAuth();
   return useMutation({
     mutationFn: async ({ id, ...vals }: { id: string } & MailboxUpdate) => {
-      const { data, error } = await from("mailboxes").update({ ...vals, updated_at: new Date().toISOString() }).eq("id", id).select().single();
+      const { data, error } = await from("mailboxes")
+        .update({ ...vals, updated_at: new Date().toISOString() })
+        .eq("id", id).select(MAILBOX_SAFE_COLUMNS).single();
       if (error) throw error;
       await from("system_activity_log").insert({ action: "mailbox_updated", entity_type: "mailbox", entity_id: id, performed_by: user?.id, details: vals });
       return data as Mailbox;
