@@ -36,7 +36,7 @@ export interface ProspectSearchResult<T = any> {
 }
 
 export function useProspectSearch(options: ProspectSearchOptions) {
-  const { user, workspaceId } = useAuth();
+  const { user, workspaceId, accessibleWorkspaceIds } = useAuth();
   const debouncedSearch = useDebounce(options.search, 300);
 
   return useQuery({
@@ -49,7 +49,11 @@ export function useProspectSearch(options: ProspectSearchOptions) {
       options.sortDirection,
       options.page,
       options.pageSize,
-      workspaceId,
+      // Account-wide: key off the full set of accessible workspaces, not the
+      // currently-selected one. This guarantees results refresh when the user
+      // gains/loses workspace access but stay stable while switching the
+      // "active" workspace for write operations.
+      accessibleWorkspaceIds.slice().sort().join(","),
       options.sourceFile,
       options.importTag,
     ],
@@ -61,10 +65,6 @@ export function useProspectSearch(options: ProspectSearchOptions) {
 
       const listIds = await resolveListFilters(options.filterDefinition);
 
-      // When a contact search uses a company-level filter, force an inner join on
-      // the companies relationship so the parent contact rows are actually filtered
-      // (PostgREST embedded filters otherwise leave the parent row in the result set
-      // with `companies: null`).
       const needsCompanyJoin = options.entityType === "contact" && hasCompanyTableFilter(options.filterDefinition);
       const companyEmbed = needsCompanyJoin
         ? "companies!inner(name,industry,employee_count,employee_range,domain,website,annual_revenue,revenue_range,funding_stage,headquarters,company_city,company_state,company_country,company_linkedin_url,keywords,custom_fields,company_name_for_emails)"
@@ -75,7 +75,7 @@ export function useProspectSearch(options: ProspectSearchOptions) {
         options.entityType === "contact" && needsCompanyJoin ? `id, ${companyEmbed}` : "*",
         { count: "exact", head: true }
       );
-      countQuery = applyOwnershipFilter(countQuery, workspaceId, user!.id);
+      countQuery = applyAccountScope(countQuery, accessibleWorkspaceIds, user!.id);
       countQuery = applySearchFilter(countQuery, options.entityType, debouncedSearch);
       countQuery = applyAdvancedFilters(countQuery, options.filterDefinition, options.entityType);
       countQuery = applyListIds(countQuery, listIds);
@@ -88,13 +88,13 @@ export function useProspectSearch(options: ProspectSearchOptions) {
       let dataQuery = db()
         .from(table)
         .select(options.entityType === "contact"
-          ? `id,first_name,last_name,email,job_title,company_name_raw,company_id,email_validity_status,phone_status,phone,mobile_phone,corporate_phone,work_direct_phone,country,city,state,lifecycle_status,outreach_status,owner_id,linkedin_url,seniority_level,department,source,data_quality_score,last_contacted_at,created_at,updated_at,headline,persona,address,postal_code,timezone,bio,skills,languages,years_experience,current_role_start_date,personal_email,secondary_email,email_canonical_status,email_is_role_based,email_is_disposable,email_is_free_email,email_is_catch_all,email_is_syntax_invalid,email_is_mx_missing,email_is_temporary_failure,email_status_source,email_status_verified_at,email_status_updated_at,${companyEmbed}`
-          : "id,name,domain,website,industry,employee_count,employee_range,revenue_range,annual_revenue,funding_stage,total_funding,country,city,state,headquarters,technologies,keywords,owner_id,data_quality_score,linkedin_url,created_at,updated_at,description,founded_year,company_type,stock_ticker,facebook_url,twitter_url,company_city,company_state,company_country,company_linkedin_url,company_name_for_emails,custom_fields,normalized_domain"
+          ? `id,workspace_id,first_name,last_name,email,job_title,company_name_raw,company_id,email_validity_status,phone_status,phone,mobile_phone,corporate_phone,work_direct_phone,country,city,state,lifecycle_status,outreach_status,owner_id,linkedin_url,seniority_level,department,source,source_file,import_tag,data_quality_score,last_contacted_at,created_at,updated_at,headline,persona,address,postal_code,timezone,bio,skills,languages,years_experience,current_role_start_date,personal_email,secondary_email,email_canonical_status,email_is_role_based,email_is_disposable,email_is_free_email,email_is_catch_all,email_is_syntax_invalid,email_is_mx_missing,email_is_temporary_failure,email_status_source,email_status_verified_at,email_status_updated_at,${companyEmbed}`
+          : "id,workspace_id,name,domain,website,industry,employee_count,employee_range,revenue_range,annual_revenue,funding_stage,total_funding,country,city,state,headquarters,technologies,keywords,owner_id,data_quality_score,linkedin_url,created_at,updated_at,description,founded_year,company_type,stock_ticker,facebook_url,twitter_url,company_city,company_state,company_country,company_linkedin_url,company_name_for_emails,custom_fields,normalized_domain"
         )
         .range(from, to)
         .order(options.sortBy, { ascending: options.sortDirection === "asc" });
 
-      dataQuery = applyOwnershipFilter(dataQuery, workspaceId, user!.id);
+      dataQuery = applyAccountScope(dataQuery, accessibleWorkspaceIds, user!.id);
       dataQuery = applySearchFilter(dataQuery, options.entityType, debouncedSearch);
       dataQuery = applyAdvancedFilters(dataQuery, options.filterDefinition, options.entityType);
       dataQuery = applyListIds(dataQuery, listIds);
@@ -115,10 +115,14 @@ export function useProspectSearch(options: ProspectSearchOptions) {
   });
 }
 
-/** Apply workspace_id filter if available, otherwise filter by created_by */
-function applyOwnershipFilter(query: any, workspaceId: string | null, userId: string) {
-  if (workspaceId) {
-    return query.eq("workspace_id", workspaceId);
+/**
+ * Account-wide scope: show records from every workspace the signed-in user
+ * can access. Falls back to created_by when the user has no workspace yet
+ * (legacy/null-workspace personal records).
+ */
+function applyAccountScope(query: any, accessibleWorkspaceIds: string[], userId: string) {
+  if (accessibleWorkspaceIds.length > 0) {
+    return query.in("workspace_id", accessibleWorkspaceIds);
   }
   return query.is("workspace_id", null).eq("created_by", userId);
 }
