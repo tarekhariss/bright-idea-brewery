@@ -76,7 +76,7 @@ export function ProspectMetricsBar({ entityType, filteredCount, filteredLoading 
 
 
   const { data: savedCount, isLoading: savedLoading } = useQuery({
-    queryKey: ["prospect-metrics-saved", table, workspaceId, userId],
+    queryKey: ["prospect-metrics-saved", table, wsKey, userId],
     enabled: !!userId,
     staleTime: 30_000,
     queryFn: async () => {
