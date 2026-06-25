@@ -250,16 +250,16 @@ export default function ProspectSearchPage() {
     await createSearch({ name, filter_definition: state.filterDefinition });
   };
 
-  // Workspace-wide contact/company total for the diagnostic strip.
+  // Account-wide contact/company total for the diagnostic strip.
   const { data: workspaceTotal } = useQuery({
-    queryKey: ["prospect-workspace-total", state.entityType, workspaceId],
-    enabled: !!workspaceId,
+    queryKey: ["prospect-account-total", state.entityType, accessibleWorkspaceIds.slice().sort().join(",")],
+    enabled: accessibleWorkspaceIds.length > 0,
     staleTime: 60_000,
     queryFn: async () => {
       const table = state.entityType === "contact" ? "contacts" : "companies";
       const { count } = await (supabase.from(table) as any)
         .select("id", { count: "exact", head: true })
-        .eq("workspace_id", workspaceId);
+        .in("workspace_id", accessibleWorkspaceIds);
       return count ?? 0;
     },
   });
