@@ -200,7 +200,7 @@ export default function ProspectSearchPage() {
   const importTag = searchParams.get("import_tag") || undefined;
   const listIdParam = searchParams.get("list_id") || undefined;
 
-  const { workspaceId: authWorkspaceId } = useAuth();
+  const { workspaceId: authWorkspaceId, accessibleWorkspaceIds } = useAuth();
   const workspaceId = authWorkspaceId || "";
 
   const { searches, create: createSearch, isCreating } = useSavedSearches(state.entityType, workspaceId);
