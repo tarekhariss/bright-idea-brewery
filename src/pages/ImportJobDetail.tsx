@@ -333,7 +333,19 @@ export default function ImportJobDetailPage() {
       {countersInflated && (
         <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
           <Shield className="h-4 w-4 flex-shrink-0" />
-          <span><strong>Integrity Issue:</strong> Processed count ({(job.processed_rows ?? 0).toLocaleString()}) exceeds file total ({totalStaged.toLocaleString()}). This job had a processing bug — please re-import.</span>
+          <span><strong>Integrity Issue:</strong> Processed count ({(displayJob.processed_rows ?? 0).toLocaleString()}) exceeds expected total ({totalStaged.toLocaleString()}).</span>
+        </div>
+      )}
+
+      {/* Missing child batches warning (parent only) */}
+      {missingChildBatches > 0 && (
+        <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-300/40 text-amber-700 text-sm">
+          <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+          <div>
+            <strong>Incomplete batch creation:</strong> Expected {expectedBatches} child batches, only {actualChildCount} were created.
+            The browser-side upload aborted before all batches were staged. Re-upload the remaining rows on the same list
+            (with <em>Skip exact duplicates</em> enabled) to complete the import — the dedupe will skip rows already inserted.
+          </div>
         </div>
       )}
 
