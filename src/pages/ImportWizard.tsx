@@ -97,7 +97,7 @@ const STEPS = [
 
 export default function ImportWizardPage() {
   const navigate = useNavigate();
-  const { user, workspaceId } = useAuth();
+  const { user, workspaceId, accessibleWorkspaceIds } = useAuth();
   const searchParams = new URLSearchParams(window.location.search);
   const prefillListId = searchParams.get("list_id") ?? undefined;
   const [step, setStep] = useState(1);
@@ -221,7 +221,11 @@ export default function ImportWizardPage() {
         return out;
       };
 
-      const existingContacts = workspaceId
+      const workspaceScope = accessibleWorkspaceIds.length > 0
+        ? accessibleWorkspaceIds
+        : (workspaceId ? [workspaceId] : []);
+
+      const existingContacts = workspaceScope.length > 0
         ? await fetchAll<ExistingContact>(
             () =>
               supabase
@@ -229,18 +233,18 @@ export default function ImportWizardPage() {
                 .select(
                   "id, email, secondary_email, tertiary_email, linkedin_url, external_contact_id, first_name, last_name, company_name_raw, phone",
                 )
-                .eq("workspace_id", workspaceId)
+                .in("workspace_id", workspaceScope)
                 .order("id"),
             "contacts",
           )
         : [];
 
-      const existingCompanies = workspaceId
+      const existingCompanies = workspaceScope.length > 0
         ? await fetchAll<ExistingCompany>(
             () =>
               (supabase.from("companies") as any)
                 .select("id, domain, normalized_name, external_account_id, website")
-                .eq("workspace_id", workspaceId)
+                .in("workspace_id", workspaceScope)
                 .order("id"),
             "companies",
           )
@@ -248,7 +252,7 @@ export default function ImportWizardPage() {
 
 
       setDupProgress(
-        `Matching ${parsed.rows.length.toLocaleString()} rows against ${existingContacts.length.toLocaleString()} contacts…`,
+        `Matching ${parsed.rows.length.toLocaleString()} rows against ${existingContacts.length.toLocaleString()} account contacts…`,
       );
 
       const contactIdx = buildContactIndex(existingContacts);
@@ -267,7 +271,7 @@ export default function ImportWizardPage() {
     } finally {
       setDupLoading(false);
     }
-  }, [parsed, columnMapping, workspaceId]);
+  }, [parsed, columnMapping, workspaceId, accessibleWorkspaceIds]);
 
   // ─── Step 5: Confirm and create ───────────────────────────────────────────────
 
@@ -309,12 +313,25 @@ export default function ImportWizardPage() {
       const needsBatching = allRows.length > BATCH_THRESHOLD;
       const batchCount = needsBatching ? Math.ceil(allRows.length / BATCH_SIZE) : 1;
 
+      let effectiveWorkspaceId = workspaceId || null;
+      if (importSettings.list_id) {
+        const { data: targetList, error: listErr } = await (supabase.from("lists") as any)
+          .select("id, workspace_id")
+          .eq("id", importSettings.list_id)
+          .maybeSingle();
+        if (listErr || !targetList) throw new Error("Target list not found. Please select the list again.");
+        if (targetList.workspace_id && accessibleWorkspaceIds.length > 0 && !accessibleWorkspaceIds.includes(targetList.workspace_id)) {
+          throw new Error("Selected list is not accessible from this account.");
+        }
+        effectiveWorkspaceId = targetList.workspace_id ?? effectiveWorkspaceId;
+      }
+
       const baseJobPayload = {
         column_mapping: columnMapping as unknown as Json,
         settings: settings as unknown as Json,
         started_at: new Date().toISOString(),
         created_by: user.id,
-        workspace_id: workspaceId || null,
+        workspace_id: effectiveWorkspaceId,
       };
 
       let parentJobId: string | null = null;
@@ -356,10 +373,10 @@ export default function ImportWizardPage() {
         // Upload the original file once, so if any child batch ends up with
         // incomplete staging the user can repair from this stored copy with
         // a single click — no re-upload required.
-        if (workspaceId && file) {
+        if (effectiveWorkspaceId && file) {
           try {
             const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 140);
-            const originalPath = `${workspaceId}/import-originals/${parent.id}/${Date.now()}-${safeName}`;
+            const originalPath = `${effectiveWorkspaceId}/import-originals/${parent.id}/${Date.now()}-${safeName}`;
             const { error: origErr } = await supabase.storage
               .from("verification-uploads")
               .upload(originalPath, file, { contentType: "text/csv", upsert: true });
@@ -515,7 +532,7 @@ export default function ImportWizardPage() {
     } finally {
       setSubmitting(false);
     }
-  }, [parsed, file, user, workspaceId, columnMapping, dupStrategy, importSettings, customFieldHeaders, excludedHeaders, navigate]);
+  }, [parsed, file, user, workspaceId, accessibleWorkspaceIds, columnMapping, dupStrategy, importSettings, customFieldHeaders, excludedHeaders, navigate]);
 
   // ─── Step transitions ─────────────────────────────────────────────────────────
 
