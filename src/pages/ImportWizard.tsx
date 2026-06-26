@@ -968,8 +968,16 @@ export default function ImportWizardPage() {
               <div>
                 <CardTitle className="text-lg">Duplicate Detection</CardTitle>
                 <CardDescription>
-                  Preview how your data matches existing records in the database.
+                  Preview how your data matches existing records across every workspace your account can access.
                 </CardDescription>
+              </div>
+
+              <div className="flex items-start gap-2 rounded-lg border border-amber-300/40 bg-amber-500/10 p-3 text-sm text-amber-700">
+                <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                <div>
+                  <strong>Repairing a partial import?</strong> Do not start a new import here. Open the existing parent import and use
+                  <em> Upload original CSV to repair</em>; that backend repair path stages only missing rows.
+                </div>
               </div>
 
               {dupLoading ? (
