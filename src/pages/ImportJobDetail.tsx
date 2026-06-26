@@ -160,11 +160,29 @@ export default function ImportJobDetailPage() {
     queryKey: ["import-job-children", id],
     queryFn: async () => {
       const { data, error } = await (supabase.from("import_jobs") as any)
-        .select("id,file_name,status,total_rows,processed_rows,inserted_rows,duplicate_rows,error_rows,review_rows,batch_index,batch_total,batch_row_start,batch_row_end,completed_at")
+        .select("id,file_name,status,total_rows,processed_rows,inserted_rows,duplicate_rows,error_rows,review_rows,batch_index,batch_total,batch_row_start,batch_row_end,completed_at,error_summary")
         .eq("parent_job_id", id!)
         .order("batch_index", { ascending: true });
       if (error) throw error;
-      return (data ?? []) as any[];
+      const children = (data ?? []) as any[];
+      // Pull per-child staged-row counts so we can show planned/staged/missing
+      // and decide which children need a Repair pass.
+      if (children.length > 0) {
+        const counts = await Promise.all(children.map(async (c) => {
+          const { count } = await (supabase.from("import_job_rows") as any)
+            .select("id", { count: "exact", head: true })
+            .eq("import_job_id", c.id);
+          return { id: c.id, staged: count ?? 0 };
+        }));
+        const map = new Map(counts.map((c) => [c.id, c.staged]));
+        for (const c of children) {
+          c.staged_rows = map.get(c.id) ?? 0;
+          c.missing_staged_rows = Math.max(0, (c.total_rows ?? 0) - c.staged_rows);
+          c.incomplete_staging =
+            c.missing_staged_rows > 0 || !!(c.error_summary?.incomplete_staging);
+        }
+      }
+      return children;
     },
     enabled: !!id,
     refetchInterval: job && isActive(job.status) ? 5000 : false,
