@@ -1055,6 +1055,34 @@ function RepairStagingButton({
     }
   };
 
+  const storedPath = (parentJob?.error_summary?.diagnostics?.original_csv_path as string | undefined) || undefined;
+  const storedBucket = (parentJob?.error_summary?.diagnostics?.original_csv_bucket as string | undefined) || "verification-uploads";
+
+  const handleRepairFromStored = async () => {
+    if (!storedPath) return;
+    setBusy(true);
+    setProgress("Server is staging only missing batch rows from the stored CSV…");
+    try {
+      const { data, error } = await supabase.functions.invoke("repair-import-staging", {
+        body: { parent_job_id: parentJob.id, bucket: storedBucket, file_path: storedPath },
+      });
+      if (error) throw error;
+      if ((data as any)?.success === false) throw new Error((data as any)?.error ?? "Repair function failed");
+      const stagedTotal = Number((data as any)?.staged_inserted ?? 0);
+      const repairedChildren = Number((data as any)?.repaired_children ?? 0);
+      toast.success(
+        `Repair queued: server staged ${stagedTotal.toLocaleString()} missing rows across ${repairedChildren} batch(es) and resumed processing.`,
+      );
+      onDone();
+    } catch (err: any) {
+      console.error("Stored-CSV repair failed", err);
+      toast.error(`Repair failed: ${err?.message ?? "unknown error"}. No completed batches were reprocessed.`);
+    } finally {
+      setBusy(false);
+      setProgress(null);
+    }
+  };
+
   return (
     <div className="flex items-center gap-2">
       <input
@@ -1067,17 +1095,31 @@ function RepairStagingButton({
           if (f) handleFile(f);
         }}
       />
-      <Button
-        variant="outline"
-        size="sm"
-        className="h-7 px-2 gap-1 border-amber-300/50 text-amber-700 hover:bg-amber-500/10"
-        disabled={busy}
-        onClick={() => fileInputRef.current?.click()}
-        title={`${incomplete.length} batch(es) missing ${totalMissing.toLocaleString()} staged rows`}
-      >
-        {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wrench className="h-3 w-3" />}
-        {busy ? (progress ?? "Repairing…") : `Repair missing staged rows (${totalMissing.toLocaleString()})`}
-      </Button>
+      {storedPath ? (
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 px-2 gap-1 border-amber-300/50 text-amber-700 hover:bg-amber-500/10"
+          disabled={busy}
+          onClick={handleRepairFromStored}
+          title={`${incomplete.length} batch(es) missing ${totalMissing.toLocaleString()} staged rows — repair from stored original CSV`}
+        >
+          {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wrench className="h-3 w-3" />}
+          {busy ? (progress ?? "Repairing…") : `Repair missing staged rows (${totalMissing.toLocaleString()})`}
+        </Button>
+      ) : (
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 px-2 gap-1 border-amber-300/50 text-amber-700 hover:bg-amber-500/10"
+          disabled={busy}
+          onClick={() => fileInputRef.current?.click()}
+          title={`${incomplete.length} batch(es) missing ${totalMissing.toLocaleString()} staged rows — upload the original CSV to repair`}
+        >
+          {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wrench className="h-3 w-3" />}
+          {busy ? (progress ?? "Repairing…") : `Upload original CSV to repair (${totalMissing.toLocaleString()})`}
+        </Button>
+      )}
     </div>
   );
 }
