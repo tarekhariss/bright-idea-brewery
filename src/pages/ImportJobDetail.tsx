@@ -382,8 +382,18 @@ export default function ImportJobDetailPage() {
           <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
           <div>
             <strong>Incomplete batch creation:</strong> Expected {expectedBatches} child batches, only {actualChildCount} were created.
-            The browser-side upload aborted before all batches were staged. Re-upload the remaining rows on the same list
-            (with <em>Skip exact duplicates</em> enabled) to complete the import — the dedupe will skip rows already inserted.
+            The browser-side upload aborted before all batches were staged. Do not start a new import for this file — use
+            <em> Upload original CSV to repair</em> on this parent import so the backend stages only missing rows.
+          </div>
+        </div>
+      )}
+
+      {isParent && childJobs?.some((c) => c.incomplete_staging) && (
+        <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-300/40 text-amber-700 text-sm">
+          <Wrench className="h-4 w-4 flex-shrink-0 mt-0.5" />
+          <div>
+            <strong>Repair this existing import only.</strong> Use the repair button in the Batches section below to upload the original CSV.
+            That path fills missing staged rows for this parent and is separate from New Import.
           </div>
         </div>
       )}
