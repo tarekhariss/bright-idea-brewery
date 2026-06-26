@@ -50,10 +50,10 @@ function isEmptyLike(v: string): boolean {
     lower === "not available" || lower === "not provided" || lower === "#n/a";
 }
 function normalizeEmail(val: string): string {
-  return val.toLowerCase().trim().replace(/^mailto:/i, "").replace(/\s+/g, "");
+  return val.normalize("NFKC").toLowerCase().trim().replace(/^mailto:/i, "").replace(/[\s\u200B-\u200D\uFEFF]/g, "");
 }
 function normalizeLinkedIn(val: string): string {
-  let url = val.trim(); url = url.split("?")[0].split("#")[0];
+  let url = val.normalize("NFKC").trim().toLowerCase(); url = url.split("?")[0].split("#")[0];
   url = url.replace(/^https?:\/\//i, "").replace(/^www\./i, "").replace(/\/+$/, "");
   if (!url.startsWith("linkedin.com")) {
     const idx = url.indexOf("linkedin.com");
