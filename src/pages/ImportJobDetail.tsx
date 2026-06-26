@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,12 +20,14 @@ import {
   ArrowLeft, FileSpreadsheet, CheckCircle2, XCircle, AlertTriangle,
   MinusCircle, Eye, ChevronLeft, ChevronRight, GitMerge, Shield,
   RotateCcw, Loader2, Tag, Clock, Activity, Zap, ExternalLink, Sparkles,
+  Wrench,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { ImportReviewPanel } from "@/components/import/ImportReviewPanel";
 import { ImportQuarantineTab } from "@/components/imports/ImportQuarantineTab";
 import { useIntelligenceV2 } from "@/hooks/use-intelligence-v2";
+import { parseCSVText } from "@/lib/csv-utils";
 
 const STATUS_STYLES: Record<string, string> = {
   pending: "bg-muted text-muted-foreground",
