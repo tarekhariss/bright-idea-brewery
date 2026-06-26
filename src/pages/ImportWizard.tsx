@@ -352,6 +352,41 @@ export default function ImportWizardPage() {
         parentJobId = parent.id;
         createdJobIds.push(parent.id);
 
+        // ─── Auto-stash original CSV for backend repair ─────────────────
+        // Upload the original file once, so if any child batch ends up with
+        // incomplete staging the user can repair from this stored copy with
+        // a single click — no re-upload required.
+        if (workspaceId && file) {
+          try {
+            const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 140);
+            const originalPath = `${workspaceId}/import-originals/${parent.id}/${Date.now()}-${safeName}`;
+            const { error: origErr } = await supabase.storage
+              .from("verification-uploads")
+              .upload(originalPath, file, { contentType: "text/csv", upsert: true });
+            if (!origErr) {
+              await (supabase.from("import_jobs") as any)
+                .update({
+                  error_summary: {
+                    diagnostics: {
+                      phase: "creating_child_shells",
+                      total_rows: allRows.length,
+                      batch_size: BATCH_SIZE,
+                      batch_total: batchCount,
+                      original_csv_bucket: "verification-uploads",
+                      original_csv_path: originalPath,
+                      last_progress_at: new Date().toISOString(),
+                    },
+                  },
+                })
+                .eq("id", parent.id);
+            } else {
+              console.warn("Original CSV stash failed (repair will require re-upload):", origErr.message);
+            }
+          } catch (stashErr) {
+            console.warn("Original CSV stash threw (repair will require re-upload):", stashErr);
+          }
+        }
+
         // ─── Atomic child creation ──────────────────────────────────────
         // Create EVERY child shell up front, inside a single RPC/transaction.
         // This prevents the "only 2 of 5 batches created" failure mode where
