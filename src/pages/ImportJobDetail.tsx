@@ -27,7 +27,6 @@ import { toast } from "sonner";
 import { ImportReviewPanel } from "@/components/import/ImportReviewPanel";
 import { ImportQuarantineTab } from "@/components/imports/ImportQuarantineTab";
 import { useIntelligenceV2 } from "@/hooks/use-intelligence-v2";
-import { parseCSVText } from "@/lib/csv-utils";
 
 const STATUS_STYLES: Record<string, string> = {
   pending: "bg-muted text-muted-foreground",
@@ -1002,116 +1001,39 @@ function RepairStagingButton({
 
   const handleFile = async (file: File) => {
     setBusy(true);
-    setProgress("Parsing CSV…");
+    setProgress("Uploading original CSV for server-side repair…");
     try {
-      const text = await file.text();
-      const parsed = parseCSVText(text);
-      if (parsed.errors.length > 0 && parsed.rows.length === 0) {
-        throw new Error(parsed.errors[0]);
-      }
-      const allRows = parsed.rows;
-      const expected = parentJob?.total_rows ?? 0;
-      if (expected > 0 && Math.abs(allRows.length - expected) > Math.max(5, expected * 0.001)) {
-        const ok = window.confirm(
-          `The uploaded CSV has ${allRows.length.toLocaleString()} rows but the parent job planned ${expected.toLocaleString()} rows. ` +
-          `Continue repair anyway? (rows will be staged by row number from this file)`,
-        );
-        if (!ok) { setBusy(false); setProgress(null); return; }
-      }
+      if (!parentJob?.id) throw new Error("Missing parent import job id.");
+      const workspaceId = parentJob?.workspace_id;
+      if (!workspaceId) throw new Error("Missing workspace id for repair upload.");
 
-      const headers = parsed.headers;
-      let repairedChildren = 0;
-      let stagedTotal = 0;
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 140);
+      const objectPath = `${workspaceId}/import-repairs/${parentJob.id}/${Date.now()}-${safeName}`;
+      const { error: uploadError } = await supabase.storage
+        .from("verification-uploads")
+        .upload(objectPath, file, { contentType: "text/csv", upsert: true });
+      if (uploadError) throw new Error(`CSV upload failed: ${uploadError.message}`);
 
-      for (const child of incomplete) {
-        const start = child.batch_row_start ?? 1; // 1-indexed in original file
-        const planned = child.total_rows ?? 0;
-        setProgress(`Batch ${child.batch_index}/${child.batch_total}: finding missing rows…`);
+      setProgress("Server is staging only missing batch rows…");
+      const { data, error } = await supabase.functions.invoke("repair-import-staging", {
+        body: {
+          parent_job_id: parentJob.id,
+          bucket: "verification-uploads",
+          file_path: objectPath,
+        },
+      });
+      if (error) throw error;
+      if ((data as any)?.success === false) throw new Error((data as any)?.error ?? "Repair function failed");
 
-        // Fetch already-staged row_numbers for this child (paged).
-        const existing = new Set<number>();
-        const page = 5000;
-        let from = 0;
-        // We assume row_number is 1..planned within the child.
-        for (;;) {
-          const { data, error } = await (supabase.from("import_job_rows") as any)
-            .select("row_number")
-            .eq("import_job_id", child.id)
-            .order("row_number", { ascending: true })
-            .range(from, from + page - 1);
-          if (error) throw error;
-          const batch = (data ?? []) as Array<{ row_number: number }>;
-          for (const r of batch) existing.add(r.row_number);
-          if (batch.length < page) break;
-          from += page;
-        }
-
-        // Compute missing row_numbers and build payloads.
-        const missing: { row_number: number; raw_data: Record<string, string> }[] = [];
-        for (let r = 1; r <= planned; r++) {
-          if (existing.has(r)) continue;
-          const idx = start - 1 + (r - 1); // 0-indexed into allRows
-          const row = allRows[idx];
-          if (!row) continue;
-          missing.push({ row_number: r, raw_data: row });
-        }
-
-        if (missing.length === 0) {
-          // Nothing to stage; just clear the incomplete flag and re-queue.
-          await (supabase.from("import_jobs") as any).update({
-            status: "pending",
-            error_summary: { ...(child.error_summary ?? {}), incomplete_staging: false, repaired_at: new Date().toISOString() },
-          }).eq("id", child.id);
-          await supabase.functions.invoke("run-import-job", { body: { job_id: child.id } });
-          repairedChildren++;
-          continue;
-        }
-
-        setProgress(`Batch ${child.batch_index}/${child.batch_total}: staging ${missing.length.toLocaleString()} missing rows…`);
-
-        // Insert in chunks of 1000.
-        const chunkSize = 1000;
-        for (let i = 0; i < missing.length; i += chunkSize) {
-          const slice = missing.slice(i, i + chunkSize).map((m) => ({
-            import_job_id: child.id,
-            row_number: m.row_number,
-            raw_data: m.raw_data,
-            status: "pending",
-          }));
-          const { error } = await (supabase.from("import_job_rows") as any).insert(slice);
-          if (error) {
-            // If a row_number collision happens (race), skip it by re-trying one-by-one.
-            for (const row of slice) {
-              const { error: e2 } = await (supabase.from("import_job_rows") as any).insert(row);
-              if (e2 && !String(e2.message || "").includes("duplicate")) throw e2;
-            }
-          }
-          stagedTotal += slice.length;
-        }
-
-        // Reset child to pending and resume processing.
-        await (supabase.from("import_jobs") as any).update({
-          status: "pending",
-          error_summary: { ...(child.error_summary ?? {}), incomplete_staging: false, repaired_at: new Date().toISOString(), repaired_rows: missing.length },
-        }).eq("id", child.id);
-        const { error: resumeError } = await supabase.functions.invoke("run-import-job", { body: { job_id: child.id } });
-        if (resumeError) throw resumeError;
-        repairedChildren++;
-      }
-
-      // Reset parent so finalize can re-run after repair processes finish.
-      if (parentJob?.id) {
-        await (supabase.from("import_jobs") as any).update({
-          status: "processing",
-          error_summary: { ...(parentJob.error_summary ?? {}), incomplete_staging: false, repaired_at: new Date().toISOString() },
-        }).eq("id", parentJob.id);
-      }
-
-      toast.success(`Repair queued: staged ${stagedTotal.toLocaleString()} missing rows across ${repairedChildren} batch(es). Resuming…`);
+      const stagedTotal = Number((data as any)?.staged_inserted ?? 0);
+      const repairedChildren = Number((data as any)?.repaired_children ?? 0);
+      toast.success(
+        `Repair queued: server staged ${stagedTotal.toLocaleString()} missing rows across ${repairedChildren} batch(es) and resumed processing.`,
+      );
       onDone();
     } catch (err: any) {
       console.error("Repair staging failed", err);
-      toast.error(`Repair failed: ${err?.message ?? "unknown error"}`);
+      toast.error(`Repair failed: ${err?.message ?? "unknown error"}. No completed batches were reprocessed.`);
     } finally {
       setBusy(false);
       setProgress(null);
