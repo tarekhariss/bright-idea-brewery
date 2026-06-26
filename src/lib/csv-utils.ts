@@ -363,12 +363,12 @@ function isEmptyLike(v: string): boolean {
 
 /** Normalize email: lowercase, trim, remove mailto: */
 function normalizeEmail(val: string): string {
-  return val.toLowerCase().trim().replace(/^mailto:/i, "").replace(/\s+/g, "");
+  return val.normalize("NFKC").toLowerCase().trim().replace(/^mailto:/i, "").replace(/[\s\u200B-\u200D\uFEFF]/g, "");
 }
 
 /** Normalize LinkedIn URL to canonical form */
 function normalizeLinkedIn(val: string): string {
-  let url = val.trim();
+  let url = val.normalize("NFKC").trim().toLowerCase();
   // Remove query params and fragments
   url = url.split("?")[0].split("#")[0];
   // Strip protocol and www
