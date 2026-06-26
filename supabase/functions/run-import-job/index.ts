@@ -1075,8 +1075,17 @@ Deno.serve(async (req: Request) => {
     duplicateRows = reconDupes;
     reviewRows = reconReview;
 
+    // Planned rows = what the wizard told us to expect for this job/child.
+    // If staged rows < planned rows, the browser upload aborted mid-stream and we
+    // MUST NOT mark this job completed — surface it as incomplete_staging instead.
+    const plannedTotal = Number(job.total_rows ?? 0);
+    const missingStaged = Math.max(0, plannedTotal - actualTotal);
+    const isIncompleteStaging = plannedTotal > 0 && actualTotal < plannedTotal;
+
     const reconciliation = {
+      planned: plannedTotal,
       staged: actualTotal,
+      missing_staged: missingStaged,
       success: reconSuccess,
       errors: reconError,
       duplicates: reconDupes,
@@ -1084,9 +1093,34 @@ Deno.serve(async (req: Request) => {
       pending: reconPending,
       sum: reconSum,
       matches_staged: reconSum === actualTotal,
+      matches_planned: actualTotal === plannedTotal,
     };
 
-    console.log(`[import] Reconciliation: staged=${actualTotal}, success=${reconSuccess}, errors=${reconError}, dupes=${reconDupes}, review=${reconReview}, pending=${reconPending}, sum=${reconSum}`);
+    console.log(`[import] Reconciliation: planned=${plannedTotal}, staged=${actualTotal}, success=${reconSuccess}, errors=${reconError}, dupes=${reconDupes}, review=${reconReview}, pending=${reconPending}, sum=${reconSum}`);
+
+    // RULE: staged rows must equal planned rows. Empty/short children become incomplete_staging, not completed.
+    if (isIncompleteStaging) {
+      const reason = `incomplete_staging`;
+      console.error(`[import] Incomplete staging: planned ${plannedTotal} rows, only ${actualTotal} staged (${missingStaged} missing).`);
+      updateDiag({ phase: "incomplete_staging", last_progress_at: nowIso(), reconciliation });
+      await supabase.from("import_jobs").update({
+        status: "failed", processed_rows: processedRows, success_rows: successRows,
+        inserted_rows: insertedRows, error_rows: errorRows, duplicate_rows: duplicateRows,
+        review_rows: reviewRows, completed_at: nowIso(),
+        error_summary: {
+          ...diag,
+          reason,
+          incomplete_staging: true,
+          planned_rows: plannedTotal,
+          staged_rows: actualTotal,
+          missing_staged_rows: missingStaged,
+          note: "Browser-side row upload did not stage all planned rows. Use Repair missing staged rows.",
+          reconciliation,
+          field_report: fieldReport,
+        },
+      }).eq("id", job_id);
+      return new Response(JSON.stringify({ success: false, job_id, reason, reconciliation }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     // RULE: sum of all statuses must equal staged total
     if (reconSum !== actualTotal) {
