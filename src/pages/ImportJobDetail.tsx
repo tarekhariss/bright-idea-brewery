@@ -970,3 +970,172 @@ function ParentPostProcessingCard({ job, childJobs, onResume }: {
     </Card>
   );
 }
+
+// ─── Repair Staging Button ───────────────────────────────────────────────────
+// Lets the user re-upload the ORIGINAL CSV. The system computes which
+// row_numbers are missing per incomplete child batch, stages only those rows,
+// then resumes processing. No new contacts are duplicated because dedupe is
+// already part of run-import-job.
+function RepairStagingButton({
+  parentJob,
+  childJobs,
+  onDone,
+}: {
+  parentJob: any;
+  childJobs: any[];
+  onDone: () => void;
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<string | null>(null);
+
+  const incomplete = (childJobs ?? []).filter((c) => c.incomplete_staging);
+  if (incomplete.length === 0) return null;
+
+  const totalMissing = incomplete.reduce((a, c) => a + (c.missing_staged_rows ?? 0), 0);
+
+  const handleFile = async (file: File) => {
+    setBusy(true);
+    setProgress("Parsing CSV…");
+    try {
+      const text = await file.text();
+      const parsed = parseCSVText(text);
+      if (parsed.errors.length > 0 && parsed.rows.length === 0) {
+        throw new Error(parsed.errors[0]);
+      }
+      const allRows = parsed.rows;
+      const expected = parentJob?.total_rows ?? 0;
+      if (expected > 0 && Math.abs(allRows.length - expected) > Math.max(5, expected * 0.001)) {
+        const ok = window.confirm(
+          `The uploaded CSV has ${allRows.length.toLocaleString()} rows but the parent job planned ${expected.toLocaleString()} rows. ` +
+          `Continue repair anyway? (rows will be staged by row number from this file)`,
+        );
+        if (!ok) { setBusy(false); setProgress(null); return; }
+      }
+
+      const headers = parsed.headers;
+      let repairedChildren = 0;
+      let stagedTotal = 0;
+
+      for (const child of incomplete) {
+        const start = child.batch_row_start ?? 1; // 1-indexed in original file
+        const planned = child.total_rows ?? 0;
+        setProgress(`Batch ${child.batch_index}/${child.batch_total}: finding missing rows…`);
+
+        // Fetch already-staged row_numbers for this child (paged).
+        const existing = new Set<number>();
+        const page = 5000;
+        let from = 0;
+        // We assume row_number is 1..planned within the child.
+        for (;;) {
+          const { data, error } = await (supabase.from("import_job_rows") as any)
+            .select("row_number")
+            .eq("import_job_id", child.id)
+            .order("row_number", { ascending: true })
+            .range(from, from + page - 1);
+          if (error) throw error;
+          const batch = (data ?? []) as Array<{ row_number: number }>;
+          for (const r of batch) existing.add(r.row_number);
+          if (batch.length < page) break;
+          from += page;
+        }
+
+        // Compute missing row_numbers and build payloads.
+        const missing: { row_number: number; raw_data: Record<string, string> }[] = [];
+        for (let r = 1; r <= planned; r++) {
+          if (existing.has(r)) continue;
+          const idx = start - 1 + (r - 1); // 0-indexed into allRows
+          const row = allRows[idx];
+          if (!row) continue;
+          missing.push({ row_number: r, raw_data: row });
+        }
+
+        if (missing.length === 0) {
+          // Nothing to stage; just clear the incomplete flag and re-queue.
+          await (supabase.from("import_jobs") as any).update({
+            status: "pending",
+            error_summary: { ...(child.error_summary ?? {}), incomplete_staging: false, repaired_at: new Date().toISOString() },
+          }).eq("id", child.id);
+          await supabase.functions.invoke("run-import-job", { body: { job_id: child.id } });
+          repairedChildren++;
+          continue;
+        }
+
+        setProgress(`Batch ${child.batch_index}/${child.batch_total}: staging ${missing.length.toLocaleString()} missing rows…`);
+
+        // Insert in chunks of 1000.
+        const chunkSize = 1000;
+        for (let i = 0; i < missing.length; i += chunkSize) {
+          const slice = missing.slice(i, i + chunkSize).map((m) => ({
+            import_job_id: child.id,
+            workspace_id: parentJob.workspace_id,
+            row_number: m.row_number,
+            raw_data: m.raw_data,
+            status: "pending",
+          }));
+          const { error } = await (supabase.from("import_job_rows") as any).insert(slice);
+          if (error) {
+            // If a row_number collision happens (race), skip it by re-trying one-by-one.
+            for (const row of slice) {
+              const { error: e2 } = await (supabase.from("import_job_rows") as any).insert(row);
+              if (e2 && !String(e2.message || "").includes("duplicate")) throw e2;
+            }
+          }
+          stagedTotal += slice.length;
+        }
+
+        // Reset child to pending and resume processing.
+        await (supabase.from("import_jobs") as any).update({
+          status: "pending",
+          error_summary: { ...(child.error_summary ?? {}), incomplete_staging: false, repaired_at: new Date().toISOString(), repaired_rows: missing.length },
+        }).eq("id", child.id);
+        await supabase.functions.invoke("run-import-job", { body: { job_id: child.id } });
+        repairedChildren++;
+      }
+
+      // Reset parent so finalize can re-run after repair processes finish.
+      if (parentJob?.id) {
+        await (supabase.from("import_jobs") as any).update({
+          status: "processing",
+          error_summary: { ...(parentJob.error_summary ?? {}), incomplete_staging: false, repaired_at: new Date().toISOString() },
+        }).eq("id", parentJob.id);
+      }
+
+      toast.success(`Repair queued: staged ${stagedTotal.toLocaleString()} missing rows across ${repairedChildren} batch(es). Resuming…`);
+      onDone();
+    } catch (err: any) {
+      console.error("Repair staging failed", err);
+      toast.error(`Repair failed: ${err?.message ?? "unknown error"}`);
+    } finally {
+      setBusy(false);
+      setProgress(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".csv,text/csv"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) handleFile(f);
+        }}
+      />
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-7 px-2 gap-1 border-amber-300/50 text-amber-700 hover:bg-amber-500/10"
+        disabled={busy}
+        onClick={() => fileInputRef.current?.click()}
+        title={`${incomplete.length} batch(es) missing ${totalMissing.toLocaleString()} staged rows`}
+      >
+        {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wrench className="h-3 w-3" />}
+        {busy ? (progress ?? "Repairing…") : `Repair missing staged rows (${totalMissing.toLocaleString()})`}
+      </Button>
+    </div>
+  );
+}
