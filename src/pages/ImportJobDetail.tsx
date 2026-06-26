@@ -398,15 +398,26 @@ export default function ImportJobDetailPage() {
       {isParent && childJobs && (
         <Card>
           <CardContent className="p-4 space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                 <GitMerge className="h-3.5 w-3.5" /> Batches ({childJobs.length})
               </p>
-              <span className="text-xs text-muted-foreground">
-                {childJobs.filter((c) => c.status === "completed").length} completed ·{" "}
-                {childJobs.filter((c) => c.status === "processing" || c.status === "pending").length} in progress ·{" "}
-                {childJobs.filter((c) => c.status === "failed").length} failed
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-muted-foreground">
+                  {childJobs.filter((c) => c.status === "completed" && !c.incomplete_staging).length} completed ·{" "}
+                  {childJobs.filter((c) => c.status === "processing" || c.status === "pending").length} in progress ·{" "}
+                  {childJobs.filter((c) => c.incomplete_staging).length} incomplete staging ·{" "}
+                  {childJobs.filter((c) => c.status === "failed" && !c.incomplete_staging).length} failed
+                </span>
+                <RepairStagingButton
+                  parentJob={job}
+                  childJobs={childJobs}
+                  onDone={() => {
+                    queryClient.invalidateQueries({ queryKey: ["import-job", id] });
+                    queryClient.invalidateQueries({ queryKey: ["import-job-children", id] });
+                  }}
+                />
+              </div>
             </div>
             <Table>
               <TableHeader>
@@ -414,6 +425,9 @@ export default function ImportJobDetailPage() {
                   <TableHead className="w-16">#</TableHead>
                   <TableHead>Rows</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Planned</TableHead>
+                  <TableHead className="text-right">Staged</TableHead>
+                  <TableHead className="text-right">Missing</TableHead>
                   <TableHead className="text-right">Processed</TableHead>
                   <TableHead className="text-right">Inserted</TableHead>
                   <TableHead className="text-right">Dupes</TableHead>
@@ -422,35 +436,48 @@ export default function ImportJobDetailPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {childJobs.map((c) => (
-                  <TableRow key={c.id}>
-                    <TableCell className="font-medium">{c.batch_index}/{c.batch_total}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {c.batch_row_start?.toLocaleString()}–{c.batch_row_end?.toLocaleString()}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={`capitalize text-xs ${JOB_STATUS_STYLES[c.status] ?? ""}`}>
-                        {c.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">{(c.processed_rows ?? 0).toLocaleString()}/{(c.total_rows ?? 0).toLocaleString()}</TableCell>
-                    <TableCell className="text-right tabular-nums text-emerald-600">{(c.inserted_rows ?? 0).toLocaleString()}</TableCell>
-                    <TableCell className="text-right tabular-nums text-amber-600">{(c.duplicate_rows ?? 0).toLocaleString()}</TableCell>
-                    <TableCell className="text-right tabular-nums text-destructive">{(c.error_rows ?? 0).toLocaleString()}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => navigate(`/imports/${c.id}`)}>
-                          Open
-                        </Button>
-                        {(c.status === "failed" || c.status === "pending") && (
-                          <Button variant="outline" size="sm" className="h-7 px-2 gap-1" onClick={() => handleResumeChild(c.id)}>
-                            <RotateCcw className="h-3 w-3" /> Resume
+                {childJobs.map((c) => {
+                  const displayStatus = c.incomplete_staging ? "Incomplete staging" : c.status;
+                  const statusClass = c.incomplete_staging
+                    ? "bg-amber-500/10 text-amber-700 border-amber-300/40"
+                    : (JOB_STATUS_STYLES[c.status] ?? "");
+                  return (
+                    <TableRow key={c.id}>
+                      <TableCell className="font-medium">{c.batch_index}/{c.batch_total}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {c.batch_row_start?.toLocaleString()}–{c.batch_row_end?.toLocaleString()}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={`capitalize text-xs ${statusClass}`}>
+                          {displayStatus}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">{(c.total_rows ?? 0).toLocaleString()}</TableCell>
+                      <TableCell className={`text-right tabular-nums ${c.incomplete_staging ? "text-amber-700 font-medium" : ""}`}>
+                        {(c.staged_rows ?? 0).toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-amber-700">
+                        {(c.missing_staged_rows ?? 0) > 0 ? (c.missing_staged_rows).toLocaleString() : "—"}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">{(c.processed_rows ?? 0).toLocaleString()}/{(c.staged_rows ?? 0).toLocaleString()}</TableCell>
+                      <TableCell className="text-right tabular-nums text-emerald-600">{(c.inserted_rows ?? 0).toLocaleString()}</TableCell>
+                      <TableCell className="text-right tabular-nums text-amber-600">{(c.duplicate_rows ?? 0).toLocaleString()}</TableCell>
+                      <TableCell className="text-right tabular-nums text-destructive">{(c.error_rows ?? 0).toLocaleString()}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => navigate(`/imports/${c.id}`)}>
+                            Open
                           </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                          {(c.status === "failed" || c.status === "pending") && !c.incomplete_staging && (
+                            <Button variant="outline" size="sm" className="h-7 px-2 gap-1" onClick={() => handleResumeChild(c.id)}>
+                              <RotateCcw className="h-3 w-3" /> Resume
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </CardContent>
