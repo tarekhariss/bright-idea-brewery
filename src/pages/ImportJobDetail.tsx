@@ -199,14 +199,28 @@ export default function ImportJobDetailPage() {
 
   const handleResumeChild = useCallback(async (childId: string) => {
     try {
+      const child = (childJobs ?? []).find((c) => c.id === childId);
+      if (child && (child.incomplete_staging || (child.missing_staged_rows ?? 0) > 0)) {
+        toast.error(
+          `Batch is missing ${(child.missing_staged_rows ?? 0).toLocaleString()} staged rows. Use "Repair missing staged rows" on the parent import first.`,
+        );
+        return;
+      }
       await (supabase.from("import_jobs") as any).update({ status: "processing" }).eq("id", childId);
-      await supabase.functions.invoke("run-import-job", { body: { job_id: childId } });
+      const { error } = await supabase.functions.invoke("run-import-job", { body: { job_id: childId } });
+      if (error) throw error;
       toast.success("Batch resumed");
       queryClient.invalidateQueries({ queryKey: ["import-job-children", id] });
     } catch (e: any) {
-      toast.error(`Resume failed: ${e?.message ?? "unknown"}`);
+      const message = String(e?.message ?? "unknown");
+      const isIncompleteStaging = message.includes("non-2xx") || message.includes("incomplete_staging");
+      toast.error(
+        isIncompleteStaging
+          ? 'Cannot resume: batch is missing staged CSV rows. Use "Repair missing staged rows" on the parent import.'
+          : `Resume failed: ${message}`,
+      );
     }
-  }, [id, queryClient]);
+  }, [id, queryClient, childJobs]);
 
   const totalPages = Math.ceil((rowsData?.total ?? 0) / PAGE_SIZE);
   const settingsObj = (job?.settings ?? {}) as Record<string, unknown>;
