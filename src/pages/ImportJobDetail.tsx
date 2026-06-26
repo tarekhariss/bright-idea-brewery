@@ -100,7 +100,13 @@ export default function ImportJobDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["import-job", id] });
       queryClient.invalidateQueries({ queryKey: ["import-job-rows"] });
     } catch (e: any) {
-      toast.error(`Failed to resume: ${e?.message ?? "unknown error"}`);
+      const message = String(e?.message ?? "unknown error");
+      const isIncompleteStaging = message.includes("non-2xx") || message.includes("incomplete_staging");
+      toast.error(
+        isIncompleteStaging
+          ? "Cannot resume yet: this batch is missing staged CSV rows. Open the parent import and use Repair missing staged rows."
+          : `Failed to resume: ${message}`,
+      );
     } finally {
       setResuming(false);
     }
@@ -1068,7 +1074,6 @@ function RepairStagingButton({
         for (let i = 0; i < missing.length; i += chunkSize) {
           const slice = missing.slice(i, i + chunkSize).map((m) => ({
             import_job_id: child.id,
-            workspace_id: parentJob.workspace_id,
             row_number: m.row_number,
             raw_data: m.raw_data,
             status: "pending",
@@ -1089,7 +1094,8 @@ function RepairStagingButton({
           status: "pending",
           error_summary: { ...(child.error_summary ?? {}), incomplete_staging: false, repaired_at: new Date().toISOString(), repaired_rows: missing.length },
         }).eq("id", child.id);
-        await supabase.functions.invoke("run-import-job", { body: { job_id: child.id } });
+        const { error: resumeError } = await supabase.functions.invoke("run-import-job", { body: { job_id: child.id } });
+        if (resumeError) throw resumeError;
         repairedChildren++;
       }
 
