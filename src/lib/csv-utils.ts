@@ -363,12 +363,12 @@ function isEmptyLike(v: string): boolean {
 
 /** Normalize email: lowercase, trim, remove mailto: */
 function normalizeEmail(val: string): string {
-  return val.toLowerCase().trim().replace(/^mailto:/i, "").replace(/\s+/g, "");
+  return val.normalize("NFKC").toLowerCase().trim().replace(/^mailto:/i, "").replace(/[\s\u200B-\u200D\uFEFF]/g, "");
 }
 
 /** Normalize LinkedIn URL to canonical form */
 function normalizeLinkedIn(val: string): string {
-  let url = val.trim();
+  let url = val.normalize("NFKC").trim().toLowerCase();
   // Remove query params and fragments
   url = url.split("?")[0].split("#")[0];
   // Strip protocol and www
@@ -703,7 +703,7 @@ export function buildContactIndex(contacts: ExistingContact[]) {
 
   const addEmail = (raw: string | null | undefined) => {
     if (!raw) return null;
-    const k = raw.toLowerCase().trim();
+    const k = normalizeEmail(raw);
     return k || null;
   };
 
@@ -757,9 +757,9 @@ export function checkDuplicatesAdvanced(
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i] as Record<string, string | null | undefined>;
-    const email = String(row.email ?? "").toLowerCase().trim();
-    const secEmail = String(row.secondary_email ?? "").toLowerCase().trim();
-    const terEmail = String(row.tertiary_email ?? "").toLowerCase().trim();
+    const email = normalizeEmail(String(row.email ?? ""));
+    const secEmail = normalizeEmail(String(row.secondary_email ?? ""));
+    const terEmail = normalizeEmail(String(row.tertiary_email ?? ""));
     const linkedin = row.linkedin_url ? normalizeLinkedIn(String(row.linkedin_url)) : "";
     const extId = String(row.external_contact_id ?? "").trim();
     const phone = row.phone ? normalizePhone(String(row.phone)) : "";

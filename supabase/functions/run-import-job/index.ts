@@ -50,10 +50,10 @@ function isEmptyLike(v: string): boolean {
     lower === "not available" || lower === "not provided" || lower === "#n/a";
 }
 function normalizeEmail(val: string): string {
-  return val.toLowerCase().trim().replace(/^mailto:/i, "").replace(/\s+/g, "");
+  return val.normalize("NFKC").toLowerCase().trim().replace(/^mailto:/i, "").replace(/[\s\u200B-\u200D\uFEFF]/g, "");
 }
 function normalizeLinkedIn(val: string): string {
-  let url = val.trim(); url = url.split("?")[0].split("#")[0];
+  let url = val.normalize("NFKC").trim().toLowerCase(); url = url.split("?")[0].split("#")[0];
   url = url.replace(/^https?:\/\//i, "").replace(/^www\./i, "").replace(/\/+$/, "");
   if (!url.startsWith("linkedin.com")) {
     const idx = url.indexOf("linkedin.com");
@@ -191,9 +191,9 @@ function buildContactIndex(contacts: ExistingContact[]) {
   const phoneMap = new Map<string, ExistingContact>();
   const nameCompanyMap = new Map<string, ExistingContact>();
   for (const c of contacts) {
-    if (c.email) emailMap.set(c.email.toLowerCase(), c);
-    if (c.secondary_email) emailMap.set(c.secondary_email.toLowerCase(), c);
-    if (c.tertiary_email) emailMap.set(c.tertiary_email.toLowerCase(), c);
+    if (c.email) emailMap.set(normalizeEmail(c.email), c);
+    if (c.secondary_email) emailMap.set(normalizeEmail(c.secondary_email), c);
+    if (c.tertiary_email) emailMap.set(normalizeEmail(c.tertiary_email), c);
     if (c.linkedin_url) linkedinMap.set(normalizeLinkedIn(c.linkedin_url), c);
     if (c.external_contact_id) extIdMap.set(c.external_contact_id, c);
     if (c.phone) phoneMap.set(normalizePhone(c.phone), c);
@@ -403,6 +403,7 @@ async function insertContactsWithRetry(
   supabase: ReturnType<typeof createClient>,
   contacts: Array<{ rowId: string; rowUpdate: any; contact: Record<string, unknown> }>,
   contactIndex: ReturnType<typeof buildContactIndex>,
+  accessibleWorkspaceIds: string[],
 ): Promise<{ inserted: ExistingContact[]; failedEntries: typeof contacts }> {
   if (contacts.length === 0) return { inserted: [], failedEntries: [] };
 
@@ -465,7 +466,8 @@ async function insertContactsWithRetry(
                 .eq("email_normalized", emailVal)
                 .is("merged_into", null)
                 .limit(1);
-              if (entry.contact.workspace_id) lookup = lookup.eq("workspace_id", entry.contact.workspace_id as string);
+              if (accessibleWorkspaceIds.length > 0) lookup = lookup.in("workspace_id", accessibleWorkspaceIds);
+              else if (entry.contact.workspace_id) lookup = lookup.eq("workspace_id", entry.contact.workspace_id as string);
               else lookup = lookup.is("workspace_id", null);
               const { data: m } = await lookup;
               matched = m?.[0] ?? null;
@@ -505,9 +507,9 @@ async function insertContactsWithRetry(
 
 function addToContactIndex(contactIndex: ReturnType<typeof buildContactIndex>, contacts: ExistingContact[]) {
   for (const c of contacts) {
-    if (c.email) contactIndex.emailMap.set(c.email.toLowerCase(), c);
-    if (c.secondary_email) contactIndex.emailMap.set(c.secondary_email.toLowerCase(), c);
-    if (c.tertiary_email) contactIndex.emailMap.set(c.tertiary_email.toLowerCase(), c);
+    if (c.email) contactIndex.emailMap.set(normalizeEmail(c.email), c);
+    if (c.secondary_email) contactIndex.emailMap.set(normalizeEmail(c.secondary_email), c);
+    if (c.tertiary_email) contactIndex.emailMap.set(normalizeEmail(c.tertiary_email), c);
     if (c.linkedin_url) contactIndex.linkedinMap.set(normalizeLinkedIn(c.linkedin_url), c);
     if (c.external_contact_id) contactIndex.extIdMap.set(c.external_contact_id, c);
     if (c.phone) contactIndex.phoneMap.set(normalizePhone(c.phone), c);
@@ -586,6 +588,31 @@ Deno.serve(async (req: Request) => {
     const prevDiag = (job.error_summary && typeof job.error_summary === "object" ? (job.error_summary as any).diagnostics : null) ?? null;
     const isResume = job.status === "processing" && (job.processed_rows ?? 0) > 0;
 
+    const { data: memberRows } = userId
+      ? await supabase.from("workspace_members").select("workspace_id").eq("user_id", userId)
+      : { data: [] as any[] };
+    const accessibleWorkspaceIds = Array.from(new Set([
+      ...((memberRows ?? []).map((m: any) => m.workspace_id).filter(Boolean)),
+      ...(job.workspace_id ? [job.workspace_id] : []),
+    ]));
+
+    const settings = (job.settings ?? {}) as ImportSettings;
+    const mapping = (job.column_mapping ?? {}) as Record<string, string>;
+    if (settings.list_id) {
+      const { data: targetList, error: listErr } = await supabase
+        .from("lists")
+        .select("id, workspace_id")
+        .eq("id", settings.list_id)
+        .maybeSingle();
+      if (listErr || !targetList) throw new Error(`Target list not found: ${settings.list_id}`);
+      if (targetList.workspace_id && !accessibleWorkspaceIds.includes(targetList.workspace_id)) {
+        throw new Error("Target list is not in an accessible workspace for this account.");
+      }
+      if (job.workspace_id && targetList.workspace_id && targetList.workspace_id !== job.workspace_id) {
+        throw new Error("Import workspace does not match the target list workspace. Start the import from the list workspace or use the repair flow for existing parent imports.");
+      }
+    }
+
     console.log(`[import] ${isResume ? "Resuming" : "Starting"} job ${job_id}, total_rows=${job.total_rows}, processed_so_far=${job.processed_rows ?? 0}`);
 
     if (isResume) {
@@ -613,16 +640,41 @@ Deno.serve(async (req: Request) => {
 
     console.log(`[import] Staged rows in DB: ${totalStagedRows}, declared total: ${job.total_rows}`);
 
-    // Preload existing data for dedup
+    // Preload existing data for account-wide dedupe. Prospect Search is account-wide,
+    // so imports must also detect duplicates across every workspace the actor can access.
     const preloadStart = performance.now();
-    let contactsQuery = supabase.from("contacts").select("id, email, secondary_email, tertiary_email, linkedin_url, external_contact_id, first_name, last_name, company_name_raw, phone").is("merged_into", null).limit(200000);
-    let companiesQuery = supabase.from("companies").select("id, name, normalized_name, domain, normalized_domain, external_account_id, website, company_linkedin_url").is("merged_into", null).limit(100000);
-    if (job.workspace_id) {
-      contactsQuery = contactsQuery.eq("workspace_id", job.workspace_id) as any;
-      companiesQuery = companiesQuery.eq("workspace_id", job.workspace_id) as any;
+    async function fetchPaged<T>(builder: () => any, pageSize = 5000, maxRows = 500000): Promise<T[]> {
+      const out: T[] = [];
+      for (let from = 0; from < maxRows; from += pageSize) {
+        const { data, error } = await builder().range(from, from + pageSize - 1);
+        if (error) throw error;
+        const batch = (data ?? []) as T[];
+        out.push(...batch);
+        if (batch.length < pageSize) break;
+      }
+      return out;
     }
-
-    const [{ data: existingContacts }, { data: existingCompanies }] = await Promise.all([contactsQuery, companiesQuery]);
+    const workspaceScope = accessibleWorkspaceIds.length > 0
+      ? accessibleWorkspaceIds
+      : (job.workspace_id ? [job.workspace_id] : []);
+    const existingContacts = await fetchPaged<ExistingContact>(() => {
+      let q = supabase
+        .from("contacts")
+        .select("id, email, secondary_email, tertiary_email, linkedin_url, external_contact_id, first_name, last_name, company_name_raw, phone")
+        .is("merged_into", null)
+        .order("id");
+      if (workspaceScope.length > 0) q = q.in("workspace_id", workspaceScope) as any;
+      return q;
+    });
+    const existingCompanies = await fetchPaged<ExistingCompany>(() => {
+      let q = supabase
+        .from("companies")
+        .select("id, name, normalized_name, domain, normalized_domain, external_account_id, website, company_linkedin_url")
+        .is("merged_into", null)
+        .order("id");
+      if (workspaceScope.length > 0) q = q.in("workspace_id", workspaceScope) as any;
+      return q;
+    });
 
     const contactIndex = buildContactIndex((existingContacts ?? []) as ExistingContact[]);
     const companyIndex = buildCompanyIndex((existingCompanies ?? []) as ExistingCompany[]);
@@ -638,13 +690,7 @@ Deno.serve(async (req: Request) => {
     }
 
     updateDiag({ timings: { preload_existing_ms: Math.round(performance.now() - preloadStart) } });
-    console.log(`[import] Preloaded ${(existingContacts ?? []).length} contacts, ${(existingCompanies ?? []).length} companies in ${Math.round(performance.now() - preloadStart)}ms`);
-
-
-
-
-    const settings = (job.settings ?? {}) as ImportSettings;
-    const mapping = (job.column_mapping ?? {}) as Record<string, string>;
+    console.log(`[import] Preloaded ${(existingContacts ?? []).length} contacts, ${(existingCompanies ?? []).length} companies across ${workspaceScope.length} workspace(s) in ${Math.round(performance.now() - preloadStart)}ms`);
 
     // Field mapping report tracker
     const fieldReport: Record<string, { inserted: number; blank: number; target: string }> = {};
@@ -970,15 +1016,20 @@ Deno.serve(async (req: Request) => {
 
       // Contact insertion with retry
       const insertStart = performance.now();
-      const { inserted, failedEntries } = await insertContactsWithRetry(supabase, readyContacts, contactIndex);
+      const { inserted, failedEntries } = await insertContactsWithRetry(supabase, readyContacts, contactIndex, workspaceScope);
       addToContactIndex(contactIndex, inserted);
       const insertMs = Math.round(performance.now() - insertStart);
 
 
       // List assignment
       const listStart = performance.now();
-      if (settings.list_id && inserted.length > 0) {
-        const listRows = inserted.map((c) => ({ list_id: settings.list_id, contact_id: c.id, added_by: userId }));
+      if (settings.list_id) {
+        const contactIdsForList = Array.from(new Set(
+          rowUpdates
+            .filter((u) => ["success", "skipped", "duplicate"].includes(u.status) && u.contact_id)
+            .map((u) => u.contact_id as string)
+        ));
+        const listRows = contactIdsForList.map((contactId) => ({ list_id: settings.list_id, contact_id: contactId, added_by: userId }));
         for (let li = 0; li < listRows.length; li += 1000) {
           await (supabase.from("list_contacts") as any).upsert(listRows.slice(li, li + 1000), { onConflict: "list_id,contact_id" });
         }
