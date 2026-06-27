@@ -33,12 +33,14 @@ type ExistingCompany = {
   domain: string | null; external_account_id: string | null; website: string | null;
   normalized_domain?: string | null; company_linkedin_url?: string | null;
 };
+type ImportMode = "enrich" | "skip" | "review";
 type ImportSettings = {
   duplicate_strategy: string; skip_exact_duplicates: boolean;
   update_missing_fields: boolean; review_likely_duplicates: boolean;
   review_company_conflicts: boolean; create_if_no_strong_match: boolean;
   unmapped_columns: string[]; excluded_columns?: string[];
   import_tag: string; source: string; list_id: string | null;
+  import_mode?: ImportMode; // enterprise: default 'enrich'
 };
 
 function nowIso() { return new Date().toISOString(); }
