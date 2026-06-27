@@ -84,6 +84,7 @@ export function useProspectSearch(options: ProspectSearchOptions) {
       countQuery = applyListIds(countQuery, listIds);
       if (options.sourceFile) countQuery = countQuery.eq("source_file", options.sourceFile);
       if (options.importTag) countQuery = countQuery.eq("import_tag", options.importTag);
+      if (!options.includeMerged) countQuery = countQuery.is("merged_into", null);
       const { count } = await countQuery;
       const totalCount = count ?? 0;
 
