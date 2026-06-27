@@ -737,6 +737,13 @@ Deno.serve(async (req: Request) => {
     let errorRows = isResume ? (job.error_rows ?? 0) : 0;
     let duplicateRows = isResume ? (job.duplicate_rows ?? 0) : 0;
     let reviewRows = isResume ? (job.review_rows ?? 0) : 0;
+    // Enterprise outcome counters
+    let insertedNew = isResume ? (job.inserted_new ?? 0) : 0;
+    let updatedExisting = isResume ? (job.updated_existing ?? 0) : 0;
+    let enrichedExisting = isResume ? (job.enriched_existing ?? 0) : 0;
+    let duplicateLinked = isResume ? (job.duplicate_linked ?? 0) : 0;
+    let skippedDuplicate = isResume ? (job.skipped_duplicate ?? 0) : 0;
+    let conflictRows = isResume ? (job.conflict_rows ?? 0) : 0;
     let batchIndex = isResume ? (prevDiag?.total_batches ?? 0) : 0;
     const wallClockStart = performance.now();
 
