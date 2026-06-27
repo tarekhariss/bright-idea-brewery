@@ -11591,6 +11591,13 @@ export type Database = {
         Args: { _error: string; _result_id: string }
         Returns: undefined
       }
+      run_company_dedupe_tick: {
+        Args: never
+        Returns: {
+          companies_merged: number
+          groups_processed: number
+        }[]
+      }
       scan_import_quarantine: {
         Args: { p_import_job_id: string }
         Returns: {
