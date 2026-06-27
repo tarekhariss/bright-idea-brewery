@@ -270,8 +270,15 @@ export default function ImportJobDetailPage() {
           error_rows: acc.error_rows + (c.error_rows ?? 0),
           review_rows: acc.review_rows + (c.review_rows ?? 0),
           success_rows: acc.success_rows + (c.success_rows ?? 0),
+          inserted_new: acc.inserted_new + (c.inserted_new ?? 0),
+          updated_existing: acc.updated_existing + (c.updated_existing ?? 0),
+          enriched_existing: acc.enriched_existing + (c.enriched_existing ?? 0),
+          duplicate_linked: acc.duplicate_linked + (c.duplicate_linked ?? 0),
+          skipped_duplicate: acc.skipped_duplicate + (c.skipped_duplicate ?? 0),
+          conflict_rows: acc.conflict_rows + (c.conflict_rows ?? 0),
         }),
-        { processed_rows: 0, inserted_rows: 0, duplicate_rows: 0, error_rows: 0, review_rows: 0, success_rows: 0 }
+        { processed_rows: 0, inserted_rows: 0, duplicate_rows: 0, error_rows: 0, review_rows: 0, success_rows: 0,
+          inserted_new: 0, updated_existing: 0, enriched_existing: 0, duplicate_linked: 0, skipped_duplicate: 0, conflict_rows: 0 }
       )
     : null;
   const displayJob = childAgg ? { ...job, ...childAgg } : job;
