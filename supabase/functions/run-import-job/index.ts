@@ -837,6 +837,8 @@ Deno.serve(async (req: Request) => {
       const pendingContacts: Array<{ rowId: string; rowUpdate: any; contact: Record<string, unknown>; companyData: Record<string, unknown>; domainKey: string; nameKey: string; companyName: string }> = [];
       const readyContacts: Array<{ rowId: string; rowUpdate: any; contact: Record<string, unknown> }> = [];
       const mergeUpdates: Array<{ contactId: string; companyId: string | null; patch: Record<string, unknown>; contactCustom: Record<string, string>; companyCustom: Record<string, string> }> = [];
+      // Enterprise enrichment requests: one per duplicate row in mode='enrich'.
+      const enrichmentRequests: Array<{ rowId: string; rowUpdate: any; contactId: string; companyId: string | null; fields: Record<string, string>; contactCustom: Record<string, string>; companyCustom: Record<string, string>; listId: string | null }> = [];
 
 
       for (let i = 0; i < pendingRows.length; i++) {
