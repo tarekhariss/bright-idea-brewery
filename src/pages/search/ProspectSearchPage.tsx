@@ -210,6 +210,9 @@ export default function ProspectSearchPage() {
     ? { ...state.filterDefinition, includeLists: Array.from(new Set([...(state.filterDefinition.includeLists ?? []), listIdParam])) }
     : state.filterDefinition;
 
+  // Canonical-only by default. Toggle exposes raw duplicate records for QA/debug.
+  const [showMerged, setShowMerged] = useState(false);
+
   const searchResult = useProspectSearch({
     entityType: state.entityType,
     filterDefinition: effectiveFilter,
@@ -220,6 +223,7 @@ export default function ProspectSearchPage() {
     pageSize: state.pageSize,
     sourceFile,
     importTag,
+    includeMerged: showMerged,
   });
 
   const columns = state.entityType === "contact" ? CONTACT_COLUMNS : COMPANY_COLUMNS;
