@@ -11132,6 +11132,13 @@ export type Database = {
           survivor: string
         }[]
       }
+      dedupe_companies_global_chunk: {
+        Args: { p_actor?: string; p_limit?: number }
+        Returns: {
+          companies_merged: number
+          groups_processed: number
+        }[]
+      }
       dedupe_contacts_by_email_chunk: {
         Args: { p_actor?: string; p_limit?: number }
         Returns: {
