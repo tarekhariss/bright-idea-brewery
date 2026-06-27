@@ -25,6 +25,8 @@ interface ProspectSearchOptions {
   pageSize: number;
   sourceFile?: string;
   importTag?: string;
+  /** When false (default), only canonical (non-merged) records are returned. */
+  includeMerged?: boolean;
 }
 
 export interface ProspectSearchResult<T = any> {
