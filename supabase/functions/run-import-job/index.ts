@@ -918,27 +918,77 @@ Deno.serve(async (req: Request) => {
           } else {
             rowUpdate.status = "error"; rowUpdate.error_message = "Missing required identity fields";
           }
-        } else if (rowAction.action === "update_missing_fields" && dupDetail.matchedContactId) {
-          // Merge import data into the existing contact WITHOUT overwriting non-empty values.
-          // Custom fields are merged key-by-key (existing wins on conflict).
-          const contactPatch: Record<string, unknown> = {};
+        } else if (rowAction.outcome === "enriched_existing" && dupDetail.matchedContactId) {
+          // Enterprise enrich path: collect scalar fields + custom blobs and defer
+          // to enrich_contact_from_import RPC (run in batches below). The RPC fills
+          // only blank fields, logs every change, and queues true value conflicts.
+          const fields: Record<string, string> = {};
           for (const [key, value] of Object.entries(normalized)) {
             if (key.startsWith("_")) continue;
             if (value === null || value === undefined || value === "") continue;
-            if (CONTACT_FIELDS.has(key)) contactPatch[key] = value;
+            if (CONTACT_FIELDS.has(key)) fields[key] = String(value);
           }
-          const newContactCustom = (normalized as any)._contact_custom_fields ?? {};
-          const newCompanyCustom = (normalized as any)._company_custom_fields ?? {};
-
-          mergeUpdates.push({
+          enrichmentRequests.push({
+            rowId: row.id,
+            rowUpdate,
             contactId: dupDetail.matchedContactId,
             companyId: dupDetail.matchedCompanyId,
-            patch: contactPatch,
-            contactCustom: newContactCustom,
-            companyCustom: newCompanyCustom,
+            fields,
+            contactCustom: (normalized as any)._contact_custom_fields ?? {},
+            companyCustom: (normalized as any)._company_custom_fields ?? {},
+            listId: settings.list_id,
           });
+        } else if (rowAction.outcome === "skipped_duplicate" && dupDetail.matchedContactId) {
+          // mode='skip': record the canonical match so we still attach to the list below.
+          rowUpdate.contact_id = dupDetail.matchedContactId;
         }
         rowUpdates.push(rowUpdate);
+      }
+
+      // === Enterprise enrichment pass: run RPCs in small parallel batches ===
+      if (enrichmentRequests.length > 0) {
+        const ENRICH_CONCURRENCY = 8;
+        for (let i = 0; i < enrichmentRequests.length; i += ENRICH_CONCURRENCY) {
+          const slice = enrichmentRequests.slice(i, i + ENRICH_CONCURRENCY);
+          await Promise.all(slice.map(async (req) => {
+            try {
+              const { data, error } = await supabase.rpc("enrich_contact_from_import", {
+                p_contact_id: req.contactId,
+                p_workspace_id: job.workspace_id,
+                p_actor: userId,
+                p_import_job_id: jobId,
+                p_row_number: 0,
+                p_fields: req.fields,
+                p_contact_custom: req.contactCustom ?? {},
+                p_record_conflicts: true,
+              });
+              if (error) {
+                req.rowUpdate.status = "error";
+                req.rowUpdate.error_message = `enrich_failed: ${error.message}`;
+                req.rowUpdate.action_taken = null;
+                return;
+              }
+              const enriched: string[] = data?.enriched ?? [];
+              const conflicts: string[] = data?.conflicts ?? [];
+              const customChanged = !!data?.custom_changed;
+              if (conflicts.length > 0) {
+                req.rowUpdate.review_required = true;
+                req.rowUpdate.action_taken = "conflict";
+                req.rowUpdate.duplicate_match_reason =
+                  (req.rowUpdate.duplicate_match_reason || "") +
+                  ` | conflicts: ${conflicts.join(",")}`;
+              } else if (enriched.length > 0 || customChanged) {
+                req.rowUpdate.action_taken = "enriched_existing";
+              } else {
+                // No-op enrichment → contact already had everything → duplicate_linked.
+                req.rowUpdate.action_taken = "duplicate_linked";
+              }
+            } catch (e: any) {
+              req.rowUpdate.status = "error";
+              req.rowUpdate.error_message = `enrich_exception: ${e?.message ?? String(e)}`;
+            }
+          }));
+        }
       }
 
 
