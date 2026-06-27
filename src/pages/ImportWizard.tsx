@@ -1,4 +1,6 @@
 import { useState, useCallback, useMemo } from "react";
+import { ImportPauseBanner } from "@/components/imports/ImportPauseBanner";
+
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
