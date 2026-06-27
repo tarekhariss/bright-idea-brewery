@@ -4628,24 +4628,30 @@ export type Database = {
           batch_total: number | null
           column_mapping: Json | null
           completed_at: string | null
+          conflict_rows: number
           created_at: string | null
           created_by: string
+          duplicate_linked: number
           duplicate_rows: number
+          enriched_existing: number
           error_rows: number
           error_summary: Json | null
           file_name: string
           file_url: string | null
           id: string
+          inserted_new: number
           inserted_rows: number
           parent_job_id: string | null
           post_processing_stage: string | null
           processed_rows: number
           review_rows: number
           settings: Json | null
+          skipped_duplicate: number
           started_at: string | null
           status: Database["public"]["Enums"]["import_status"]
           success_rows: number
           total_rows: number
+          updated_existing: number
           workspace_id: string | null
         }
         Insert: {
@@ -4655,24 +4661,30 @@ export type Database = {
           batch_total?: number | null
           column_mapping?: Json | null
           completed_at?: string | null
+          conflict_rows?: number
           created_at?: string | null
           created_by: string
+          duplicate_linked?: number
           duplicate_rows?: number
+          enriched_existing?: number
           error_rows?: number
           error_summary?: Json | null
           file_name: string
           file_url?: string | null
           id?: string
+          inserted_new?: number
           inserted_rows?: number
           parent_job_id?: string | null
           post_processing_stage?: string | null
           processed_rows?: number
           review_rows?: number
           settings?: Json | null
+          skipped_duplicate?: number
           started_at?: string | null
           status?: Database["public"]["Enums"]["import_status"]
           success_rows?: number
           total_rows?: number
+          updated_existing?: number
           workspace_id?: string | null
         }
         Update: {
@@ -4682,24 +4694,30 @@ export type Database = {
           batch_total?: number | null
           column_mapping?: Json | null
           completed_at?: string | null
+          conflict_rows?: number
           created_at?: string | null
           created_by?: string
+          duplicate_linked?: number
           duplicate_rows?: number
+          enriched_existing?: number
           error_rows?: number
           error_summary?: Json | null
           file_name?: string
           file_url?: string | null
           id?: string
+          inserted_new?: number
           inserted_rows?: number
           parent_job_id?: string | null
           post_processing_stage?: string | null
           processed_rows?: number
           review_rows?: number
           settings?: Json | null
+          skipped_duplicate?: number
           started_at?: string | null
           status?: Database["public"]["Enums"]["import_status"]
           success_rows?: number
           total_rows?: number
+          updated_existing?: number
           workspace_id?: string | null
         }
         Relationships: [
@@ -11203,6 +11221,19 @@ export type Database = {
           _workspace_id: string
         }
         Returns: string
+      }
+      enrich_contact_from_import: {
+        Args: {
+          p_actor: string
+          p_contact_custom?: Json
+          p_contact_id: string
+          p_fields: Json
+          p_import_job_id: string
+          p_record_conflicts?: boolean
+          p_row_number: number
+          p_workspace_id: string
+        }
+        Returns: Json
       }
       enrollment_should_stop_for_reply: {
         Args: { _enrollment_id: string }
