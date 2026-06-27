@@ -544,6 +544,25 @@ export default function ImportJobDetailPage() {
           </Card>
         ))}
       </div>
+
+      {/* Enterprise outcome breakdown */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        {[
+          { label: "Inserted (new)", value: displayJob.inserted_new ?? 0, color: "text-emerald-600" },
+          { label: "Updated existing", value: displayJob.updated_existing ?? 0, color: "text-blue-600" },
+          { label: "Enriched existing", value: displayJob.enriched_existing ?? 0, color: "text-indigo-600" },
+          { label: "Duplicate linked", value: displayJob.duplicate_linked ?? 0, color: "text-amber-600" },
+          { label: "Skipped duplicate", value: displayJob.skipped_duplicate ?? 0, color: "text-muted-foreground" },
+          { label: "Conflicts", value: displayJob.conflict_rows ?? 0, color: "text-destructive" },
+        ].map((s) => (
+          <Card key={s.label}>
+            <CardContent className="p-3">
+              <p className="text-xs text-muted-foreground">{s.label}</p>
+              <p className={`text-lg font-bold ${s.color}`}>{(s.value as number).toLocaleString()}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
       {/* Diagnostics Panel */}
       {(Object.keys(timings).length > 0 || recentBatches.length > 0 || verifiedDbCount !== undefined) && (
         <Card>
