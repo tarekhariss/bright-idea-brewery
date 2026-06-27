@@ -574,6 +574,24 @@ Deno.serve(async (req: Request) => {
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // ─── Global pause guard (enterprise dedupe rollout) ────────────────────
+    // Honors platform_settings.imports_paused. Internal cron + service role can
+    // bypass via x-allow-paused header so admins can deliberately drain queues.
+    {
+      const { data: pauseRow } = await supabase
+        .from("platform_settings").select("value").eq("key", "imports_paused").maybeSingle();
+      const paused = (pauseRow?.value as any)?.paused === true;
+      const allowPaused = req.headers.get("x-allow-paused") === "1" && isInternal;
+      if (paused && !allowPaused) {
+        const reason = (pauseRow?.value as any)?.reason ?? "Imports are temporarily paused.";
+        console.log(`[import] Refusing job ${job_id} — imports paused: ${reason}`);
+        return new Response(JSON.stringify({
+          success: false, paused: true, reason, job_id,
+        }), { status: 423, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
+
+
     if (!isInternal) {
       if (job.workspace_id) {
         const { data: membership } = await supabase.from("workspace_members").select("user_id").eq("user_id", userId).eq("workspace_id", job.workspace_id).maybeSingle();

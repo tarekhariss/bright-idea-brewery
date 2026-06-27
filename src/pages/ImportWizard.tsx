@@ -1,4 +1,6 @@
 import { useState, useCallback, useMemo } from "react";
+import { ImportPauseBanner } from "@/components/imports/ImportPauseBanner";
+
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -551,11 +553,15 @@ export default function ImportWizardPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6 animate-fade-in">
+      {/* Pause banner — enterprise dedupe rollout */}
+      <ImportPauseBanner />
+
       {/* Header */}
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">New Import</h1>
         <p className="text-sm text-muted-foreground">Follow the steps to safely import your dataset</p>
       </div>
+
 
       {/* Stepper */}
       <div className="flex items-center gap-1">
