@@ -327,20 +327,31 @@ function checkDuplicatesAdvanced(
   return details;
 }
 
-function classifyRowAction(classification: string, settings: ImportSettings) {
-  switch (classification) {
-    case "invalid": return { status: "error", action: null, reviewRequired: false };
-    case "exact_duplicate":
-      if (settings.skip_exact_duplicates) return { status: "skipped", action: "skipped_exact_duplicate", reviewRequired: false };
-      if (settings.update_missing_fields) return { status: "success", action: "update_missing_fields", reviewRequired: false };
-      return { status: "review", action: "exact_duplicate_flagged", reviewRequired: true };
-    case "likely_duplicate":
-      if (settings.review_likely_duplicates) return { status: "review", action: "likely_duplicate_flagged", reviewRequired: true };
-      if (settings.update_missing_fields) return { status: "success", action: "update_missing_fields", reviewRequired: false };
-      return { status: "review", action: "likely_duplicate_flagged", reviewRequired: true };
-    case "review_required": return { status: "review", action: "low_confidence_match", reviewRequired: true };
-    default: return { status: "success", action: "create_new", reviewRequired: false };
+// Enterprise Identity Resolution: every row is classified into one of seven outcomes.
+// Outcome → (DB row status, action_taken string, review flag).
+type RowOutcome =
+  | "inserted_new" | "updated_existing" | "enriched_existing" | "duplicate_linked"
+  | "skipped_duplicate" | "conflict" | "review_required" | "error";
+
+function classifyRowAction(classification: string, settings: ImportSettings):
+  { status: string; action: string | null; reviewRequired: boolean; outcome: RowOutcome } {
+  const mode: ImportMode = (settings.import_mode as ImportMode) || "enrich";
+  if (classification === "invalid") {
+    return { status: "error", action: null, reviewRequired: false, outcome: "error" };
   }
+  if (classification === "new") {
+    return { status: "success", action: "create_new", reviewRequired: false, outcome: "inserted_new" };
+  }
+  // Any duplicate-ish classification: exact_duplicate | likely_duplicate | review_required
+  if (mode === "skip") {
+    return { status: "skipped", action: "skipped_duplicate", reviewRequired: false, outcome: "skipped_duplicate" };
+  }
+  if (mode === "review") {
+    return { status: "review", action: "review_pending", reviewRequired: true, outcome: "review_required" };
+  }
+  // mode === "enrich" (default). Try to enrich; the runner may downgrade to
+  // duplicate_linked (no fields filled) or conflict (true value clash).
+  return { status: "success", action: "enriched_existing", reviewRequired: false, outcome: "enriched_existing" };
 }
 
 const CONTACT_FIELDS = new Set([
