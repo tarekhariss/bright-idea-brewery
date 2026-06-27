@@ -1126,13 +1126,23 @@ Deno.serve(async (req: Request) => {
       }
       const listMs = Math.round(performance.now() - listStart);
 
-      // Count results
+      // Count results — both legacy buckets and enterprise outcome buckets.
       let batchSuccess = 0, batchError = 0, batchDuplicate = 0, batchReview = 0;
+      let bInsertedNew = 0, bUpdatedExisting = 0, bEnrichedExisting = 0,
+          bDuplicateLinked = 0, bSkippedDuplicate = 0, bConflict = 0;
       for (const u of rowUpdates) {
         if (u.status === "success") batchSuccess++;
         else if (u.status === "error") batchError++;
         else if (u.status === "review") batchReview++;
         else if (u.status === "skipped" || u.status === "duplicate") batchDuplicate++;
+        switch (u.action_taken) {
+          case "create_new": bInsertedNew++; break;
+          case "updated_existing": bUpdatedExisting++; break;
+          case "enriched_existing": bEnrichedExisting++; break;
+          case "duplicate_linked": bDuplicateLinked++; break;
+          case "skipped_duplicate": bSkippedDuplicate++; break;
+          case "conflict": bConflict++; break;
+        }
       }
 
       // FIX: Use update (not upsert) to avoid NOT NULL constraint on import_job_id
@@ -1150,6 +1160,13 @@ Deno.serve(async (req: Request) => {
       duplicateRows += batchDuplicate;
       reviewRows += batchReview;
       insertedRows += inserted.length;
+      // Enterprise counters: inserted_new comes from real inserts (not just row classification)
+      insertedNew += inserted.length;
+      updatedExisting += bUpdatedExisting;
+      enrichedExisting += bEnrichedExisting;
+      duplicateLinked += bDuplicateLinked;
+      skippedDuplicate += bSkippedDuplicate;
+      conflictRows += bConflict;
 
       // INTEGRITY CAP: counters must never exceed staged rows
       if (processedRows > totalStagedRows) {
@@ -1167,6 +1184,7 @@ Deno.serve(async (req: Request) => {
           processed: processedRows,
           inserted: insertedRows, errors: errorRows + failedEntries.length,
           dupes: duplicateRows, review: batchReview,
+          enriched: bEnrichedExisting, conflicts: bConflict, linked: bDuplicateLinked,
           at: nowIso(),
         }],
       });
@@ -1177,6 +1195,9 @@ Deno.serve(async (req: Request) => {
           status: "processing", processed_rows: processedRows, success_rows: successRows,
           inserted_rows: insertedRows, error_rows: errorRows, duplicate_rows: duplicateRows,
           review_rows: reviewRows, error_summary: diag,
+          inserted_new: insertedNew, updated_existing: updatedExisting,
+          enriched_existing: enrichedExisting, duplicate_linked: duplicateLinked,
+          skipped_duplicate: skippedDuplicate, conflict_rows: conflictRows,
         }).eq("id", job_id);
       }
 
