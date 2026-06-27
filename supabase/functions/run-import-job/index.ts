@@ -1355,6 +1355,9 @@ Deno.serve(async (req: Request) => {
       status: "completed", processed_rows: processedRows, success_rows: successRows,
       inserted_rows: insertedRows, error_rows: errorRows, duplicate_rows: duplicateRows,
       review_rows: reviewRows, completed_at: nowIso(),
+      inserted_new: insertedNew, updated_existing: updatedExisting,
+      enriched_existing: enrichedExisting, duplicate_linked: duplicateLinked,
+      skipped_duplicate: skippedDuplicate, conflict_rows: conflictRows,
       error_summary: {
         ...diag,
         ...(mismatchWarning ? { verification_warning: mismatchWarning } : {}),
