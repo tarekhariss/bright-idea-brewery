@@ -323,7 +323,15 @@ export default function ProspectSearchPage() {
           {excludeListCount > 0 && <Badge variant="secondary" className="text-[10px]">{excludeListCount} exclude list{excludeListCount > 1 ? "s" : ""}</Badge>}
           {sourceFile && <Badge variant="secondary" className="text-[10px]">source: {sourceFile}</Badge>}
           {importTag && <Badge variant="secondary" className="text-[10px]">tag: {importTag}</Badge>}
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
+            <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer select-none">
+              <Checkbox
+                checked={showMerged}
+                onCheckedChange={(v) => { setShowMerged(!!v); state.setPage(0); }}
+                className="h-3.5 w-3.5"
+              />
+              Show raw duplicate records
+            </label>
             <Button
               variant={anyActiveFilter ? "default" : "outline"}
               size="sm"
