@@ -58,6 +58,7 @@ export function useProspectSearch(options: ProspectSearchOptions) {
       accessibleWorkspaceIds.slice().sort().join(","),
       options.sourceFile,
       options.importTag,
+      options.includeMerged ?? false,
     ],
     enabled: !!user,
     queryFn: async (): Promise<ProspectSearchResult> => {
