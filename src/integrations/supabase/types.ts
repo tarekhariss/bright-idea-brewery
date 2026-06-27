@@ -1827,6 +1827,96 @@ export type Database = {
           },
         ]
       }
+      contact_conflicts: {
+        Row: {
+          contact_id: string
+          created_at: string
+          existing_value: Json | null
+          field_name: string
+          id: string
+          import_job_id: string | null
+          incoming_value: Json | null
+          resolved_at: string | null
+          resolved_by: string | null
+          resolved_value: Json | null
+          source: string | null
+          status: string
+          workspace_id: string
+        }
+        Insert: {
+          contact_id: string
+          created_at?: string
+          existing_value?: Json | null
+          field_name: string
+          id?: string
+          import_job_id?: string | null
+          incoming_value?: Json | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_value?: Json | null
+          source?: string | null
+          status?: string
+          workspace_id: string
+        }
+        Update: {
+          contact_id?: string
+          created_at?: string
+          existing_value?: Json | null
+          field_name?: string
+          id?: string
+          import_job_id?: string | null
+          incoming_value?: Json | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_value?: Json | null
+          source?: string | null
+          status?: string
+          workspace_id?: string
+        }
+        Relationships: []
+      }
+      contact_field_history: {
+        Row: {
+          change_type: string
+          changed_at: string
+          changed_by: string | null
+          contact_id: string
+          field_name: string
+          id: string
+          import_job_id: string | null
+          new_value: Json | null
+          previous_value: Json | null
+          source: string | null
+          workspace_id: string
+        }
+        Insert: {
+          change_type: string
+          changed_at?: string
+          changed_by?: string | null
+          contact_id: string
+          field_name: string
+          id?: string
+          import_job_id?: string | null
+          new_value?: Json | null
+          previous_value?: Json | null
+          source?: string | null
+          workspace_id: string
+        }
+        Update: {
+          change_type?: string
+          changed_at?: string
+          changed_by?: string | null
+          contact_id?: string
+          field_name?: string
+          id?: string
+          import_job_id?: string | null
+          new_value?: Json | null
+          previous_value?: Json | null
+          source?: string | null
+          workspace_id?: string
+        }
+        Relationships: []
+      }
       contact_funnel_metrics: {
         Row: {
           campaign_id: string | null
@@ -1925,6 +2015,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      contact_merge_events: {
+        Row: {
+          field_actions: Json
+          id: string
+          match_rule: string | null
+          merged_contact_id: string
+          performed_at: string
+          performed_by: string | null
+          reason: string | null
+          surviving_contact_id: string
+          workspace_id: string
+        }
+        Insert: {
+          field_actions?: Json
+          id?: string
+          match_rule?: string | null
+          merged_contact_id: string
+          performed_at?: string
+          performed_by?: string | null
+          reason?: string | null
+          surviving_contact_id: string
+          workspace_id: string
+        }
+        Update: {
+          field_actions?: Json
+          id?: string
+          match_rule?: string | null
+          merged_contact_id?: string
+          performed_at?: string
+          performed_by?: string | null
+          reason?: string | null
+          surviving_contact_id?: string
+          workspace_id?: string
+        }
+        Relationships: []
       }
       contact_outreach_history: {
         Row: {
@@ -2105,8 +2231,12 @@ export type Database = {
           lifecycle_status: Database["public"]["Enums"]["lifecycle_status"]
           linkedin_url: string | null
           merged_at: string | null
+          merged_by: string | null
           merged_into: string | null
+          merged_into_contact_id: string | null
           mobile_phone: string | null
+          normalized_email: string | null
+          normalized_linkedin_url: string | null
           normalized_name: string | null
           notes: string | null
           other_phone: string | null
@@ -2188,8 +2318,12 @@ export type Database = {
           lifecycle_status?: Database["public"]["Enums"]["lifecycle_status"]
           linkedin_url?: string | null
           merged_at?: string | null
+          merged_by?: string | null
           merged_into?: string | null
+          merged_into_contact_id?: string | null
           mobile_phone?: string | null
+          normalized_email?: string | null
+          normalized_linkedin_url?: string | null
           normalized_name?: string | null
           notes?: string | null
           other_phone?: string | null
@@ -2271,8 +2405,12 @@ export type Database = {
           lifecycle_status?: Database["public"]["Enums"]["lifecycle_status"]
           linkedin_url?: string | null
           merged_at?: string | null
+          merged_by?: string | null
           merged_into?: string | null
+          merged_into_contact_id?: string | null
           mobile_phone?: string | null
+          normalized_email?: string | null
+          normalized_linkedin_url?: string | null
           normalized_name?: string | null
           notes?: string | null
           other_phone?: string | null
@@ -2308,6 +2446,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contacts_merged_into_contact_id_fkey"
+            columns: ["merged_into_contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
             referencedColumns: ["id"]
           },
           {
@@ -11380,6 +11525,15 @@ export type Database = {
         Args: { p_ids: string[]; p_reason?: string }
         Returns: Json
       }
+      resolve_canonical_contact: {
+        Args: {
+          p_email: string
+          p_external_id: string
+          p_linkedin_url: string
+          p_workspace_ids: string[]
+        }
+        Returns: string
+      }
       resolve_contact_id: { Args: { _id: string }; Returns: string }
       retry_verification_result: {
         Args: { _error: string; _result_id: string }
@@ -11395,6 +11549,15 @@ export type Database = {
       schedule_recheck: {
         Args: { _reason: string; _result_id: string }
         Returns: Json
+      }
+      soft_merge_contacts: {
+        Args: {
+          p_actor: string
+          p_loser_id: string
+          p_match_rule: string
+          p_survivor_id: string
+        }
+        Returns: undefined
       }
       sweep_due_rechecks: { Args: { _limit?: number }; Returns: number }
       transition_opportunity: {
