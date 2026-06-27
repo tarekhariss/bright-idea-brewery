@@ -104,6 +104,7 @@ export function useProspectSearch(options: ProspectSearchOptions) {
       dataQuery = applyListIds(dataQuery, listIds);
       if (options.sourceFile) dataQuery = dataQuery.eq("source_file", options.sourceFile);
       if (options.importTag) dataQuery = dataQuery.eq("import_tag", options.importTag);
+      if (!options.includeMerged) dataQuery = dataQuery.is("merged_into", null);
 
       const { data, error } = await dataQuery;
       if (error) throw error;
