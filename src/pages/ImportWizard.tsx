@@ -1062,6 +1062,36 @@ export default function ImportWizardPage() {
                   <Separator />
 
                   <div className="space-y-3">
+                    <Label className="text-sm font-semibold">When a contact already exists</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Identity is resolved <strong>account-wide</strong> (every workspace you can access).
+                      The canonical contact is always attached to your target list.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      {([
+                        { value: "enrich", label: "Update / enrich", desc: "Fill blank fields, merge new custom fields, log conflicts. Never overwrites." },
+                        { value: "skip", label: "Skip existing", desc: "Leave existing contacts untouched. Only attach to the list." },
+                        { value: "review", label: "Review conflicts", desc: "Send every match to the review queue before applying changes." },
+                      ] as const).map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setImportSettings((prev) => ({ ...prev, import_mode: opt.value }))}
+                          className={`p-3 rounded-lg border text-left transition-colors ${
+                            (importSettings.import_mode ?? "enrich") === opt.value
+                              ? "border-primary bg-primary/5"
+                              : "border-border hover:border-primary/30"
+                          }`}
+                        >
+                          <p className="text-sm font-medium">{opt.label}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{opt.desc}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+
+                  <div className="space-y-3">
                     <Label className="text-sm font-semibold">Advanced Settings</Label>
                     <div className="space-y-2">
                       {([

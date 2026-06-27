@@ -167,7 +167,7 @@ export default function ImportJobDetailPage() {
     queryKey: ["import-job-children", id],
     queryFn: async () => {
       const { data, error } = await (supabase.from("import_jobs") as any)
-        .select("id,file_name,status,total_rows,processed_rows,inserted_rows,duplicate_rows,error_rows,review_rows,batch_index,batch_total,batch_row_start,batch_row_end,completed_at,error_summary")
+        .select("id,file_name,status,total_rows,processed_rows,inserted_rows,duplicate_rows,error_rows,review_rows,inserted_new,updated_existing,enriched_existing,duplicate_linked,skipped_duplicate,conflict_rows,batch_index,batch_total,batch_row_start,batch_row_end,completed_at,error_summary")
         .eq("parent_job_id", id!)
         .order("batch_index", { ascending: true });
       if (error) throw error;
@@ -270,8 +270,15 @@ export default function ImportJobDetailPage() {
           error_rows: acc.error_rows + (c.error_rows ?? 0),
           review_rows: acc.review_rows + (c.review_rows ?? 0),
           success_rows: acc.success_rows + (c.success_rows ?? 0),
+          inserted_new: acc.inserted_new + (c.inserted_new ?? 0),
+          updated_existing: acc.updated_existing + (c.updated_existing ?? 0),
+          enriched_existing: acc.enriched_existing + (c.enriched_existing ?? 0),
+          duplicate_linked: acc.duplicate_linked + (c.duplicate_linked ?? 0),
+          skipped_duplicate: acc.skipped_duplicate + (c.skipped_duplicate ?? 0),
+          conflict_rows: acc.conflict_rows + (c.conflict_rows ?? 0),
         }),
-        { processed_rows: 0, inserted_rows: 0, duplicate_rows: 0, error_rows: 0, review_rows: 0, success_rows: 0 }
+        { processed_rows: 0, inserted_rows: 0, duplicate_rows: 0, error_rows: 0, review_rows: 0, success_rows: 0,
+          inserted_new: 0, updated_existing: 0, enriched_existing: 0, duplicate_linked: 0, skipped_duplicate: 0, conflict_rows: 0 }
       )
     : null;
   const displayJob = childAgg ? { ...job, ...childAgg } : job;
@@ -533,6 +540,25 @@ export default function ImportJobDetailPage() {
             <CardContent className="p-3">
               <div className="flex items-center gap-2 mb-1"><s.icon className={`h-3.5 w-3.5 ${s.color}`} /><span className="text-xs text-muted-foreground">{s.label}</span></div>
               <p className={`text-xl font-bold ${s.color}`}>{typeof s.value === "number" ? s.value.toLocaleString() : s.value}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Enterprise outcome breakdown */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        {[
+          { label: "Inserted (new)", value: displayJob.inserted_new ?? 0, color: "text-emerald-600" },
+          { label: "Updated existing", value: displayJob.updated_existing ?? 0, color: "text-blue-600" },
+          { label: "Enriched existing", value: displayJob.enriched_existing ?? 0, color: "text-indigo-600" },
+          { label: "Duplicate linked", value: displayJob.duplicate_linked ?? 0, color: "text-amber-600" },
+          { label: "Skipped duplicate", value: displayJob.skipped_duplicate ?? 0, color: "text-muted-foreground" },
+          { label: "Conflicts", value: displayJob.conflict_rows ?? 0, color: "text-destructive" },
+        ].map((s) => (
+          <Card key={s.label}>
+            <CardContent className="p-3">
+              <p className="text-xs text-muted-foreground">{s.label}</p>
+              <p className={`text-lg font-bold ${s.color}`}>{(s.value as number).toLocaleString()}</p>
             </CardContent>
           </Card>
         ))}

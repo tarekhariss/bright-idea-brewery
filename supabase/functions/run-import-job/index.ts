@@ -33,12 +33,14 @@ type ExistingCompany = {
   domain: string | null; external_account_id: string | null; website: string | null;
   normalized_domain?: string | null; company_linkedin_url?: string | null;
 };
+type ImportMode = "enrich" | "skip" | "review";
 type ImportSettings = {
   duplicate_strategy: string; skip_exact_duplicates: boolean;
   update_missing_fields: boolean; review_likely_duplicates: boolean;
   review_company_conflicts: boolean; create_if_no_strong_match: boolean;
   unmapped_columns: string[]; excluded_columns?: string[];
   import_tag: string; source: string; list_id: string | null;
+  import_mode?: ImportMode; // enterprise: default 'enrich'
 };
 
 function nowIso() { return new Date().toISOString(); }
@@ -325,20 +327,31 @@ function checkDuplicatesAdvanced(
   return details;
 }
 
-function classifyRowAction(classification: string, settings: ImportSettings) {
-  switch (classification) {
-    case "invalid": return { status: "error", action: null, reviewRequired: false };
-    case "exact_duplicate":
-      if (settings.skip_exact_duplicates) return { status: "skipped", action: "skipped_exact_duplicate", reviewRequired: false };
-      if (settings.update_missing_fields) return { status: "success", action: "update_missing_fields", reviewRequired: false };
-      return { status: "review", action: "exact_duplicate_flagged", reviewRequired: true };
-    case "likely_duplicate":
-      if (settings.review_likely_duplicates) return { status: "review", action: "likely_duplicate_flagged", reviewRequired: true };
-      if (settings.update_missing_fields) return { status: "success", action: "update_missing_fields", reviewRequired: false };
-      return { status: "review", action: "likely_duplicate_flagged", reviewRequired: true };
-    case "review_required": return { status: "review", action: "low_confidence_match", reviewRequired: true };
-    default: return { status: "success", action: "create_new", reviewRequired: false };
+// Enterprise Identity Resolution: every row is classified into one of seven outcomes.
+// Outcome → (DB row status, action_taken string, review flag).
+type RowOutcome =
+  | "inserted_new" | "updated_existing" | "enriched_existing" | "duplicate_linked"
+  | "skipped_duplicate" | "conflict" | "review_required" | "error";
+
+function classifyRowAction(classification: string, settings: ImportSettings):
+  { status: string; action: string | null; reviewRequired: boolean; outcome: RowOutcome } {
+  const mode: ImportMode = (settings.import_mode as ImportMode) || "enrich";
+  if (classification === "invalid") {
+    return { status: "error", action: null, reviewRequired: false, outcome: "error" };
   }
+  if (classification === "new") {
+    return { status: "success", action: "create_new", reviewRequired: false, outcome: "inserted_new" };
+  }
+  // Any duplicate-ish classification: exact_duplicate | likely_duplicate | review_required
+  if (mode === "skip") {
+    return { status: "skipped", action: "skipped_duplicate", reviewRequired: false, outcome: "skipped_duplicate" };
+  }
+  if (mode === "review") {
+    return { status: "review", action: "review_pending", reviewRequired: true, outcome: "review_required" };
+  }
+  // mode === "enrich" (default). Try to enrich; the runner may downgrade to
+  // duplicate_linked (no fields filled) or conflict (true value clash).
+  return { status: "success", action: "enriched_existing", reviewRequired: false, outcome: "enriched_existing" };
 }
 
 const CONTACT_FIELDS = new Set([
@@ -724,6 +737,13 @@ Deno.serve(async (req: Request) => {
     let errorRows = isResume ? (job.error_rows ?? 0) : 0;
     let duplicateRows = isResume ? (job.duplicate_rows ?? 0) : 0;
     let reviewRows = isResume ? (job.review_rows ?? 0) : 0;
+    // Enterprise outcome counters
+    let insertedNew = isResume ? (job.inserted_new ?? 0) : 0;
+    let updatedExisting = isResume ? (job.updated_existing ?? 0) : 0;
+    let enrichedExisting = isResume ? (job.enriched_existing ?? 0) : 0;
+    let duplicateLinked = isResume ? (job.duplicate_linked ?? 0) : 0;
+    let skippedDuplicate = isResume ? (job.skipped_duplicate ?? 0) : 0;
+    let conflictRows = isResume ? (job.conflict_rows ?? 0) : 0;
     let batchIndex = isResume ? (prevDiag?.total_batches ?? 0) : 0;
     const wallClockStart = performance.now();
 
@@ -817,6 +837,8 @@ Deno.serve(async (req: Request) => {
       const pendingContacts: Array<{ rowId: string; rowUpdate: any; contact: Record<string, unknown>; companyData: Record<string, unknown>; domainKey: string; nameKey: string; companyName: string }> = [];
       const readyContacts: Array<{ rowId: string; rowUpdate: any; contact: Record<string, unknown> }> = [];
       const mergeUpdates: Array<{ contactId: string; companyId: string | null; patch: Record<string, unknown>; contactCustom: Record<string, string>; companyCustom: Record<string, string> }> = [];
+      // Enterprise enrichment requests: one per duplicate row in mode='enrich'.
+      const enrichmentRequests: Array<{ rowId: string; rowUpdate: any; contactId: string; companyId: string | null; fields: Record<string, string>; contactCustom: Record<string, string>; companyCustom: Record<string, string>; listId: string | null }> = [];
 
 
       for (let i = 0; i < pendingRows.length; i++) {
@@ -896,27 +918,77 @@ Deno.serve(async (req: Request) => {
           } else {
             rowUpdate.status = "error"; rowUpdate.error_message = "Missing required identity fields";
           }
-        } else if (rowAction.action === "update_missing_fields" && dupDetail.matchedContactId) {
-          // Merge import data into the existing contact WITHOUT overwriting non-empty values.
-          // Custom fields are merged key-by-key (existing wins on conflict).
-          const contactPatch: Record<string, unknown> = {};
+        } else if (rowAction.outcome === "enriched_existing" && dupDetail.matchedContactId) {
+          // Enterprise enrich path: collect scalar fields + custom blobs and defer
+          // to enrich_contact_from_import RPC (run in batches below). The RPC fills
+          // only blank fields, logs every change, and queues true value conflicts.
+          const fields: Record<string, string> = {};
           for (const [key, value] of Object.entries(normalized)) {
             if (key.startsWith("_")) continue;
             if (value === null || value === undefined || value === "") continue;
-            if (CONTACT_FIELDS.has(key)) contactPatch[key] = value;
+            if (CONTACT_FIELDS.has(key)) fields[key] = String(value);
           }
-          const newContactCustom = (normalized as any)._contact_custom_fields ?? {};
-          const newCompanyCustom = (normalized as any)._company_custom_fields ?? {};
-
-          mergeUpdates.push({
+          enrichmentRequests.push({
+            rowId: row.id,
+            rowUpdate,
             contactId: dupDetail.matchedContactId,
             companyId: dupDetail.matchedCompanyId,
-            patch: contactPatch,
-            contactCustom: newContactCustom,
-            companyCustom: newCompanyCustom,
+            fields,
+            contactCustom: (normalized as any)._contact_custom_fields ?? {},
+            companyCustom: (normalized as any)._company_custom_fields ?? {},
+            listId: settings.list_id,
           });
+        } else if (rowAction.outcome === "skipped_duplicate" && dupDetail.matchedContactId) {
+          // mode='skip': record the canonical match so we still attach to the list below.
+          rowUpdate.contact_id = dupDetail.matchedContactId;
         }
         rowUpdates.push(rowUpdate);
+      }
+
+      // === Enterprise enrichment pass: run RPCs in small parallel batches ===
+      if (enrichmentRequests.length > 0) {
+        const ENRICH_CONCURRENCY = 8;
+        for (let i = 0; i < enrichmentRequests.length; i += ENRICH_CONCURRENCY) {
+          const slice = enrichmentRequests.slice(i, i + ENRICH_CONCURRENCY);
+          await Promise.all(slice.map(async (req) => {
+            try {
+              const { data, error } = await supabase.rpc("enrich_contact_from_import", {
+                p_contact_id: req.contactId,
+                p_workspace_id: job.workspace_id,
+                p_actor: userId,
+                p_import_job_id: jobId,
+                p_row_number: 0,
+                p_fields: req.fields,
+                p_contact_custom: req.contactCustom ?? {},
+                p_record_conflicts: true,
+              });
+              if (error) {
+                req.rowUpdate.status = "error";
+                req.rowUpdate.error_message = `enrich_failed: ${error.message}`;
+                req.rowUpdate.action_taken = null;
+                return;
+              }
+              const enriched: string[] = data?.enriched ?? [];
+              const conflicts: string[] = data?.conflicts ?? [];
+              const customChanged = !!data?.custom_changed;
+              if (conflicts.length > 0) {
+                req.rowUpdate.review_required = true;
+                req.rowUpdate.action_taken = "conflict";
+                req.rowUpdate.duplicate_match_reason =
+                  (req.rowUpdate.duplicate_match_reason || "") +
+                  ` | conflicts: ${conflicts.join(",")}`;
+              } else if (enriched.length > 0 || customChanged) {
+                req.rowUpdate.action_taken = "enriched_existing";
+              } else {
+                // No-op enrichment → contact already had everything → duplicate_linked.
+                req.rowUpdate.action_taken = "duplicate_linked";
+              }
+            } catch (e: any) {
+              req.rowUpdate.status = "error";
+              req.rowUpdate.error_message = `enrich_exception: ${e?.message ?? String(e)}`;
+            }
+          }));
+        }
       }
 
 
@@ -1054,13 +1126,23 @@ Deno.serve(async (req: Request) => {
       }
       const listMs = Math.round(performance.now() - listStart);
 
-      // Count results
+      // Count results — both legacy buckets and enterprise outcome buckets.
       let batchSuccess = 0, batchError = 0, batchDuplicate = 0, batchReview = 0;
+      let bInsertedNew = 0, bUpdatedExisting = 0, bEnrichedExisting = 0,
+          bDuplicateLinked = 0, bSkippedDuplicate = 0, bConflict = 0;
       for (const u of rowUpdates) {
         if (u.status === "success") batchSuccess++;
         else if (u.status === "error") batchError++;
         else if (u.status === "review") batchReview++;
         else if (u.status === "skipped" || u.status === "duplicate") batchDuplicate++;
+        switch (u.action_taken) {
+          case "create_new": bInsertedNew++; break;
+          case "updated_existing": bUpdatedExisting++; break;
+          case "enriched_existing": bEnrichedExisting++; break;
+          case "duplicate_linked": bDuplicateLinked++; break;
+          case "skipped_duplicate": bSkippedDuplicate++; break;
+          case "conflict": bConflict++; break;
+        }
       }
 
       // FIX: Use update (not upsert) to avoid NOT NULL constraint on import_job_id
@@ -1078,6 +1160,13 @@ Deno.serve(async (req: Request) => {
       duplicateRows += batchDuplicate;
       reviewRows += batchReview;
       insertedRows += inserted.length;
+      // Enterprise counters: inserted_new comes from real inserts (not just row classification)
+      insertedNew += inserted.length;
+      updatedExisting += bUpdatedExisting;
+      enrichedExisting += bEnrichedExisting;
+      duplicateLinked += bDuplicateLinked;
+      skippedDuplicate += bSkippedDuplicate;
+      conflictRows += bConflict;
 
       // INTEGRITY CAP: counters must never exceed staged rows
       if (processedRows > totalStagedRows) {
@@ -1095,6 +1184,7 @@ Deno.serve(async (req: Request) => {
           processed: processedRows,
           inserted: insertedRows, errors: errorRows + failedEntries.length,
           dupes: duplicateRows, review: batchReview,
+          enriched: bEnrichedExisting, conflicts: bConflict, linked: bDuplicateLinked,
           at: nowIso(),
         }],
       });
@@ -1105,6 +1195,9 @@ Deno.serve(async (req: Request) => {
           status: "processing", processed_rows: processedRows, success_rows: successRows,
           inserted_rows: insertedRows, error_rows: errorRows, duplicate_rows: duplicateRows,
           review_rows: reviewRows, error_summary: diag,
+          inserted_new: insertedNew, updated_existing: updatedExisting,
+          enriched_existing: enrichedExisting, duplicate_linked: duplicateLinked,
+          skipped_duplicate: skippedDuplicate, conflict_rows: conflictRows,
         }).eq("id", job_id);
       }
 
@@ -1262,6 +1355,9 @@ Deno.serve(async (req: Request) => {
       status: "completed", processed_rows: processedRows, success_rows: successRows,
       inserted_rows: insertedRows, error_rows: errorRows, duplicate_rows: duplicateRows,
       review_rows: reviewRows, completed_at: nowIso(),
+      inserted_new: insertedNew, updated_existing: updatedExisting,
+      enriched_existing: enrichedExisting, duplicate_linked: duplicateLinked,
+      skipped_duplicate: skippedDuplicate, conflict_rows: conflictRows,
       error_summary: {
         ...diag,
         ...(mismatchWarning ? { verification_warning: mismatchWarning } : {}),

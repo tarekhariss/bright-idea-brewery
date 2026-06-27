@@ -896,6 +896,8 @@ export function checkDuplicatesAdvanced(
 
 // ─── Import Settings Types ──────────────────────────────────────────────────────
 
+export type ImportMode = "enrich" | "skip" | "review";
+
 export interface ImportSettings {
   duplicate_strategy: DuplicateStrategy;
   skip_exact_duplicates: boolean;
@@ -907,12 +909,16 @@ export interface ImportSettings {
   import_tag: string;
   source: string;
   list_id: string | null;
+  /** Enterprise identity-resolution mode. Default "enrich" fills blanks on existing
+   * contacts without overwriting non-empty values; "skip" leaves matches alone;
+   * "review" routes every match to the conflicts queue. */
+  import_mode: ImportMode;
 }
 
 export const DEFAULT_IMPORT_SETTINGS: ImportSettings = {
   duplicate_strategy: "flag_review",
   skip_exact_duplicates: true,
-  update_missing_fields: false,
+  update_missing_fields: true,
   review_likely_duplicates: true,
   review_company_conflicts: true,
   create_if_no_strong_match: true,
@@ -920,6 +926,7 @@ export const DEFAULT_IMPORT_SETTINGS: ImportSettings = {
   import_tag: "",
   source: "csv_import",
   list_id: null,
+  import_mode: "enrich",
 };
 
 /** Map duplicate classification to row status based on import settings */
