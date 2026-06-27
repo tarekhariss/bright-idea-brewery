@@ -167,7 +167,7 @@ export default function ImportJobDetailPage() {
     queryKey: ["import-job-children", id],
     queryFn: async () => {
       const { data, error } = await (supabase.from("import_jobs") as any)
-        .select("id,file_name,status,total_rows,processed_rows,inserted_rows,duplicate_rows,error_rows,review_rows,batch_index,batch_total,batch_row_start,batch_row_end,completed_at,error_summary")
+        .select("id,file_name,status,total_rows,processed_rows,inserted_rows,duplicate_rows,error_rows,review_rows,inserted_new,updated_existing,enriched_existing,duplicate_linked,skipped_duplicate,conflict_rows,batch_index,batch_total,batch_row_start,batch_row_end,completed_at,error_summary")
         .eq("parent_job_id", id!)
         .order("batch_index", { ascending: true });
       if (error) throw error;
