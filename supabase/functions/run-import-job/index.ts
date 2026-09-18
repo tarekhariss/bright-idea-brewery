@@ -294,7 +294,11 @@ function collectCompanyKeys(rows: Record<string, unknown>[]) {
   for (const row of rows) {
     const r = row as Record<string, string | null | undefined>;
     const domain = deriveRowDomain(r);
-    if (domain) domains.push(domain);
+    if (domain) {
+      // normalized_domain only lowercases, so a stored value may still carry
+      // "www." or a scheme. Query the variants a stored row realistically holds.
+      domains.push(domain, `www.${domain}`, `https://${domain}`, `https://www.${domain}`);
+    }
     if (r.company_name_raw) {
       // companies.normalized_name is lower(trim(name)) and keeps legal suffixes,
       // while normalizeCompanyName strips them. Query both so "Acme Inc" reaches
@@ -401,6 +405,23 @@ function buildContactIndex(contacts: ExistingContact[]) {
   return { emailMap, linkedinMap, extIdMap, phoneMap, nameCompanyMap };
 }
 
+/**
+ * The domain key a company is identified by.
+ *
+ * companies.normalized_domain is generated as lower(coalesce(domain,'')) — it
+ * lowercases but does not strip protocol, "www." or a path, while normalizeDomain
+ * strips all three. Trusting the column directly meant a company stored as
+ * "www.acme.com" never matched a lookup for "acme.com" and was recreated as a
+ * duplicate. Everything routes through here so the key cannot drift again.
+ */
+function companyDomainKey(c: { normalized_domain?: string | null; domain?: string | null; website?: string | null }): string {
+  const source = (c.normalized_domain && c.normalized_domain.trim())
+    || (c.domain && c.domain.trim())
+    || (c.website && c.website.trim())
+    || "";
+  return source ? normalizeDomain(source) : "";
+}
+
 function buildCompanyIndex(companies: ExistingCompany[]) {
   const domainMap = new Map<string, ExistingCompany>();
   const extIdMap = new Map<string, ExistingCompany>();
@@ -408,9 +429,7 @@ function buildCompanyIndex(companies: ExistingCompany[]) {
   const linkedinMap = new Map<string, ExistingCompany>();
   for (const c of companies) {
     // Prefer the DB-computed normalized_domain; fall back to local normalization
-    const nd = (c.normalized_domain && c.normalized_domain.trim())
-      ? c.normalized_domain.trim().toLowerCase()
-      : (c.domain ? normalizeDomain(c.domain) : (c.website ? normalizeDomain(c.website) : ""));
+    const nd = companyDomainKey(c);
     if (nd) domainMap.set(nd, c);
     if (c.external_account_id) extIdMap.set(c.external_account_id, c);
     // Key on the same normalisation the lookup uses. companies.normalized_name is
@@ -958,9 +977,7 @@ Deno.serve(async (req: Request) => {
     /** Fold a batch's candidate companies into the cross-batch identity cache. */
     function rememberCompanies(companies: ExistingCompany[]) {
       for (const c of companies) {
-        const nd = (c.normalized_domain && c.normalized_domain.trim())
-          ? c.normalized_domain.trim().toLowerCase()
-          : (c.domain ? normalizeDomain(c.domain) : (c.website ? normalizeDomain(c.website) : ""));
+        const nd = companyDomainKey(c);
         if (nd) companyDomainCache.set(nd, c.id);
         // Same normalisation as the lookup — see buildCompanyIndex.
         const nameKey = normalizeCompanyName(c.normalized_name || c.name || "");
@@ -1312,9 +1329,7 @@ Deno.serve(async (req: Request) => {
                 companyNameCache.set(nameK, c.id);
                 companyIndex.nameMap.set(nameK, c);
               }
-              const nd = (c.normalized_domain && c.normalized_domain.trim())
-                ? c.normalized_domain.trim().toLowerCase()
-                : (c.domain ? normalizeDomain(c.domain) : (c.website ? normalizeDomain(c.website) : ""));
+              const nd = companyDomainKey(c);
               if (nd) {
                 companyDomainCache.set(nd, c.id);
                 companyIndex.domainMap.set(nd, c);
