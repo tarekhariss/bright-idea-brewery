@@ -17,6 +17,7 @@ import { toast } from "@/hooks/use-toast";
 import { AdvancedFilterPanel } from "@/components/data-table/AdvancedFilterPanel";
 import type { FilterDefinition } from "@/lib/advanced-filter-types";
 import { createEmptyFilterDefinition } from "@/lib/advanced-filter-types";
+import { applyListFilters, buildListEmbeds, withEmbeds } from "@/lib/list-filters";
 import { applyAdvancedFilters, countActiveConditions } from "@/lib/advanced-filter-engine";
 
 import { useDebounce } from "@/hooks/use-debounce";
@@ -89,36 +90,14 @@ export function DynamicListBuilder({ open, onOpenChange, existingList, onSuccess
   const runPreview = useCallback(async () => {
     setPreviewLoading(true);
     try {
-      let query = db().from("contacts").select("*", { count: "exact", head: true });
+      // List membership resolves in SQL — see lib/list-filters. Doing it
+      // client-side silently truncated at 1,000 members and produced wrong counts.
+      const listEmbeds = buildListEmbeds(includeLists, excludeLists);
+      let query = db()
+        .from("contacts")
+        .select(withEmbeds("id", listEmbeds), { count: "estimated", head: true });
       query = applyAdvancedFilters(query, debouncedFilter);
-
-      // Include list filtering
-      if (includeLists.length > 0) {
-        const { data: incData } = await supabase
-          .from("list_contacts")
-          .select("contact_id")
-          .in("list_id", includeLists);
-        const incIds = [...new Set((incData as any[])?.map(r => r.contact_id) ?? [])];
-        if (incIds.length > 0) {
-          query = query.in("id", incIds);
-        } else {
-          setPreviewCount(0);
-          setPreviewLoading(false);
-          return;
-        }
-      }
-
-      // Exclude list filtering
-      if (excludeLists.length > 0) {
-        const { data: excData } = await supabase
-          .from("list_contacts")
-          .select("contact_id")
-          .in("list_id", excludeLists);
-        const excIds = [...new Set((excData as any[])?.map(r => r.contact_id) ?? [])];
-        if (excIds.length > 0) {
-          query = query.not("id", "in", `(${excIds.join(",")})`);
-        }
-      }
+      query = applyListFilters(query, includeLists, excludeLists);
 
       const { count } = await query;
       setPreviewCount(count ?? 0);

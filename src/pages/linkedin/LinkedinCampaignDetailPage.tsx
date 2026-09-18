@@ -29,6 +29,7 @@ import { LaunchCampaignDialog } from "@/components/linkedin/LaunchCampaignDialog
 import { ConfigRequiredBanner } from "@/components/config";
 import { PushToCrmButton } from "@/components/crm/PushToCrmButton";
 import { cn } from "@/lib/utils";
+import { buildOrSearch } from "@/lib/postgrest-filter";
 
 export default function LinkedinCampaignDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -252,7 +253,8 @@ function AddLeadsDialog({ open, onOpenChange, campaignId }: { open: boolean; onO
     enabled: open && !!workspaceId,
     queryFn: async () => {
       let q = (supabase as any).from("contacts").select("id, first_name, last_name, email, linkedin_url").eq("workspace_id", workspaceId).limit(50);
-      if (search) q = q.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%`);
+      const searchClause = buildOrSearch(["first_name", "last_name", "email"], search);
+      if (searchClause) q = q.or(searchClause);
       const { data, error } = await q;
       if (error) throw error;
       return data as any[];

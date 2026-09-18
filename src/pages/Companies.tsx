@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { CompanyBulkActionsBar } from "@/components/companies/BulkActionsBar";
 import { PushToCrmButton } from "@/components/crm/PushToCrmButton";
 import { format } from "date-fns";
+import { buildOrSearch } from "@/lib/postgrest-filter";
 
 const COLUMNS: ColumnDef[] = [
   { key: "name", label: "Company", defaultVisible: true },
@@ -148,7 +149,11 @@ export default function CompaniesPage() {
       .range(page * pageSize, (page + 1) * pageSize - 1);
 
     if (debouncedSearch.trim()) {
-      query = query.or(`name.ilike.%${debouncedSearch}%,domain.ilike.%${debouncedSearch}%,industry.ilike.%${debouncedSearch}%,country.ilike.%${debouncedSearch}%`);
+      const searchClause = buildOrSearch(
+        ["name", "domain", "industry", "country"],
+        debouncedSearch,
+      );
+      if (searchClause) query = query.or(searchClause);
     }
 
     query = applyFilters(query, filterValues, FILTER_CONFIGS);

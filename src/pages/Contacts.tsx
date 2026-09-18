@@ -23,6 +23,7 @@ import { TableSkeleton } from "@/components/data-table/TableSkeleton";
 import { VirtualizedTableBody } from "@/components/data-table/VirtualizedTableBody";
 import { format } from "date-fns";
 import type { LifecycleStatus, OutreachStatus } from "@/integrations/supabase/db-types";
+import { buildOrSearch } from "@/lib/postgrest-filter";
 
 const COLUMNS: ColumnDef[] = [
   { key: "name", label: "Name", defaultVisible: true },
@@ -167,7 +168,11 @@ export default function ContactsPage() {
       .range(page * pageSize, (page + 1) * pageSize - 1);
 
     if (debouncedSearch.trim()) {
-      query = query.or(`email.ilike.%${debouncedSearch}%,first_name.ilike.%${debouncedSearch}%,last_name.ilike.%${debouncedSearch}%,company_name_raw.ilike.%${debouncedSearch}%,job_title.ilike.%${debouncedSearch}%`);
+      const searchClause = buildOrSearch(
+        ["email", "first_name", "last_name", "company_name_raw", "job_title"],
+        debouncedSearch,
+      );
+      if (searchClause) query = query.or(searchClause);
     }
 
     query = applyFilters(query, filterValues, FILTER_CONFIGS);
