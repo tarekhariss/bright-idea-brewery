@@ -1,6 +1,13 @@
 /// <reference lib="deno.ns" />
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { z } from "https://esm.sh/zod@3.23.8";
+import {
+  DEFAULT_LEAD_QUALITY_POLICY,
+  assessEmailNameMatch,
+  decideLeadQuality,
+  type EmailNameAssessment,
+  type LeadQualityPolicy,
+} from "../_shared/email-name-match.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -41,6 +48,8 @@ type ImportSettings = {
   unmapped_columns: string[]; excluded_columns?: string[];
   import_tag: string; source: string; list_id: string | null;
   import_mode?: ImportMode; // enterprise: default 'enrich'
+  /** Name/email coherence gate. Omitted means enabled with default thresholds. */
+  lead_quality?: Partial<LeadQualityPolicy> & { enabled?: boolean };
 };
 
 function nowIso() { return new Date().toISOString(); }
@@ -354,6 +363,60 @@ function classifyRowAction(classification: string, settings: ImportSettings):
   return { status: "success", action: "enriched_existing", reviewRequired: false, outcome: "enriched_existing" };
 }
 
+/**
+ * Name/email coherence gate.
+ *
+ * A row reading "John Johnstone <patrickwhite@acme.com>" is two people stapled
+ * together by a bad vendor export. Importing it burns sending reputation — the
+ * greeting will not match the recipient — and corrupts every downstream metric.
+ *
+ * Downgrades the row action rather than replacing it: a row that was already
+ * headed for review stays there. Rows with no name or no email are untouched,
+ * since missing data is a gap in the vendor's file, not evidence of a bad lead.
+ */
+function applyLeadQualityGate(
+  rowAction: { status: string; action: string | null; reviewRequired: boolean; outcome: RowOutcome },
+  normalized: Record<string, unknown>,
+  policy: LeadQualityPolicy,
+): { rowAction: typeof rowAction; assessment: EmailNameAssessment; decision: string } {
+  const assessment = assessEmailNameMatch({
+    firstName: (normalized.first_name as string) ?? null,
+    lastName: (normalized.last_name as string) ?? null,
+    fullName: (normalized.full_name as string) ?? null,
+    email: (normalized.email as string) ?? null,
+  });
+  const decision = decideLeadQuality(assessment, policy);
+
+  // Never upgrade a row: an existing error or review outcome stands.
+  if (decision === "accept" || rowAction.status === "error") {
+    return { rowAction, assessment, decision };
+  }
+
+  if (decision === "reject") {
+    return {
+      rowAction: {
+        status: "skipped",
+        action: "rejected_low_quality",
+        reviewRequired: false,
+        outcome: rowAction.outcome,
+      },
+      assessment,
+      decision,
+    };
+  }
+
+  return {
+    rowAction: {
+      status: "review",
+      action: rowAction.action === "review_pending" ? "review_pending" : "review_low_quality",
+      reviewRequired: true,
+      outcome: "review_required",
+    },
+    assessment,
+    decision,
+  };
+}
+
 const CONTACT_FIELDS = new Set([
   "first_name","last_name","email","secondary_email","tertiary_email","personal_email",
   "job_title","seniority_level","department","headline","bio","persona","linkedin_url",
@@ -628,6 +691,20 @@ Deno.serve(async (req: Request) => {
     ]));
 
     const settings = (job.settings ?? {}) as ImportSettings;
+    // Name/email coherence policy. Enabled unless explicitly switched off, so
+    // existing jobs get the check without needing their settings rewritten.
+    const qualityConfig = settings.lead_quality ?? {};
+    const qualityEnabled = qualityConfig.enabled !== false;
+    const qualityPolicy: LeadQualityPolicy = {
+      rejectBelow: qualityConfig.rejectBelow ?? DEFAULT_LEAD_QUALITY_POLICY.rejectBelow,
+      reviewBelow: qualityConfig.reviewBelow ?? DEFAULT_LEAD_QUALITY_POLICY.reviewBelow,
+      reviewRoleAccounts:
+        qualityConfig.reviewRoleAccounts ?? DEFAULT_LEAD_QUALITY_POLICY.reviewRoleAccounts,
+    };
+    const qualityTally: Record<string, number> = {
+      accepted: 0, reviewed: 0, rejected: 0,
+      match: 0, partial: 0, role_based: 0, mismatch: 0, unknown: 0,
+    };
     const mapping = (job.column_mapping ?? {}) as Record<string, string>;
     if (settings.list_id) {
       const { data: targetList, error: listErr } = await supabase
@@ -845,14 +922,31 @@ Deno.serve(async (req: Request) => {
         const row = pendingRows[i] as any;
         const normalized = normalizedRows[i];
         const dupDetail = duplicateDetails[i];
-        const rowAction = classifyRowAction(dupDetail.classification, settings);
+        let rowAction = classifyRowAction(dupDetail.classification, settings);
+
+        // Name/email coherence: reject or flag rows where the address does not
+        // plausibly belong to the named person.
+        let qualityReason: string | null = null;
+        if (qualityEnabled) {
+          const gated = applyLeadQualityGate(rowAction, normalized as Record<string, unknown>, qualityPolicy);
+          rowAction = gated.rowAction;
+          qualityTally[gated.assessment.verdict] = (qualityTally[gated.assessment.verdict] ?? 0) + 1;
+          qualityTally[gated.decision === "accept" ? "accepted" : gated.decision === "review" ? "reviewed" : "rejected"]++;
+          if (gated.decision !== "accept") qualityReason = gated.assessment.reason;
+          (normalized as Record<string, unknown>)._lead_quality = {
+            verdict: gated.assessment.verdict,
+            score: gated.assessment.score,
+            reason: gated.assessment.reason,
+            pattern: gated.assessment.pattern ?? null,
+          };
+        }
 
         const rowUpdate: any = {
           id: row.id,
           status: rowAction.status,
           normalized_data: normalized,
           error_message: dupDetail.classification === "invalid" ? dupDetail.reason : null,
-          duplicate_match_reason: dupDetail.reason,
+          duplicate_match_reason: qualityReason ?? dupDetail.reason,
           action_taken: rowAction.action,
           review_required: rowAction.reviewRequired,
           company_id: dupDetail.matchedCompanyId,
@@ -956,7 +1050,7 @@ Deno.serve(async (req: Request) => {
                 p_contact_id: req.contactId,
                 p_workspace_id: job.workspace_id,
                 p_actor: userId,
-                p_import_job_id: jobId,
+                p_import_job_id: job_id,
                 p_row_number: 0,
                 p_fields: req.fields,
                 p_contact_custom: req.contactCustom ?? {},
@@ -1363,6 +1457,9 @@ Deno.serve(async (req: Request) => {
         ...(mismatchWarning ? { verification_warning: mismatchWarning } : {}),
         reconciliation,
         field_report: fieldReport,
+        // Name/email coherence breakdown, so a run can be judged before its
+        // results are trusted — and the thresholds tuned if it rejected too much.
+        ...(qualityEnabled ? { lead_quality: { policy: qualityPolicy, tally: qualityTally } } : {}),
       },
     }).eq("id", job_id);
 
