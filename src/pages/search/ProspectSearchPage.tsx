@@ -3,6 +3,7 @@
  * Left filter sidebar + results table + preview drawer.
  */
 import { useState, useMemo, useEffect } from "react";
+import { formatResultCount } from "@/lib/format-count";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
@@ -229,6 +230,7 @@ export default function ProspectSearchPage() {
   const columns = state.entityType === "contact" ? CONTACT_COLUMNS : COMPANY_COLUMNS;
   const rows = searchResult.data?.data ?? [];
   const totalCount = searchResult.data?.totalCount ?? 0;
+  const isEstimatedCount = searchResult.data?.isEstimatedCount ?? false;
   const totalPages = searchResult.data?.totalPages ?? 0;
   const filterCount = countActiveConditions(state.filterDefinition);
   const allSelected = state.selectAllMode || (rows.length > 0 && rows.every((r: any) => state.selectedRows.has(r.id)));
@@ -313,7 +315,7 @@ export default function ProspectSearchPage() {
           <span className="text-muted-foreground">
             Showing:{" "}
             <strong className="text-foreground">
-              {searchResult.isLoading ? "…" : totalCount.toLocaleString()}
+              {searchResult.isLoading ? "…" : formatResultCount(totalCount, isEstimatedCount)}
             </strong>
           </span>
           {filterCount > 0 && <Badge variant="secondary" className="text-[10px]">{filterCount} filter{filterCount > 1 ? "s" : ""}</Badge>}
@@ -433,7 +435,7 @@ export default function ProspectSearchPage() {
             {/* Quick count + refresh */}
             <div className="flex items-center gap-2 ml-auto">
               <span className="text-xs text-muted-foreground">
-                {searchResult.isLoading ? "..." : totalCount.toLocaleString()} results
+                {searchResult.isLoading ? "..." : formatResultCount(totalCount, isEstimatedCount)} results
               </span>
               <Button
                 variant="ghost" size="sm" className="h-8 w-8 p-0"
