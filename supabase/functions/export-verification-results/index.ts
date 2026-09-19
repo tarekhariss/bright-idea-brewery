@@ -93,7 +93,9 @@ function intelValues(r: any): Record<string, any> {
 
 function passesFilter(r: any, mode: Mode, custom: CustomFilters): boolean {
   if (mode === "all") return true;
-  if (!r) return mode === "all";
+  // "all" already returned above, so a row with no verification result cannot
+  // satisfy any of the remaining verification-based filters.
+  if (!r) return false;
   const dv = Number(r.deliverability_score ?? 0);
   const br = Number(r.bounce_risk_score ?? 100);
   switch (mode) {

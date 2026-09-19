@@ -107,7 +107,10 @@ async function runForWorkspace(admin: any, workspaceId: string, lookbackHours: n
   if (!settings?.auto_detect_positive_replies) {
     await admin.from("crm_job_runs").insert({ workspace_id: workspaceId, job_name: "detect_replies", status: "skipped",
       details: { reason: "auto_detect_disabled" }, duration_ms: Date.now() - t0 });
-    return { skipped: true, reason: "auto_detect_disabled", ...stats };
+    // `stats.skipped` is a COUNTER of skipped messages, so spreading it used to
+    // overwrite this flag with 0 — the caller never saw "skipped" at all, and a
+    // successful run that skipped any message looked like a disabled workspace.
+    return { ...stats, auto_detect_disabled: true, reason: "auto_detect_disabled" };
   }
   const threshold = Number(settings.positive_reply_confidence_threshold ?? 0.8);
   const reviewMode = settings.positive_reply_review_mode !== false;

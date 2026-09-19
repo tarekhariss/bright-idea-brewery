@@ -293,3 +293,181 @@ Expected delta: cases 4, 5 and 7 fail on `main` and pass on the branch.
 ```
 
 Steps 2 and 3 can proceed **today** — they stop active data corruption, carry no migration, and revert cleanly. Steps 5–6 need the fixture and an environment decision from you.
+
+---
+
+# Part 4 — Bugs found by the edge-function type checker (Sprint 0, added 2026-09-20)
+
+These were **not** among the original six. They were surfaced by
+`scripts/check-edge-functions.mjs`, which type-checks all 21 edge functions —
+something nothing had ever done, because they are Deno with URL imports and
+`tsc` never saw them.
+
+**Baseline movement:** 6 functions with 8 errors → **2 functions with 3 errors.**
+
+## 4.1 `process-linkedin-queue` — queue poison pill ✅ FIXED
+
+### The bug
+
+```js
+await supabase.rpc("linkedin_record_action_result", { ... }).catch(() => {});
+```
+
+`supabase.rpc()` returns a `PostgrestFilterBuilder`. It is **thenable** — it
+implements `then` — but it has **no `.catch` method**. Calling `.catch()` on it
+throws `TypeError: ... .catch is not a function`.
+
+That call sits inside the per-row `catch (rowErr)` handler. A throw from inside a
+catch block is **not** caught by that same block, so it escapes the loop entirely.
+
+### Why it mattered
+
+Actions are claimed atomically at line 183, **before** the loop:
+
+```js
+const { data: batch } = await supabase.rpc("linkedin_claim_due_actions", { _limit: MAX_BATCH });
+```
+
+So when any single action threw:
+
+1. The per-row handler ran
+2. It tried to record the failure
+3. The `TypeError` escaped the handler
+4. **The loop aborted**
+5. Every action already claimed further down the batch went unprocessed **and** unrecorded
+6. The failure of the original action was never recorded either
+
+One failing action could stall the rest of the batch — a poison pill.
+
+### A second defect the type error masked
+
+PostgREST **does not reject** on a database error; it *resolves* with
+`{ data, error }`. So even a correctly written `.catch()` would never have fired
+for a failed RPC. The failure would have sat silently in the resolved value.
+
+### The fix
+
+`src/lib/safe-rpc.ts` — `settleRpc()` awaits inside try/catch, treats a returned
+`error` payload as a failure, and **never throws**. Mirrored into
+`supabase/functions/_shared/` by the existing sync script and covered by the
+drift guard.
+
+The call site becomes:
+
+```js
+await settleRpc(
+  supabase.rpc("linkedin_record_action_result", { ... }),
+  (reason) => console.error(`[process-linkedin-queue] could not record failure for action ${action.id}: ${reason}`),
+);
+```
+
+Scope: one import, one call site replaced. The queue is otherwise untouched.
+
+### Tests — 16, in `src/lib/safe-rpc.test.ts`
+
+Reproduces the original failure and proves the fix:
+
+- a builder-like thenable has no `.catch`
+- calling `.catch()` on it throws `TypeError`
+- **that throw escapes a surrounding catch block** — the bug, reproduced exactly
+- `settleRpc` contains rejections, resolved `error` payloads, bare strings, null
+- it never throws, and survives a reporter that itself throws
+- **Batch simulation, 5 actions with the 3rd failing:**
+  - BEFORE: the old pattern aborts the batch (`rejects.toThrow(TypeError)`)
+  - AFTER: all 5 processed, in order
+  - AFTER: the failure is recorded
+  - AFTER: counters correct (4 succeeded, 1 failed, sum = batch size)
+  - AFTER: processing continues even when recording *also* fails — nothing recorded, nothing stranded
+  - AFTER: 5 consecutive failures do not compound
+
+### Codebase scan
+
+Searched for `.catch()` on Supabase builders across `src/` and
+`supabase/functions/`. **Exactly one genuine occurrence** — the one fixed.
+
+`src/pages/ImportJobDetail.tsx:80` uses
+`supabase.functions.invoke(...).catch(...)`, which returns a **real Promise**.
+Valid, not a bug, **not modified**.
+
+## 4.2 `export-verification-results` — NOT a bug ✅ dead code cleaned
+
+**Correction to the earlier assessment in `OBSERVABILITY_PLAN.md`**, which
+claimed unverified records were always excluded from exports. That was wrong.
+
+`Mode` is declared `"safe_to_send" | "recommended" | "all" | "custom"` — it
+**does** include `"all"`, `"all"` is handled at line 95, and `"all"` is the
+**default** (line 212). Unverified records are exported by default, as intended.
+
+TypeScript narrowed `mode` after line 95 (if it were `"all"` we would have
+returned), making line 96's `mode === "all"` provably false. Dead code that
+happened to return the correct answer.
+
+Replaced with an explicit `return false` and a comment. **Behaviour identical.**
+
+## 4.3 `crm-detect-replies` — user-visible wrong status ✅ FIXED
+
+```js
+const stats = { scanned: 0, classified: 0, queued: 0, auto_pushed: 0, skipped: 0, errors: 0 };
+...
+return { skipped: true, reason: "auto_detect_disabled", ...stats };
+```
+
+`stats.skipped` is a **counter** of skipped messages. Spreading it after
+`skipped: true` overwrote the boolean with a number. Two user-visible failures in
+`CrmReviewQueue.tsx:64`, which reads `if (r?.skipped)`:
+
+1. **Workspace with auto-detect disabled** → `skipped: 0` → falsy → shows
+   "Scanned 0, queued 0, auto-pushed 0" instead of "Auto-detection is disabled"
+2. **Successful run that skipped ≥1 message** → `skipped: 3` → truthy → shows
+   "Auto-detection is disabled" **even though it ran**
+
+Fixed by disambiguating the flag from the counter:
+
+```js
+return { ...stats, auto_detect_disabled: true, reason: "auto_detect_disabled" };
+```
+
+Consumer updated to read `r?.auto_detect_disabled`. No regression risk: the
+boolean never reached the caller, so nothing could have depended on it.
+
+## 4.4 `import-historical-verifications` — dead fallback ✅ removed
+
+`(existing?.learning_signals ?? {}) ?? {}` — the inner `?? {}` already guarantees
+non-nullish, so the outer was unreachable. Removed. **Behaviour identical.**
+
+## 4.5 `send-email` — CC and BCC silently dropped ⚠ **NOT FIXED — decision required**
+
+### Confirmed, with library evidence
+
+`deno.land/x/smtp@v0.7.0` declares:
+
+```ts
+interface SendConfig { to: string; from: string; subject: string; content: string; html?: string; }
+```
+
+No `cc`, no `bcc`. And `send()` issues `RCPT TO:` **only** for `config.to`, and
+writes only `Subject`, `From`, `To` and `Date` headers.
+
+CC and BCC recipients therefore receive **nothing** — no header, no delivery.
+
+### It is exposed to users
+
+`CampaignOptionsTab.tsx:637` renders a CC input, saved to the campaign and
+persisted to `emails.cc`. Users can set CC today and it is discarded at send time.
+
+### Why it is not fixed here
+
+The library cannot do it. A real fix means one of:
+
+| Option | Risk |
+|---|---|
+| **A.** Swap to a maintained SMTP library (e.g. `denomailer`) supporting cc/bcc | **Medium** — changes the production send path |
+| **B.** Hand-roll additional `RCPT TO` commands | High — requires reimplementing library internals |
+| **C.** Remove CC/BCC from the UI until supported | None — but removes a feature users may be relying on |
+
+Swapping the SMTP library on a live sending path is beyond "smallest possible
+change" in a sprint whose purpose is establishing trust in the foundation.
+**Escalated for decision.**
+
+Note: `send()` also takes `to` as a single parsed address, so multiple primary
+recipients are likely affected by the same limitation. Not investigated further.

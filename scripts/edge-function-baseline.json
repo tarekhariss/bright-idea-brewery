@@ -1,8 +1,4 @@
 {
-  "crm-detect-replies": 2,
-  "export-verification-results": 1,
-  "import-historical-verifications": 1,
-  "process-linkedin-queue": 1,
   "run-import-job": 2,
   "send-email": 1
 }
