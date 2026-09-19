@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  ACTIVE_SENDING_CAPABILITIES,
+  UNSUPPORTED_FIELD_NOTICE,
+  shouldShowUnsupportedValue,
+} from "@/lib/sending-capabilities";
+import {
   AtSign, Settings, Eye, MousePointerClick, Zap, Reply, Save, Loader2, Plus, X,
   Tag as TagIcon, User, Shuffle, Building2, ShieldAlert, Mail, Server, Sparkles, Lock,
 } from "lucide-react";
@@ -632,15 +637,43 @@ export function CampaignOptionsTab({ campaignId }: { campaignId: string }) {
               <Input type="email" value={replyTo} onChange={(e) => setReplyTo(e.target.value)}
                 placeholder="replies@yourdomain.com" className="mt-1 h-9 text-sm" />
             </div>
+            {/* CC/BCC are not delivered by the current SMTP sender — see
+                lib/sending-capabilities. A previously saved value stays visible,
+                read-only and clearly marked, rather than disappearing and leaving
+                someone to assume it still applies. */}
             <div>
-              <Label className="text-xs">CC</Label>
-              <Input type="email" value={cc} onChange={(e) => setCc(e.target.value)}
-                placeholder="manager@yourdomain.com" className="mt-1 h-9 text-sm" />
+              <Label className="text-xs text-muted-foreground">CC</Label>
+              <Input
+                type="email"
+                value={cc}
+                readOnly
+                disabled={!ACTIVE_SENDING_CAPABILITIES.supportsCc}
+                placeholder="Not delivered by the current sender"
+                className="mt-1 h-9 text-sm"
+                aria-describedby="cc-unsupported"
+              />
+              <p id="cc-unsupported" className="mt-1 text-[11px] text-amber-600">
+                {shouldShowUnsupportedValue(ACTIVE_SENDING_CAPABILITIES.supportsCc, cc)
+                  ? "Configured, but not sent. " + UNSUPPORTED_FIELD_NOTICE
+                  : UNSUPPORTED_FIELD_NOTICE}
+              </p>
             </div>
             <div>
-              <Label className="text-xs">BCC</Label>
-              <Input type="email" value={bcc} onChange={(e) => setBcc(e.target.value)}
-                placeholder="crm@yourdomain.com" className="mt-1 h-9 text-sm" />
+              <Label className="text-xs text-muted-foreground">BCC</Label>
+              <Input
+                type="email"
+                value={bcc}
+                readOnly
+                disabled={!ACTIVE_SENDING_CAPABILITIES.supportsBcc}
+                placeholder="Not delivered by the current sender"
+                className="mt-1 h-9 text-sm"
+                aria-describedby="bcc-unsupported"
+              />
+              <p id="bcc-unsupported" className="mt-1 text-[11px] text-amber-600">
+                {shouldShowUnsupportedValue(ACTIVE_SENDING_CAPABILITIES.supportsBcc, bcc)
+                  ? "Configured, but not sent. " + UNSUPPORTED_FIELD_NOTICE
+                  : UNSUPPORTED_FIELD_NOTICE}
+              </p>
             </div>
           </div>
         )}
