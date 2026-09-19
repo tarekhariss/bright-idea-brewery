@@ -1,6 +1,7 @@
 /// <reference lib="deno.ns" />
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { SmtpClient } from "https://deno.land/x/smtp@v0.7.0/mod.ts";
+import { validateSingleRecipient, formatRecipient } from "../_shared/recipient-validation.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -91,6 +92,26 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    // 1b. Refuse a recipient list before anything else happens.
+    // smtp@v0.7.0 sends to exactly one mailbox: parseAddress wraps whatever it
+    // is given in angle brackets, so "a@x.com, b@y.com" becomes a malformed
+    // RCPT TO and the server rejects it mid-conversation. Catching it here keeps
+    // the message out of `processing`, out of the send counters, and visible.
+    const recipient = validateSingleRecipient(email.to_address);
+    if (!recipient.valid) {
+      await supabase.from("emails").update({
+        status: "failed",
+        error_message: `Invalid recipient (${recipient.reason}): ${recipient.message}`,
+        updated_at: new Date().toISOString(),
+      }).eq("id", email_id);
+      return new Response(JSON.stringify({
+        error: "invalid_recipient",
+        reason: recipient.reason,
+        message: recipient.message,
+        supports_multiple_recipients: false,
+      }), { status: 422, headers: corsHeaders });
+    }
+
     // 2. Fetch mailbox config (with joined domain)
     const { data: mailbox, error: mbErr } = await supabase
       .from("mailboxes")
@@ -126,7 +147,7 @@ Deno.serve(async (req: Request) => {
 
     const payload = {
       from: fromAddress,
-      to: email.to_address,
+      to: formatRecipient(recipient),
       cc: email.cc || undefined,
       bcc: email.bcc || undefined,
       subject: email.subject,
@@ -204,7 +225,7 @@ Deno.serve(async (req: Request) => {
 
       await client.send({
         from: mailbox.email,
-        to: email.to_address,
+        to: formatRecipient(recipient),
         cc: email.cc ? email.cc.split(",").map((s: string) => s.trim()) : undefined,
         bcc: email.bcc ? email.bcc.split(",").map((s: string) => s.trim()) : undefined,
         subject: email.subject,

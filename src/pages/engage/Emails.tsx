@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { validateSingleRecipient } from "@/lib/recipient-validation";
 import {
   Mail, Plus, Send, Loader2, MoreHorizontal, ArrowUpRight, Clock,
   Inbox, Eye,
@@ -43,6 +44,7 @@ export default function EmailsPage() {
 
   const [composeOpen, setComposeOpen] = useState(false);
   const [to, setTo] = useState("");
+  const recipient = validateSingleRecipient(to);
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [selectedMailboxId, setSelectedMailboxId] = useState("");
@@ -51,9 +53,11 @@ export default function EmailsPage() {
   const activeMailboxes = mailboxes?.filter((m) => m.connection_status === "active") || [];
 
   const handleCreate = async () => {
-    if (!to.trim() || !subject.trim()) return;
+    // The SMTP adapter delivers to exactly one mailbox; refuse a list here
+    // rather than let it become a malformed RCPT TO after queueing.
+    if (!recipient.valid || !subject.trim()) return;
     await createEmail.mutateAsync({
-      to_address: to.trim(),
+      to_address: recipient.address!,
       subject: subject.trim(),
       body_html: body,
     });
@@ -206,7 +210,13 @@ export default function EmailsPage() {
           <div className="space-y-3">
             <div>
               <Label className="text-xs">To</Label>
-              <Input value={to} onChange={(e) => setTo(e.target.value)} placeholder="recipient@example.com" className="mt-1 h-9 text-sm" autoFocus />
+              <Input value={to} onChange={(e) => setTo(e.target.value)}
+                placeholder="recipient@example.com" className="mt-1 h-9 text-sm" autoFocus
+                aria-invalid={to.trim().length > 0 && !recipient.valid}
+                aria-describedby="to-error" />
+              {to.trim().length > 0 && !recipient.valid && (
+                <p id="to-error" className="mt-1 text-[11px] text-amber-600">{recipient.message}</p>
+              )}
             </div>
             <div>
               <Label className="text-xs">Subject</Label>
