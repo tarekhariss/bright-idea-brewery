@@ -1,5 +1,6 @@
 /// <reference lib="deno.ns" />
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { recordErrorEvent } from "../_shared/error-reporting.ts";
 import { settleRpc } from "../_shared/safe-rpc.ts";
 
 const corsHeaders = {
@@ -366,6 +367,13 @@ Deno.serve(async (req: Request) => {
     );
   } catch (err) {
     console.error("LinkedIn worker fatal", err);
+    await recordErrorEvent(supabase, {
+    await recordErrorEvent(createClient(supabaseUrl, serviceKey), {
+      component: "process-linkedin-queue",
+      operation: "process_batch",
+      severity: "critical",
+      error: err,
+    });
     return new Response(
       JSON.stringify({ error: (err as Error).message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },

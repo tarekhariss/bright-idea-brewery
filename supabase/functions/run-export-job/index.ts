@@ -5,6 +5,7 @@
  * and updates the export_jobs table with progress.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { recordErrorEvent } from "../_shared/error-reporting.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -188,6 +189,15 @@ Deno.serve(async (req: Request) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err: any) {
+    // Previously this catch discarded `err` entirely: export failures were
+    // invisible. The response stays deliberately generic; the detail goes here.
+    await recordErrorEvent(supabase, {
+    await recordErrorEvent(createClient(supabaseUrl, serviceKey), {
+      component: "run-export-job",
+      operation: "process_export",
+      severity: "critical",
+      error: err,
+    });
     return new Response(JSON.stringify({ error: "An error occurred processing the export" }), {
       status: 500,
       headers: corsHeaders,

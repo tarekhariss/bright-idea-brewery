@@ -1,5 +1,6 @@
 /// <reference lib="deno.ns" />
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { recordErrorEvent } from "../_shared/error-reporting.ts";
 import { z } from "https://esm.sh/zod@3.23.8";
 import {
   companyDomainKey,
@@ -1644,6 +1645,16 @@ Deno.serve(async (req: Request) => {
 
   } catch (err: any) {
     console.error(`[import] Fatal error: ${err?.message}`, err?.stack);
+    await recordErrorEvent(supabase, {
+      source: "edge_function",
+      component: "run-import-job",
+      operation: "process_job",
+      severity: "critical",
+      workspaceId: (job as { workspace_id?: string })?.workspace_id ?? null,
+      jobId: jobIdForCatch ?? null,
+      error: err,
+      metadata: { phase: (diag as { phase?: string })?.phase ?? null },
+    });
     if (job?.id && jobIdForCatch) {
       updateDiag({ phase: "failed", last_progress_at: nowIso() });
       await supabase.from("import_jobs").update({

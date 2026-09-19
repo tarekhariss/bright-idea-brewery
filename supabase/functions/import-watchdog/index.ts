@@ -8,6 +8,7 @@
  * downstream runner still requires internal/service credentials.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { recordErrorEvent } from "../_shared/error-reporting.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -106,6 +107,14 @@ Deno.serve(async (req) => {
       console.log(`[import-watchdog] resumed ${job.id} (idle ${Math.round(idleMs / 1000)}s, ${pendingCount} pending)`);
     } catch (e: any) {
       skipped.push({ id: job.id, reason: `invoke_error_${e?.message}` });
+      await recordErrorEvent(supabase, {
+        source: "cron",
+        component: "import-watchdog",
+        operation: "resume_stalled_import",
+        severity: "error",
+        jobId: job.id,
+        error: e,
+      });
     }
   }
 

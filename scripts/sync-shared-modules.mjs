@@ -18,7 +18,7 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 /** Modules mirrored into the edge-function shared directory. */
-export const SHARED_MODULES = ["email-name-match.ts", "import-normalizers.ts", "safe-rpc.ts", "recipient-validation.ts"];
+export const SHARED_MODULES = ["email-name-match.ts", "import-normalizers.ts", "safe-rpc.ts", "recipient-validation.ts", "error-reporting.ts"];
 
 const BANNER = (name) =>
   `// GENERATED FILE — DO NOT EDIT.\n` +
