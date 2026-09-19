@@ -33,8 +33,14 @@ for (const name of SHARED_MODULES) {
   const targetPath = join(root, "supabase", "functions", "_shared", name);
   const expected = BANNER(name) + readFileSync(sourcePath, "utf8");
 
+  // Compare CONTENT, not bytes: git normalises line endings on checkout, so a
+  // byte-exact comparison false-positives after any branch switch on Windows.
+  // A guard that cries wolf is a guard that gets ignored.
+  const CR = String.fromCharCode(13);
+  const LF = String.fromCharCode(10);
+  const normalize = (text) => text.split(CR + LF).join(LF);
   const actual = existsSync(targetPath) ? readFileSync(targetPath, "utf8") : null;
-  if (actual === expected) continue;
+  if (actual !== null && normalize(actual) === normalize(expected)) continue;
 
   if (checkOnly) {
     console.error(`drift: supabase/functions/_shared/${name} differs from src/lib/${name}`);
