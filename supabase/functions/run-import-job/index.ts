@@ -837,7 +837,11 @@ Deno.serve(async (req: Request) => {
     // Name/email coherence policy. Enabled unless explicitly switched off, so
     // existing jobs get the check without needing their settings rewritten.
     const qualityConfig = settings.lead_quality ?? {};
-    const qualityEnabled = qualityConfig.enabled !== false;
+    // Opt-IN, deliberately. The thresholds below have not been calibrated
+    // against real vendor files, and an uncalibrated gate rejects real leads.
+    // Run an import with `lead_quality: { enabled: true }` on a sample first,
+    // read error_summary.lead_quality.tally, tune, then enable by default.
+    const qualityEnabled = qualityConfig.enabled === true;
     const qualityPolicy: LeadQualityPolicy = {
       rejectBelow: qualityConfig.rejectBelow ?? DEFAULT_LEAD_QUALITY_POLICY.rejectBelow,
       reviewBelow: qualityConfig.reviewBelow ?? DEFAULT_LEAD_QUALITY_POLICY.reviewBelow,
