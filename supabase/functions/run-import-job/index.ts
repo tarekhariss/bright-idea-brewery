@@ -1,5 +1,15 @@
 /// <reference lib="deno.ns" />
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+
+/**
+ * The client these helpers actually receive.
+ *
+ * `ReturnType<typeof createClient>` resolves to the DEFAULT generic
+ * instantiation (SupabaseClient<unknown, never, GenericSchema>), while calling
+ * createClient(url, key) infers SupabaseClient<any, "public", any>. The two are
+ * not assignable, which produced two long-standing type errors here.
+ */
+type ImportDbClient = ReturnType<typeof createClient<any, "public", any>>;
 import { recordErrorEvent } from "../_shared/error-reporting.ts";
 import { z } from "https://esm.sh/zod@3.23.8";
 import {
@@ -581,7 +591,7 @@ const COMPANY_FIELDS = new Set([
 
 /** Update import_job_rows status in bulk using individual updates grouped by status */
 async function updateRowStatuses(
-  supabase: ReturnType<typeof createClient>,
+  supabase: ImportDbClient,
   rowUpdates: any[],
   jobId: string,
 ): Promise<number> {
@@ -620,7 +630,7 @@ async function updateRowStatuses(
 
 /** Insert contacts with automatic sub-batch retry on failure */
 async function insertContactsWithRetry(
-  supabase: ReturnType<typeof createClient>,
+  supabase: ImportDbClient,
   contacts: Array<{ rowId: string; rowUpdate: any; contact: Record<string, unknown> }>,
   contactIndex: ReturnType<typeof buildContactIndex>,
   accessibleWorkspaceIds: string[],

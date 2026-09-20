@@ -110,6 +110,24 @@ Deno.serve(async (req: Request) => {
         message: recipient.message,
         supports_multiple_recipients: false,
       }), { status: 422, headers: corsHeaders });
+
+    // 1c. Refuse unsupported recipient types rather than dropping them.
+    // Nothing writes emails.cc/bcc today, so this should never fire; if it
+    // does, a new caller is expecting delivery this adapter cannot provide.
+    if (email.cc || email.bcc) {
+      await supabase.from("emails").update({
+        status: "failed",
+        error_message: "CC/BCC are not supported by the current SMTP adapter; refusing rather than dropping recipients.",
+        updated_at: new Date().toISOString(),
+      }).eq("id", email_id);
+      return new Response(JSON.stringify({
+        error: "unsupported_recipient_type",
+        unsupported: [email.cc ? "cc" : null, email.bcc ? "bcc" : null].filter(Boolean),
+        message: "This sending adapter delivers to a single To recipient. CC and BCC are not delivered.",
+        supports_cc: false,
+        supports_bcc: false,
+      }), { status: 422, headers: corsHeaders });
+    }
     }
 
     // 2. Fetch mailbox config (with joined domain)
@@ -148,8 +166,10 @@ Deno.serve(async (req: Request) => {
     const payload = {
       from: fromAddress,
       to: formatRecipient(recipient),
-      cc: email.cc || undefined,
-      bcc: email.bcc || undefined,
+      // Surfaced so a dry run shows what was configured, explicitly marked as
+      // undeliverable by this adapter rather than implied to be sent.
+      cc_not_delivered: email.cc || null,
+      bcc_not_delivered: email.bcc || null,
       subject: email.subject,
       html: email.body_html || "",
       text: email.body_text || email.body_html?.replace(/<[^>]*>/g, "") || "",
@@ -226,8 +246,8 @@ Deno.serve(async (req: Request) => {
       await client.send({
         from: mailbox.email,
         to: formatRecipient(recipient),
-        cc: email.cc ? email.cc.split(",").map((s: string) => s.trim()) : undefined,
-        bcc: email.bcc ? email.bcc.split(",").map((s: string) => s.trim()) : undefined,
+        // No cc/bcc: smtp@v0.7.0's SendConfig does not carry them and send()
+        // issues RCPT TO for `to` alone. Passing them would be decorative.
         subject: email.subject,
         content: email.body_text || email.body_html?.replace(/<[^>]*>/g, "") || "",
         html: email.body_html || undefined,

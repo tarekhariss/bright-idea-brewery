@@ -191,8 +191,8 @@ Deno.serve(async (req: Request) => {
   } catch (err: any) {
     // Previously this catch discarded `err` entirely: export failures were
     // invisible. The response stays deliberately generic; the detail goes here.
-    await recordErrorEvent(supabase, {
     await recordErrorEvent(createClient(supabaseUrl, serviceKey), {
+      source: "edge_function",
       component: "run-export-job",
       operation: "process_export",
       severity: "critical",

@@ -367,8 +367,8 @@ Deno.serve(async (req: Request) => {
     );
   } catch (err) {
     console.error("LinkedIn worker fatal", err);
-    await recordErrorEvent(supabase, {
     await recordErrorEvent(createClient(supabaseUrl, serviceKey), {
+      source: "edge_function",
       component: "process-linkedin-queue",
       operation: "process_batch",
       severity: "critical",
