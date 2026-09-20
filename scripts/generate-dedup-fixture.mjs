@@ -179,6 +179,24 @@ const [early, late, li, ext, withCo, merged] = await Promise.all([
 ]);
 
 console.log(`  canonical contacts in clone: ${total.toLocaleString()}`);
+
+// Case 02 only means something if the clone is larger than the ceiling it is
+// testing. The old dedup loaded the first 500,000 contacts by `id` ascending;
+// a contact selected with `order by id desc` sits beyond that only when the
+// table actually exceeds 500,000 rows. Below that, every contact was visible to
+// the old code and the case proves nothing.
+const OLD_PRELOAD_CEILING = 500_000;
+if (total <= OLD_PRELOAD_CEILING) {
+  console.error(
+    `\nREFUSING TO RUN: the clone holds ${total.toLocaleString()} canonical contacts, at or below the ` +
+    `${OLD_PRELOAD_CEILING.toLocaleString()} ceiling Case 02 exists to test.\n` +
+    `A contact from the far end of the id ordering would have been visible to the old ` +
+    `implementation too, so the case would pass either way and prove nothing.\n` +
+    `Restore a full-scale clone, or drop Case 02 from the run and say so in the results.\n`,
+  );
+  process.exit(1);
+}
+console.log(`  clone exceeds the ${OLD_PRELOAD_CEILING.toLocaleString()} ceiling — Case 02 is meaningful`);
 for (const [label, arr] of [["early", early], ["late", late], ["linkedin", li], ["external_id", ext], ["with_company", withCo], ["merged", merged]]) {
   console.log(`  ${label}: ${arr.length} candidate(s)`);
 }

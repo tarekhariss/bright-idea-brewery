@@ -67,9 +67,10 @@ describe("metadata cannot grow without bound", () => {
     expect(out).not.toContain("secret-ish payload");
   });
 
-  it("caps array length", () => {
-    const out = sanitizeMetadata({ rows: Array.from({ length: 100 }, (_, i) => i) }) as any;
-    expect(out.rows.length).toBeLessThanOrEqual(20);
+  it("caps array length on non-bulk keys", () => {
+    //  is bulk content and is summarised entirely; use a key that is not.
+    const out = sanitizeMetadata({ attempt_durations: Array.from({ length: 100 }, (_, i) => i) }) as any;
+    expect(out.attempt_durations.length).toBeLessThanOrEqual(20);
   });
 });
 
@@ -175,5 +176,115 @@ describe("reporting never breaks the operation it reports on", () => {
     const args = client.rpc.mock.calls[0][1] as any;
     expect(args.p_metadata.smtp_password).toBe("[redacted]");
     expect(args.p_metadata.mailbox_id).toBe("mb-1");
+  });
+});
+
+describe("data minimisation — personal and business data", () => {
+  it("summarises message bodies instead of storing them", () => {
+    const out = sanitizeMetadata({
+      body_html: "<p>Hi John, following up on our call about your Q4 budget…</p>",
+      body_text: "Hi John, following up",
+      email_id: "e-123",
+    }) as any;
+    expect(out.body_html).toMatch(/^\[omitted: string\(\d+\)\]$/);
+    expect(out.body_text).toMatch(/^\[omitted: string/);
+    expect(JSON.stringify(out)).not.toContain("Q4 budget");
+    expect(out.email_id).toBe("e-123"); // the useful part survives
+  });
+
+  it("summarises reply bodies", () => {
+    const out = sanitizeMetadata({ reply_body: "Thanks, I've left the company — try Sarah." }) as any;
+    expect(JSON.stringify(out)).not.toContain("left the company");
+  });
+
+  it("summarises raw provider payloads and API responses", () => {
+    const out = sanitizeMetadata({
+      raw_payload: { lead: { email: "a@b.com", phone: "+123" } },
+      response: { contacts: [{ email: "c@d.com" }] },
+      provider: "unipile",
+      status_code: 429,
+    }) as any;
+    expect(String(out.raw_payload)).toMatch(/^\[omitted: object/);
+    expect(String(out.response)).toMatch(/^\[omitted: object/);
+    expect(JSON.stringify(out)).not.toContain("a@b.com");
+    expect(out.provider).toBe("unipile"); // provider name is diagnostic
+    expect(out.status_code).toBe(429);    // so is the status code
+  });
+
+  it("summarises CSV rows and contact collections", () => {
+    const out = sanitizeMetadata({
+      rows: [{ first_name: "John", email: "john@acme.com" }, { first_name: "Jane" }],
+      contacts: [{ id: 1 }, { id: 2 }],
+      row_count: 2,
+    }) as any;
+    expect(String(out.rows)).toBe("[omitted: array(2)]");
+    expect(String(out.contacts)).toBe("[omitted: array(2)]");
+    expect(JSON.stringify(out)).not.toContain("john@acme.com");
+    expect(out.row_count).toBe(2); // the count is what you actually need
+  });
+
+  it("masks email addresses but keeps the domain", () => {
+    const out = sanitizeMetadata({ to_address: "john.smith@acme.com" }) as any;
+    expect(out.to_address).toBe("j***@acme.com");
+    expect(out.to_address).not.toContain("smith");
+  });
+
+  it("masks emails quoted inside error messages", () => {
+    const r = describeError(new Error("relay denied for john.smith@acme.com"));
+    expect(r.message).toContain("j***@acme.com");
+    expect(r.message).not.toContain("john.smith@");
+  });
+
+  it("masks phone numbers but keeps them distinguishable", () => {
+    const a = sanitizeMetadata({ phone: "+44 20 7123 4567" }) as any;
+    const b = sanitizeMetadata({ phone: "+44 20 7123 9999" }) as any;
+    expect(a.phone).not.toContain("7123");
+    expect(a.phone).not.toBe(b.phone); // still tells two numbers apart
+  });
+
+  it("masks profile URLs to their origin", () => {
+    const out = sanitizeMetadata({ linkedin_url: "https://www.linkedin.com/in/johnsmith" }) as any;
+    expect(out.linkedin_url).toBe("https://www.linkedin.com/***");
+  });
+
+  it("masks names without destroying them entirely", () => {
+    const out = sanitizeMetadata({ first_name: "John", last_name: "Smith" }) as any;
+    expect(out.first_name).toBe("J***");
+    expect(out.last_name).toBe("S***");
+  });
+
+  it("keeps everything a debugger actually needs", () => {
+    // The guard against over-sanitising: these must survive intact.
+    const out = sanitizeMetadata({
+      job_id: "job-7", contact_id: "c-99", workspace_id: "w-1",
+      operation: "enrich_contact", provider: "unipile", status_code: 500,
+      attempt: 3, batch_size: 250, duration_ms: 1840,
+      error_class: "TypeError", queue_depth: 12, ok: false,
+    }) as any;
+    expect(out).toEqual({
+      job_id: "job-7", contact_id: "c-99", workspace_id: "w-1",
+      operation: "enrich_contact", provider: "unipile", status_code: 500,
+      attempt: 3, batch_size: 250, duration_ms: 1840,
+      error_class: "TypeError", queue_depth: 12, ok: false,
+    });
+  });
+
+  it("minimises a realistic accidental dump", () => {
+    // What someone writes at 2am: the whole request object.
+    const out = sanitizeMetadata({
+      request: {
+        headers: { authorization: "Bearer abc123456789012", "content-type": "application/json" },
+        body: { to: "victim@acme.com", html: "<p>confidential offer</p>" },
+      },
+      contact: { first_name: "John", last_name: "Smith", email: "john@acme.com", phone: "+15551234567" },
+      job_id: "job-1",
+    }) as any;
+    const serialised = JSON.stringify(out);
+    expect(serialised).not.toContain("abc123456789012");
+    expect(serialised).not.toContain("confidential offer");
+    expect(serialised).not.toContain("victim@acme.com");
+    expect(serialised).not.toContain("john@acme.com");
+    expect(serialised).not.toContain("5551234567");
+    expect(out.job_id).toBe("job-1");
   });
 });

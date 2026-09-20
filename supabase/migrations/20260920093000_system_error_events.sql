@@ -213,8 +213,24 @@ $$;
 comment on function public.record_error_event is
   'Records an operational error, aggregating by fingerprint. Callers must never let a failure here fail the operation being reported on.';
 
--- Only the service role writes. Revoke from client roles explicitly rather than
--- relying on default grants.
+-- Only the service role writes.
+--
+-- Postgres grants EXECUTE on new functions to PUBLIC by default, so the revoke
+-- below is what actually restricts this. But revoking from PUBLIC also removes
+-- it from any role without its own grant — including service_role, depending on
+-- how default privileges are configured. The explicit grant afterwards is not
+-- redundant: without it, every telemetry write could fail with "permission
+-- denied for function", and recordErrorEvent swallows that by design (logs
+-- locally, returns false). The result would be an observability system that
+-- passes every test and silently records nothing in production.
 revoke all on function public.record_error_event(
   text, text, text, text, text, uuid, text, text, text, jsonb
 ) from public, anon, authenticated;
+
+grant execute on function public.record_error_event(
+  text, text, text, text, text, uuid, text, text, text, jsonb
+) to service_role;
+
+-- error_fingerprint is a pure hash over its arguments — no data access, no side
+-- effects — so it keeps the default grant. It is only reachable through
+-- record_error_event in practice.

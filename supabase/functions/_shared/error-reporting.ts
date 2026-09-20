@@ -44,6 +44,24 @@ export interface ErrorEventInput {
 /** Keys whose values are never stored, matched case-insensitively. */
 const SECRET_KEY = /(^|[_\-.])(key|secret|token|password|passwd|pwd|auth|authorization|credential|cookie|session|bearer|signature|dsn)($|[_\-.])|api[_-]?key|service[_-]?role|access[_-]?token|refresh[_-]?token|webhook[_-]?secret|worker[_-]?secret/i;
 
+/**
+ * Keys whose values are bulk content rather than diagnostics: message bodies,
+ * provider payloads, CSV rows, contact records. These are summarised, not
+ * stored.
+ *
+ * The distinction is deliberate. An error store is not a place for personal or
+ * business data — it is long-lived, widely readable by admins, and nobody
+ * curates it. `contact_id` and `row_count` tell you what went wrong; the
+ * contact record itself does not tell you more, and carries obligations.
+ */
+const BULK_CONTENT_KEY =
+  /^(body|body_html|body_text|html|text|content|message_body|reply_body|raw|raw_payload|raw_response|payload|response|request|rows|records|contacts|leads|csv|csv_row|data|result|results|items)$/i;
+
+/** Keys holding personal identifiers that should be masked rather than dropped. */
+const PII_KEY = /(^|_)(email|email_address|to_address|from_address|recipient|phone|mobile|linkedin_url|full_name|first_name|last_name)$/i;
+// Anchored at the END so identifiers survive: contact_email is masked,
+// email_id is not. An *_id is a reference, not the value it points at.
+
 /** Values that look like credentials regardless of their key. */
 const SECRET_VALUE = [
   /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/, // JWT
@@ -64,7 +82,61 @@ export function scrubString(value: string): string {
   for (const pattern of SECRET_VALUE) {
     out = out.replace(new RegExp(pattern.source, pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`), REDACTED);
   }
+  // Error messages routinely quote the address that failed. Keep the domain —
+  // it is usually the point — and drop the rest.
+  out = maskEmailsInText(out);
   return out.length > MAX_STRING ? `${out.slice(0, MAX_STRING)}…[truncated]` : out;
+}
+
+/**
+ * Describe bulk content without storing it. Size and shape are what a debugger
+ * actually needs; the body text is what creates the obligation.
+ */
+export function summarise(value: unknown): string {
+  if (value === null || value === undefined) return "[omitted: empty]";
+  if (typeof value === "string") return `[omitted: string(${value.length})]`;
+  if (Array.isArray(value)) return `[omitted: array(${value.length})]`;
+  if (typeof value === "object") return `[omitted: object(${Object.keys(value).length} keys)]`;
+  return `[omitted: ${typeof value}]`;
+}
+
+/**
+ * Mask a personal identifier while keeping what is diagnostically useful.
+ *
+ * An email's domain tells you which provider or customer was involved and is
+ * often the point of the investigation; the local part is not. A phone number
+ * keeps its last two digits so two different numbers remain distinguishable in
+ * a log without being readable.
+ */
+export function maskPii(value: unknown): unknown {
+  if (typeof value !== "string" || value.length === 0) {
+    return typeof value === "object" && value !== null ? summarise(value) : value;
+  }
+  const at = value.lastIndexOf("@");
+  if (at > 0) {
+    const local = value.slice(0, at);
+    const domain = value.slice(at);
+    return `${local[0]}***${domain}`;
+  }
+  if (/^[+\d][\d\s().-]{5,}$/.test(value)) {
+    return `***${value.replace(/\D/g, "").slice(-2)}`;
+  }
+  if (/^https?:\/\//i.test(value)) {
+    try {
+      return `${new URL(value).origin}/***`;
+    } catch {
+      return "[masked]";
+    }
+  }
+  return value.length <= 2 ? "***" : `${value[0]}***`;
+}
+
+/** Redact an email address found loose in free text, keeping the domain. */
+function maskEmailsInText(text: string): string {
+  return text.replace(
+    /\b([A-Za-z0-9._%+-])[A-Za-z0-9._%+-]*@([A-Za-z0-9.-]+\.[A-Za-z]{2,})\b/g,
+    (_m, first, domain) => `${first}***@${domain}`,
+  );
 }
 
 /**
@@ -98,7 +170,16 @@ export function sanitizeMetadata(
         break;
       }
       count++;
-      out[key] = SECRET_KEY.test(key) ? REDACTED : sanitizeMetadata(value, depth + 1);
+      if (SECRET_KEY.test(key)) {
+        out[key] = REDACTED;
+      } else if (BULK_CONTENT_KEY.test(key)) {
+        // Keep the shape, drop the content. Size is diagnostic; the text is not.
+        out[key] = summarise(value);
+      } else if (PII_KEY.test(key)) {
+        out[key] = maskPii(value);
+      } else {
+        out[key] = sanitizeMetadata(value, depth + 1);
+      }
     }
     return out;
   }
