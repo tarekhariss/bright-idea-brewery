@@ -52,7 +52,9 @@ export function ProspectMetricsBar({ entityType, filteredCount, filteredLoading 
     enabled: !!userId,
     staleTime: 30_000,
     queryFn: async () => {
-      let q = (supabase as any).from(table).select("*", { count: "exact", head: true });
+      // Unfiltered total over the whole table — the expensive one. The net-new
+      // count below stays exact: it filters on an indexed created_at and is small.
+      let q = (supabase as any).from(table).select("*", { count: "estimated", head: true });
       q = applyOwnerFilter(q, accessibleWorkspaceIds, userId!);
       const { count } = await q;
       return count ?? 0;
