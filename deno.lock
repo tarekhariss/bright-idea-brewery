@@ -79,6 +79,7 @@
         "npm:lucide-react@0.462",
         "npm:next-themes@0.3",
         "npm:papaparse@^5.5.3",
+        "npm:pg@^8.23.0",
         "npm:postcss@^8.5.6",
         "npm:react-day-picker@^8.10.1",
         "npm:react-dom@^18.3.1",
