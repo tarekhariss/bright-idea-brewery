@@ -77,10 +77,15 @@ function parseDiagnostics(output) {
 
 const key = (d) => `${d.code} ${d.message}`;
 
+/** --only=<name> restricts the run to one function. Used by the gate regression
+ *  test so it does not re-check all 21 on every assertion. */
+const onlyArg = process.argv.find((a) => a.startsWith("--only="));
+const onlyName = onlyArg ? onlyArg.slice("--only=".length) : null;
 const functions = readdirSync(functionsDir, { withFileTypes: true })
   .filter((e) => e.isDirectory() && !e.name.startsWith("_"))
   .map((e) => e.name)
   .filter((name) => existsSync(join(functionsDir, name, "index.ts")))
+  .filter((name) => !onlyName || name === onlyName)
   .sort();
 
 const results = {};

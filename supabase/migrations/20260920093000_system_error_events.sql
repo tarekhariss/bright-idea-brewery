@@ -106,11 +106,21 @@ create policy see_read_platform_admin on public.system_error_events
   for select to authenticated
   using (public.is_platform_admin(auth.uid()));
 
-drop policy if exists see_update_platform_admin on public.system_error_events;
-create policy see_update_platform_admin on public.system_error_events
-  for update to authenticated
-  using (public.is_platform_admin(auth.uid()))
-  with check (public.is_platform_admin(auth.uid()));
+-- Deliberately NO update policy for authenticated.
+--
+-- RLS decides which ROWS a role may touch, not which COLUMNS. A broad admin
+-- UPDATE would let a platform admin rewrite fingerprint, occurrence_count,
+-- first_seen_at or message — corrupting the aggregation this table exists to
+-- provide, and doing so without any record that it happened. Resolution goes
+-- through resolve_system_error_event() below, which can only set resolved_at.
+
+-- Table privileges are set explicitly rather than inherited from Supabase's
+-- default grants, which hand ALL on public tables to anon and authenticated.
+-- RLS would still gate reads, but relying on that alone leaves INSERT, UPDATE
+-- and DELETE one forgotten policy away from being reachable.
+revoke all on table public.system_error_events from anon, authenticated;
+grant select on table public.system_error_events to authenticated;  -- narrowed further by RLS
+grant all on table public.system_error_events to service_role;
 
 -- ============================================================
 -- Fingerprinting
@@ -234,3 +244,52 @@ grant execute on function public.record_error_event(
 -- error_fingerprint is a pure hash over its arguments — no data access, no side
 -- effects — so it keeps the default grant. It is only reachable through
 -- record_error_event in practice.
+
+-- ============================================================
+-- Resolution — the only mutation a platform admin may perform
+-- ============================================================
+-- Narrow by construction: it can set or clear resolved_at and nothing else.
+-- There is no code path here that touches fingerprint, occurrence_count,
+-- first_seen_at, message or metadata, so no amount of caller creativity can
+-- rewrite the aggregation.
+--
+-- It also cannot create rows: it updates an existing id or reports not_found.
+-- A privileged RPC that could insert would let an admin fabricate error
+-- history, which is exactly what an audit-adjacent table must not allow.
+create or replace function public.resolve_system_error_event(
+  p_id uuid,
+  p_resolved boolean default true
+) returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $resolve$
+declare
+  v_found boolean;
+begin
+  if not public.is_platform_admin(auth.uid()) then
+    return jsonb_build_object('ok', false, 'reason', 'not_authorised');
+  end if;
+
+  update public.system_error_events
+     set resolved_at = case when p_resolved then now() else null end
+   where id = p_id;
+
+  get diagnostics v_found = row_count;
+
+  if v_found = 0 then
+    return jsonb_build_object('ok', false, 'reason', 'not_found');
+  end if;
+
+  return jsonb_build_object('ok', true, 'id', p_id, 'resolved', p_resolved);
+end;
+$resolve$;
+
+comment on function public.resolve_system_error_event is
+  'Sets or clears resolved_at on one error event. The only mutation available to a platform admin; cannot alter aggregation fields and cannot create rows.';
+
+revoke all on function public.resolve_system_error_event(uuid, boolean) from public, anon;
+grant execute on function public.resolve_system_error_event(uuid, boolean) to authenticated;
+-- Authorisation is enforced inside the function via is_platform_admin(), so a
+-- non-admin authenticated caller gets {ok:false, reason:'not_authorised'}
+-- rather than a privilege error. The grant is intentional; the check is real.
