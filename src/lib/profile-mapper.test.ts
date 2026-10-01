@@ -230,3 +230,49 @@ describe("provenance is always recorded", () => {
     expect(row.source_dataset_version).toBe("2026-09");
   });
 });
+
+describe("our own exports round-trip through the loader", () => {
+  it("reads a record emitted by scripts/ingest-edgar.ts", () => {
+    // EDGAR ingestion writes NDJSON that load-discovery-profiles.ts consumes.
+    // Without `raw_title` in the alias list the title is silently dropped, and
+    // a pool of people with no job titles is not searchable.
+    const row = map({
+      full_name: "Timothy Cook",
+      first_name: "Timothy",
+      last_name: "Cook",
+      raw_title: "Chief Executive Officer",
+      company_name: "Apple Inc.",
+      company_industry: "Electronic Computers",
+      company_domain: null,
+      country_code: "US",
+      region: "CA",
+      city: "CUPERTINO",
+    });
+
+    expect(row.raw_title).toBe("Chief Executive Officer");
+    expect(row.seniority).toBe("c_suite");
+    expect(row.department).toBe("executive");
+    expect(row.country_code).toBe("US");
+    expect(isUsableProfile(row).usable).toBe(true);
+  });
+
+  it("keeps a board member ranked above a VP after a round-trip", () => {
+    const row = map({
+      full_name: "Arthur Levinson", first_name: "Arthur", last_name: "Levinson",
+      raw_title: "Board Member", company_name: "Apple Inc.", country_code: "US",
+    });
+    expect(row.seniority).toBe("board");
+    expect(row.seniority_rank).toBeGreaterThan(80);
+  });
+
+  it("accepts an EDGAR row that has no company domain", () => {
+    // EDGAR publishes no domain. The profile must still be storable and
+    // searchable; only address generation has to wait.
+    const row = map({
+      full_name: "Jane Roe", first_name: "Jane", last_name: "Roe",
+      raw_title: "Chief Financial Officer", company_name: "Acme Corp", country_code: "US",
+    });
+    expect(row.company_domain).toBeNull();
+    expect(isUsableProfile(row).usable).toBe(true);
+  });
+});

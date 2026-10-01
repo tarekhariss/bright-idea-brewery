@@ -42,7 +42,10 @@ const ALIASES: Record<string, string[]> = {
   full_name: ["full_name", "name", "fullname", "member_name"],
   first_name: ["first_name", "firstname", "given_name"],
   last_name: ["last_name", "lastname", "family_name", "surname"],
-  raw_title: ["title", "job_title", "position", "headline", "current_title", "active_experience_title"],
+  // `raw_title` first so our own exports round-trip: scripts/ingest-edgar.ts
+  // emits this schema, and without the alias its titles would be silently
+  // dropped on re-import.
+  raw_title: ["raw_title", "title", "job_title", "position", "headline", "current_title", "active_experience_title"],
   company_name: ["company_name", "company", "organization", "organization_name", "employer", "active_experience_company_name"],
   company_domain: ["company_domain", "domain", "website", "company_website", "organization_domain"],
   company_industry: ["company_industry", "industry", "organization_industry", "company_industries"],
