@@ -47,6 +47,7 @@ import {
   type EmailPattern,
 } from "../src/lib/email-patterns";
 import { GENERIC_EMAIL_HOSTS } from "../src/lib/import-normalizers";
+import { csvObjects } from "../src/lib/csv-records";
 
 const MINER_VERSION = "1.0.0";
 
@@ -57,7 +58,22 @@ const flag = (name: string) => {
 };
 const has = (name: string) => args.includes(`--${name}`);
 
-const filePath = flag("file");
+const filePaths = args.reduce<string[]>((acc, a, i) => {
+  if (a === "--file" && args[i + 1] && !args[i + 1].startsWith("--")) acc.push(args[i + 1]);
+  return acc;
+}, []);
+// A whole export archive is thousands of files, far more than a command line
+// holds, so a list file is the practical input for a full run.
+const filesFrom = flag("files-from");
+if (filesFrom) {
+  if (!existsSync(filesFrom)) die(`${filesFrom} not found`);
+  // Each entry is trimmed, so splitting on the newline alone also clears CR.
+  for (const line of readFileSync(filesFrom, "utf8").split("\n")) {
+    const trimmed = line.trim();
+    if (trimmed) filePaths.push(trimmed);
+  }
+}
+const filePath = filePaths[0] ?? null;
 const fromDb = has("from-db");
 const envPath = flag("env") ?? ".env.loader";
 const write = has("confirm-write");
@@ -70,9 +86,9 @@ function die(message: string): never {
   process.exit(1);
 }
 
-if (!filePath && !fromDb) die("one of --file <path> or --from-db is required");
-if (filePath && fromDb) die("--file and --from-db are mutually exclusive");
-if (filePath && !existsSync(filePath)) die(`${filePath} not found`);
+if (filePaths.length === 0 && !fromDb) die("one of --file <path> or --from-db is required");
+if (filePaths.length > 0 && fromDb) die("--file and --from-db are mutually exclusive");
+for (const f of filePaths) if (!existsSync(f)) die(`${f} not found`);
 
 // ── Contact row → observation ────────────────────────────────
 
@@ -127,6 +143,7 @@ const stats = {
   skippedFreeMail: 0,
   skippedNoName: 0,
   malformed: 0,
+  unreadableFiles: 0,
 };
 
 const evidenceByDomain = new Map<string, DomainEvidence>();
@@ -193,6 +210,7 @@ function report(profiles: DomainPatternProfile[]) {
   console.log(`  free-mail host     ${stats.skippedFreeMail.toLocaleString()}`);
   console.log(`  no name to match   ${stats.skippedNoName.toLocaleString()}`);
   if (stats.malformed) console.log(`  unparseable        ${stats.malformed.toLocaleString()}`);
+  if (stats.unreadableFiles) console.log(`  unreadable files   ${stats.unreadableFiles.toLocaleString()}`);
 
   console.log(`\nDomains seen         ${profiles.length.toLocaleString()}`);
   console.log(`  learned            ${learned.length.toLocaleString()} (${pct(learned.length, profiles.length)})`);
@@ -232,47 +250,27 @@ function report(profiles: DomainPatternProfile[]) {
 
 // ── Input: file ──────────────────────────────────────────────
 
-/** Minimal RFC-4180 line splitter — exports quote fields containing commas. */
-function splitCsvLine(line: string): string[] {
-  const out: string[] = [];
-  let field = "";
-  let quoted = false;
-  for (let i = 0; i < line.length; i++) {
-    const c = line[i];
-    if (quoted) {
-      if (c === '"' && line[i + 1] === '"') { field += '"'; i++; }
-      else if (c === '"') quoted = false;
-      else field += c;
-    } else if (c === '"') quoted = true;
-    else if (c === ",") { out.push(field); field = ""; }
-    else field += c;
-  }
-  out.push(field);
-  return out;
-}
-
 async function readFromFile(path: string) {
   const isCsv = /\.csv$/i.test(path);
-  const lines = createInterface({
-    input: createReadStream(path, { encoding: "utf8" }),
-    crlfDelay: Infinity,
-  });
+  const stream = createReadStream(path, { encoding: "utf8" });
 
-  let header: string[] | null = null;
+  if (isCsv) {
+    // Quote-aware: a record can span many physical lines, because vendor
+    // exports carry descriptions containing newlines. Splitting on newlines
+    // would shred those records into fragments that parse but hold the wrong
+    // values in the wrong columns.
+    for await (const row of csvObjects(stream)) {
+      ingest(row as ContactRow);
+      if (limit > 0 && stats.rows >= limit) break;
+    }
+    return;
+  }
+
+  const lines = createInterface({ input: stream, crlfDelay: Infinity });
   for await (const line of lines) {
     if (!line.trim()) continue;
-    if (isCsv && header === null) {
-      header = splitCsvLine(line).map((h) => h.trim().toLowerCase().replace(/[\s-]/g, "_"));
-      continue;
-    }
     try {
-      ingest(
-        isCsv
-          ? (Object.fromEntries(
-              splitCsvLine(line).map((cell, i) => [(header ?? [])[i] ?? `col${i}`, cell]),
-            ) as ContactRow)
-          : (JSON.parse(line) as ContactRow),
-      );
+      ingest(JSON.parse(line) as ContactRow);
     } catch {
       stats.malformed++;
     }
@@ -397,7 +395,7 @@ async function persist(client: Client, profiles: DomainPatternProfile[]) {
 // ── Run ──────────────────────────────────────────────────────
 
 console.log(`\n${write ? "MINING AND WRITING" : "MINING (analyse only, nothing will be written)"}`);
-console.log(`Source: ${filePath ?? "database"}`);
+console.log(`Source: ${filePaths.length ? `${filePaths.length} file(s)` : "database"}`);
 console.log(`Miner:  ${MINER_VERSION}\n`);
 
 let client: Client | null = null;
@@ -406,7 +404,26 @@ try {
     client = await connect();
     await readFromDb(client);
   } else {
-    await readFromFile(filePath!);
+    // Several exports fold into one evidence set: a domain appearing in three
+    // files has three files' worth of addresses to learn from, and splitting
+    // them would understate every one of those domains.
+    let fileIndex = 0;
+    for (const f of filePaths) {
+      fileIndex++;
+      try {
+        await readFromFile(f);
+      } catch (error) {
+        // One unreadable export must not abandon the other 6,787.
+        stats.unreadableFiles++;
+        console.error(`  ! ${f}: ${(error as Error).message}`);
+      }
+      if (fileIndex % 200 === 0 || fileIndex === filePaths.length) {
+        console.log(
+          `  …${fileIndex}/${filePaths.length} files, ` +
+          `${stats.rows.toLocaleString()} rows, ${evidenceByDomain.size.toLocaleString()} domains`,
+        );
+      }
+    }
   }
 
   const profiles = [...evidenceByDomain.entries()]

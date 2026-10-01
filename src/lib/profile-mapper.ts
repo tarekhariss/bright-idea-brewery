@@ -49,7 +49,9 @@ const ALIASES: Record<string, string[]> = {
   company_name: ["company_name", "company", "organization", "organization_name", "employer", "active_experience_company_name"],
   company_domain: ["company_domain", "domain", "website", "company_website", "organization_domain"],
   company_industry: ["company_industry", "industry", "organization_industry", "company_industries"],
-  employee_count: ["employee_count", "employees", "company_size", "organization_employee_count", "company_employees_count"],
+  // "employees_count" is Apollo's spelling, which is what the real export
+  // archive uses; without it every size filter sees null across 9GB of data.
+  employee_count: ["employee_count", "employees_count", "employees", "company_size", "organization_employee_count", "company_employees_count", "num_employees", "headcount"],
   employee_range: ["employee_range", "employees_range", "company_size_range", "size_range"],
   country: ["country", "country_name", "location_country", "company_country"],
   country_code: ["country_code", "country_iso", "location_country_code"],
