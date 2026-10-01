@@ -956,7 +956,7 @@ Deno.serve(async (req: Request) => {
                 p_contact_id: req.contactId,
                 p_workspace_id: job.workspace_id,
                 p_actor: userId,
-                p_import_job_id: jobId,
+                p_import_job_id: job_id,
                 p_row_number: 0,
                 p_fields: req.fields,
                 p_contact_custom: req.contactCustom ?? {},
