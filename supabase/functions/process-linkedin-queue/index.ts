@@ -1,5 +1,7 @@
 /// <reference lib="deno.ns" />
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { recordErrorEvent } from "../_shared/error-reporting.ts";
+import { settleRpc } from "../_shared/safe-rpc.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -334,10 +336,19 @@ Deno.serve(async (req: Request) => {
         failed++;
         const msg = (rowErr as Error).message;
         notes.push({ id: action.id, status: "error", error: msg });
-        await supabase.rpc("linkedin_record_action_result", {
-          _queue_id: action.id, _outcome: "retry",
-          _provider_response: {}, _error: msg, _max_retries: MAX_RETRIES,
-        }).catch(() => {});
+        // Best-effort: this recovery path must never abort the batch. A query
+        // builder is thenable but has no .catch, so the previous `.catch(() => {})`
+        // threw TypeError here — inside the handler — stranding every action
+        // already claimed further down the batch.
+        await settleRpc(
+          supabase.rpc("linkedin_record_action_result", {
+            _queue_id: action.id, _outcome: "retry",
+            _provider_response: {}, _error: msg, _max_retries: MAX_RETRIES,
+          }),
+          (reason) => console.error(
+            `[process-linkedin-queue] could not record failure for action ${action.id}: ${reason}`,
+          ),
+        );
       }
     }
 
@@ -356,6 +367,13 @@ Deno.serve(async (req: Request) => {
     );
   } catch (err) {
     console.error("LinkedIn worker fatal", err);
+    await recordErrorEvent(createClient(supabaseUrl, serviceKey), {
+      source: "edge_function",
+      component: "process-linkedin-queue",
+      operation: "process_batch",
+      severity: "critical",
+      error: err,
+    });
     return new Response(
       JSON.stringify({ error: (err as Error).message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },

@@ -11,6 +11,7 @@ import type {
   FilterOperator,
 } from "./advanced-filter-types";
 import { COMPANY_FILTER_FIELDS } from "./filter-field-registry";
+import { pgrstPattern, pgrstValue } from "./postgrest-filter";
 
 /**
  * Set of field keys that live on the `companies` table. When the active entity
@@ -179,7 +180,9 @@ function applyCondition(query: any, c: FilterCondition, entityType?: "contact" |
     case "between":
       if (Array.isArray(value) && value.length === 2) {
         if (isExclude) {
-          return query.or(`${field}.lt.${value[0]},${field}.gt.${value[1]}`);
+          return query.or(
+            `${field}.lt.${pgrstValue(value[0])},${field}.gt.${pgrstValue(value[1])}`,
+          );
         }
         return query.gte(field, value[0]).lte(field, value[1]);
       }
@@ -204,36 +207,38 @@ function conditionToPostgrest(c: FilterCondition, entityType?: "contact" | "comp
   if (!field) return null;
 
   const isExclude = conditionType === "exclude";
+  // Escaped scalar form of `value`, for the operators that embed it directly.
+  const v = pgrstValue(value);
 
   switch (operator) {
     case "eq":
-      return isExclude ? `${field}.neq.${value}` : `${field}.eq.${value}`;
+      return isExclude ? `${field}.neq.${v}` : `${field}.eq.${v}`;
     case "neq":
-      return isExclude ? `${field}.eq.${value}` : `${field}.neq.${value}`;
+      return isExclude ? `${field}.eq.${v}` : `${field}.neq.${v}`;
     case "contains":
       return isExclude
-        ? `${field}.not.ilike.*${value}*`
-        : `${field}.ilike.*${value}*`;
+        ? `${field}.not.ilike.${pgrstPattern(value, "contains")}`
+        : `${field}.ilike.${pgrstPattern(value, "contains")}`;
     case "not_contains":
       return isExclude
-        ? `${field}.ilike.*${value}*`
-        : `${field}.not.ilike.*${value}*`;
+        ? `${field}.ilike.${pgrstPattern(value, "contains")}`
+        : `${field}.not.ilike.${pgrstPattern(value, "contains")}`;
     case "starts_with":
       return isExclude
-        ? `${field}.not.ilike.${value}*`
-        : `${field}.ilike.${value}*`;
+        ? `${field}.not.ilike.${pgrstPattern(value, "starts_with")}`
+        : `${field}.ilike.${pgrstPattern(value, "starts_with")}`;
     case "ends_with":
       return isExclude
-        ? `${field}.not.ilike.*${value}`
-        : `${field}.ilike.*${value}`;
+        ? `${field}.not.ilike.${pgrstPattern(value, "ends_with")}`
+        : `${field}.ilike.${pgrstPattern(value, "ends_with")}`;
     case "gt":
-      return isExclude ? `${field}.lte.${value}` : `${field}.gt.${value}`;
+      return isExclude ? `${field}.lte.${v}` : `${field}.gt.${v}`;
     case "gte":
-      return isExclude ? `${field}.lt.${value}` : `${field}.gte.${value}`;
+      return isExclude ? `${field}.lt.${v}` : `${field}.gte.${v}`;
     case "lt":
-      return isExclude ? `${field}.gte.${value}` : `${field}.lt.${value}`;
+      return isExclude ? `${field}.gte.${v}` : `${field}.lt.${v}`;
     case "lte":
-      return isExclude ? `${field}.gt.${value}` : `${field}.lte.${value}`;
+      return isExclude ? `${field}.gt.${v}` : `${field}.lte.${v}`;
     case "is_empty":
       return isExclude ? `${field}.not.is.null` : `${field}.is.null`;
     case "is_not_empty":
@@ -244,12 +249,12 @@ function conditionToPostgrest(c: FilterCondition, entityType?: "contact" | "comp
       return isExclude ? `${field}.eq.true` : `${field}.eq.false`;
     case "in":
       if (Array.isArray(value) && value.length > 0) {
-        return `${field}.in.(${value.join(",")})`;
+        return `${field}.in.(${value.map(pgrstValue).join(",")})`;
       }
       return null;
     case "not_in":
       if (Array.isArray(value) && value.length > 0) {
-        return `${field}.not.in.(${value.join(",")})`;
+        return `${field}.not.in.(${value.map(pgrstValue).join(",")})`;
       }
       return null;
     default:

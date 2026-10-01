@@ -777,7 +777,7 @@ Deno.serve(async (req) => {
     // reputation; sustained signals across a large unique-employee pool do.
     for (const [domain, a] of domainAgg) {
       const { data: existing } = await supa.from("domain_intelligence").select("*").eq("domain", domain).maybeSingle();
-      const prevSignals: any = (existing?.learning_signals ?? {}) ?? {};
+      const prevSignals: any = existing?.learning_signals ?? {};
 
       const total = (existing?.total_emails_seen ?? 0) + a.seen;
       const bounces = (existing?.total_bounces ?? 0) + a.bounces;

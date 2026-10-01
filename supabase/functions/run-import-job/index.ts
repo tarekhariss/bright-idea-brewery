@@ -1,6 +1,38 @@
 /// <reference lib="deno.ns" />
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+
+/**
+ * The client these helpers actually receive.
+ *
+ * `ReturnType<typeof createClient>` resolves to the DEFAULT generic
+ * instantiation (SupabaseClient<unknown, never, GenericSchema>), while calling
+ * createClient(url, key) infers SupabaseClient<any, "public", any>. The two are
+ * not assignable, which produced two long-standing type errors here.
+ */
+type ImportDbClient = ReturnType<typeof createClient<any, "public", any>>;
+import { recordErrorEvent } from "../_shared/error-reporting.ts";
 import { z } from "https://esm.sh/zod@3.23.8";
+import {
+  companyDomainKey,
+  companyNameKey,
+  deriveRowDomain,
+  isEmptyLike,
+  normalizeCompanyName,
+  normalizeDomain,
+  normalizeEmail,
+  normalizeLinkedIn,
+  normalizePhone,
+  normalizeWebsite,
+  titleCase,
+  DOMAIN_RE,
+} from "../_shared/import-normalizers.ts";
+import {
+  DEFAULT_LEAD_QUALITY_POLICY,
+  assessEmailNameMatch,
+  decideLeadQuality,
+  type EmailNameAssessment,
+  type LeadQualityPolicy,
+} from "../_shared/email-name-match.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -41,52 +73,11 @@ type ImportSettings = {
   unmapped_columns: string[]; excluded_columns?: string[];
   import_tag: string; source: string; list_id: string | null;
   import_mode?: ImportMode; // enterprise: default 'enrich'
+  /** Name/email coherence gate. Omitted means enabled with default thresholds. */
+  lead_quality?: Partial<LeadQualityPolicy> & { enabled?: boolean };
 };
 
 function nowIso() { return new Date().toISOString(); }
-
-function isEmptyLike(v: string): boolean {
-  const lower = v.trim().toLowerCase();
-  return lower === "" || lower === "n/a" || lower === "na" || lower === "null" ||
-    lower === "undefined" || lower === "none" || lower === "-" || lower === "--" ||
-    lower === "not available" || lower === "not provided" || lower === "#n/a";
-}
-function normalizeEmail(val: string): string {
-  return val.normalize("NFKC").toLowerCase().trim().replace(/^mailto:/i, "").replace(/[\s\u200B-\u200D\uFEFF]/g, "");
-}
-function normalizeLinkedIn(val: string): string {
-  let url = val.normalize("NFKC").trim().toLowerCase(); url = url.split("?")[0].split("#")[0];
-  url = url.replace(/^https?:\/\//i, "").replace(/^www\./i, "").replace(/\/+$/, "");
-  if (!url.startsWith("linkedin.com")) {
-    const idx = url.indexOf("linkedin.com");
-    if (idx >= 0) url = url.substring(idx); else url = "linkedin.com/in/" + url;
-  }
-  return "https://www." + url;
-}
-function normalizeDomain(val: string): string {
-  let d = val.trim().toLowerCase();
-  d = d.replace(/^https?:\/\//i, "").replace(/^www\./i, "");
-  return d.split("/")[0].split("?")[0];
-}
-function normalizeWebsite(val: string): string {
-  let url = val.trim().toLowerCase();
-  if (!url.startsWith("http")) url = "https://" + url;
-  return url.replace(/\/+$/, "");
-}
-function normalizePhone(val: string): string {
-  const trimmed = val.trim(); const hasPlus = trimmed.startsWith("+");
-  const digits = trimmed.replace(/\D/g, "");
-  return hasPlus ? "+" + digits : digits;
-}
-function normalizeCompanyName(val: string): string {
-  let name = val.trim().toLowerCase();
-  name = name.replace(/\b(inc\.?|incorporated|llc|ltd\.?|limited|corp\.?|corporation|co\.?|company|plc|gmbh|ag|sa|sas|sarl|bv|nv|pty\.?\s*ltd\.?|pvt\.?\s*ltd\.?)\s*\.?\s*$/gi, "");
-  name = name.replace(/\s+/g, " ").trim().replace(/[,.\-]+$/, "").trim();
-  return name;
-}
-function titleCase(val: string): string {
-  return val.trim().replace(/\s+/g, " ").replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase());
-}
 
 const FIELD_TYPES: Record<string, "string" | "number" | "array" | "date"> = {
   first_name:"string",last_name:"string",email:"string",secondary_email:"string",
@@ -111,7 +102,6 @@ const FIELD_TYPES: Record<string, "string" | "number" | "array" | "date"> = {
 
 const EMAIL_RE = /^[^\s@,;]+@[^\s@,;]+\.[a-z]{2,}$/i;
 const URL_RE = /^(https?:\/\/)?([a-z0-9-]+\.)+[a-z]{2,}(\/[^\s]*)?$/i;
-const DOMAIN_RE = /^([a-z0-9-]+\.)+[a-z]{2,}$/i;
 function isValidForField(fieldKey: string, v: string): boolean {
   if (!v || !v.trim()) return true;
   if (["email","secondary_email","tertiary_email","personal_email"].includes(fieldKey)) return EMAIL_RE.test(v.trim());
@@ -186,6 +176,196 @@ function normalizeRow(raw: Record<string, string>, mapping: Record<string, strin
 
 
 
+/**
+ * Candidate-based duplicate detection.
+ *
+ * This used to preload every contact and company in scope into memory — paging
+ * 5,000 rows at a time up to a hard ceiling of 500,000 — and build Maps over the
+ * lot before processing a single row. Three problems, growing with the table:
+ *
+ *   1. The 500,000 ceiling is silent. Past it, contacts simply became invisible
+ *      to dedup and the import created duplicates of records it already had.
+ *   2. Half a million contact objects is well beyond an edge function's memory
+ *      budget.
+ *   3. The preload runs on every invocation, and this function re-invokes itself
+ *      whenever it approaches the CPU limit — so a long import paid the full
+ *      preload cost repeatedly, often consuming the entire time budget before
+ *      reaching any rows.
+ *
+ * Instead, each batch fetches only the records that could possibly match the 250
+ * rows in front of it, keyed on the generated, indexed normalized_* columns.
+ * Cost becomes proportional to batch size rather than table size, and the result
+ * is correct regardless of how many contacts exist.
+ *
+ * Matching semantics are unchanged: the fetched rows are keyed by the same
+ * buildContactIndex/buildCompanyIndex functions, and the queries deliberately
+ * fetch a superset of what those indexes will key on.
+ */
+const CANDIDATE_CHUNK = 150; // values per .in() — keeps request URLs well clear of header limits
+
+function chunked<T>(values: T[], size = CANDIDATE_CHUNK): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < values.length; i += size) out.push(values.slice(i, i + size));
+  return out;
+}
+
+function nonEmpty(values: Array<string | null | undefined>): string[] {
+  return Array.from(new Set(values.filter((v): v is string => !!v && v.length > 0)));
+}
+
+/** Lookup keys a batch of rows could match an existing contact on. */
+function collectContactKeys(rows: Record<string, unknown>[]) {
+  const emails: string[] = [];
+  const linkedins: string[] = [];
+  const extIds: string[] = [];
+  const phones: string[] = [];
+  const names: string[] = [];
+
+  for (const row of rows) {
+    const r = row as Record<string, string | null | undefined>;
+    for (const key of ["email", "secondary_email", "tertiary_email"]) {
+      const value = r[key];
+      if (value) emails.push(normalizeEmail(String(value)));
+    }
+    if (r.linkedin_url) {
+      // contacts.normalized_linkedin_url is generated as
+      // regexp_replace(..., '[/?#].*$', '') which collapses every LinkedIn URL to
+      // the bare host "linkedin.com" — useless as an identity key. Query the raw
+      // column instead, covering the shapes a stored value realistically takes.
+      const raw = String(r.linkedin_url).trim();
+      const canonical = normalizeLinkedIn(raw);
+      linkedins.push(canonical, raw, canonical.replace(/^https:\/\/www\./, ""));
+    }
+    if (r.external_contact_id) extIds.push(String(r.external_contact_id).trim());
+    if (r.phone) {
+      // There is no generated normalized_phone column. Rows created by import
+      // store the normalized form, rows created elsewhere may store the raw one,
+      // so look for both — buildContactIndex normalizes whatever comes back.
+      phones.push(normalizePhone(String(r.phone)));
+      phones.push(String(r.phone).trim());
+    }
+
+    const first = String(r.first_name ?? "").toLowerCase().trim();
+    const last = String(r.last_name ?? "").toLowerCase().trim();
+    if (first || last) {
+      // contacts.normalized_name is GENERATED as lower(first || ' ' || last),
+      // which keeps the separator even when one side is blank. Query both shapes
+      // so single-name contacts are still reachable.
+      names.push(`${first} ${last}`);
+      names.push([first, last].filter(Boolean).join(" "));
+    }
+  }
+
+  return {
+    emails: nonEmpty(emails),
+    linkedins: nonEmpty(linkedins),
+    extIds: nonEmpty(extIds),
+    phones: nonEmpty(phones.filter((p) => p.length >= 7)),
+    names: nonEmpty(names),
+  };
+}
+
+/** Lookup keys a batch of rows could match an existing company on. */
+function collectCompanyKeys(rows: Record<string, unknown>[]) {
+  const domains: string[] = [];
+  const names: string[] = [];
+  const linkedins: string[] = [];
+  const extIds: string[] = [];
+
+  for (const row of rows) {
+    const r = row as Record<string, string | null | undefined>;
+    const domain = deriveRowDomain(r);
+    if (domain) {
+      // normalized_domain only lowercases, so a stored value may still carry
+      // "www." or a scheme. Query the variants a stored row realistically holds.
+      domains.push(domain, `www.${domain}`, `https://${domain}`, `https://www.${domain}`);
+    }
+    if (r.company_name_raw) {
+      // companies.normalized_name is lower(trim(name)) and keeps legal suffixes,
+      // while normalizeCompanyName strips them. Query both so "Acme Inc" reaches
+      // a stored "acme inc" and a stored "acme" alike.
+      const raw = String(r.company_name_raw);
+      names.push(normalizeCompanyName(raw), raw.trim().toLowerCase());
+    }
+    if (r.company_linkedin_url) linkedins.push(normalizeLinkedIn(String(r.company_linkedin_url)));
+    if (r.external_account_id) extIds.push(String(r.external_account_id).trim());
+  }
+
+  return {
+    domains: nonEmpty(domains),
+    names: nonEmpty(names),
+    linkedins: nonEmpty(linkedins),
+    extIds: nonEmpty(extIds),
+  };
+}
+
+const CONTACT_CANDIDATE_COLUMNS =
+  "id, email, secondary_email, tertiary_email, linkedin_url, external_contact_id, first_name, last_name, company_name_raw, phone";
+const COMPANY_CANDIDATE_COLUMNS =
+  "id, name, normalized_name, domain, normalized_domain, external_account_id, website, company_linkedin_url";
+
+/**
+ * Run one `.in()` lookup per key set, chunked, and merge the results by id.
+ * Each lookup hits a generated, indexed column, so it stays cheap as the table grows.
+ */
+async function fetchCandidates<T extends { id: string }>(
+  supabase: any,
+  table: string,
+  columns: string,
+  workspaceScope: string[],
+  lookups: Array<{ column: string; values: string[] }>,
+): Promise<T[]> {
+  const byId = new Map<string, T>();
+
+  for (const lookup of lookups) {
+    for (const values of chunked(lookup.values)) {
+      if (values.length === 0) continue;
+      let query = supabase.from(table).select(columns).is("merged_into", null).in(lookup.column, values);
+      if (workspaceScope.length > 0) query = query.in("workspace_id", workspaceScope);
+      const { data, error } = await query;
+      if (error) throw error;
+      for (const record of (data ?? []) as T[]) byId.set(record.id, record);
+    }
+  }
+
+  return Array.from(byId.values());
+}
+
+async function loadCandidateContacts(
+  supabase: any,
+  rows: Record<string, unknown>[],
+  workspaceScope: string[],
+): Promise<ExistingContact[]> {
+  const keys = collectContactKeys(rows);
+  return await fetchCandidates<ExistingContact>(
+    supabase, "contacts", CONTACT_CANDIDATE_COLUMNS, workspaceScope,
+    [
+      { column: "normalized_email", values: keys.emails },
+      { column: "linkedin_url", values: keys.linkedins },
+      { column: "external_contact_id", values: keys.extIds },
+      { column: "normalized_name", values: keys.names },
+      { column: "phone", values: keys.phones },
+    ],
+  );
+}
+
+async function loadCandidateCompanies(
+  supabase: any,
+  rows: Record<string, unknown>[],
+  workspaceScope: string[],
+): Promise<ExistingCompany[]> {
+  const keys = collectCompanyKeys(rows);
+  return await fetchCandidates<ExistingCompany>(
+    supabase, "companies", COMPANY_CANDIDATE_COLUMNS, workspaceScope,
+    [
+      { column: "normalized_domain", values: keys.domains },
+      { column: "normalized_name", values: keys.names },
+      { column: "company_linkedin_url", values: keys.linkedins },
+      { column: "external_account_id", values: keys.extIds },
+    ],
+  );
+}
+
 function buildContactIndex(contacts: ExistingContact[]) {
   const emailMap = new Map<string, ExistingContact>();
   const linkedinMap = new Map<string, ExistingContact>();
@@ -206,6 +386,7 @@ function buildContactIndex(contacts: ExistingContact[]) {
   return { emailMap, linkedinMap, extIdMap, phoneMap, nameCompanyMap };
 }
 
+
 function buildCompanyIndex(companies: ExistingCompany[]) {
   const domainMap = new Map<string, ExistingCompany>();
   const extIdMap = new Map<string, ExistingCompany>();
@@ -213,13 +394,16 @@ function buildCompanyIndex(companies: ExistingCompany[]) {
   const linkedinMap = new Map<string, ExistingCompany>();
   for (const c of companies) {
     // Prefer the DB-computed normalized_domain; fall back to local normalization
-    const nd = (c.normalized_domain && c.normalized_domain.trim())
-      ? c.normalized_domain.trim().toLowerCase()
-      : (c.domain ? normalizeDomain(c.domain) : (c.website ? normalizeDomain(c.website) : ""));
+    const nd = companyDomainKey(c);
     if (nd) domainMap.set(nd, c);
     if (c.external_account_id) extIdMap.set(c.external_account_id, c);
-    if (c.normalized_name) nameMap.set(c.normalized_name.toLowerCase(), c);
-    else if (c.name) nameMap.set(normalizeCompanyName(c.name), c);
+    // Key on the same normalisation the lookup uses. companies.normalized_name is
+    // lower(trim(name)) and keeps legal suffixes, so keying on it directly stored
+    // "acme inc" while checkDuplicatesAdvanced looked up normalizeCompanyName()'s
+    // "acme" — meaning every company with Inc/Ltd/LLC/GmbH in its name failed to
+    // match by name and was recreated as a duplicate.
+    const nameKey = companyNameKey(c);
+    if (nameKey) nameMap.set(nameKey, c);
     if (c.company_linkedin_url) linkedinMap.set(normalizeLinkedIn(c.company_linkedin_url), c);
   }
   return { domainMap, extIdMap, nameMap, linkedinMap };
@@ -229,30 +413,6 @@ function buildCompanyIndex(companies: ExistingCompany[]) {
  * Derive a normalized domain identity for an inbound row by checking the strongest
  * signals in order: explicit domain → website → email host → company LinkedIn URL.
  */
-function deriveRowDomain(r: Record<string, unknown>): string {
-  if (r.domain) {
-    const d = normalizeDomain(String(r.domain));
-    if (d && DOMAIN_RE.test(d)) return d;
-  }
-  if (r.website) {
-    const d = normalizeDomain(String(r.website));
-    if (d && DOMAIN_RE.test(d)) return d;
-  }
-  if (r.email) {
-    const parts = String(r.email).toLowerCase().split("@");
-    if (parts.length === 2) {
-      const host = parts[1].trim();
-      // Skip generic / free-mail hosts so we don't merge unrelated people
-      const generic = new Set([
-        "gmail.com","yahoo.com","hotmail.com","outlook.com","aol.com","icloud.com",
-        "me.com","mac.com","live.com","msn.com","proton.me","protonmail.com",
-        "googlemail.com","yandex.com","gmx.com","zoho.com","fastmail.com","mail.com",
-      ]);
-      if (host && DOMAIN_RE.test(host) && !generic.has(host)) return host;
-    }
-  }
-  return "";
-}
 
 
 function checkDuplicatesAdvanced(
@@ -295,7 +455,10 @@ function checkDuplicatesAdvanced(
     if (!match && fullName && domain) {
       const companyMatch = companyIndex.domainMap.get(domain);
       if (companyMatch) {
-        const found = contactIndex.nameCompanyMap.get(`${fullName}|${(companyMatch.normalized_name || normalizeCompanyName(companyMatch.name)).toLowerCase()}`);
+        // nameCompanyMap is keyed with normalizeCompanyName(company_name_raw), so
+        // the lookup must strip legal suffixes the same way.
+        const companyKey = companyNameKey(companyMatch);
+        const found = contactIndex.nameCompanyMap.get(`${fullName}|${companyKey}`);
         if (found) { match = found; confidence = 80; matchType = "Name + company domain match"; }
       }
     }
@@ -354,6 +517,60 @@ function classifyRowAction(classification: string, settings: ImportSettings):
   return { status: "success", action: "enriched_existing", reviewRequired: false, outcome: "enriched_existing" };
 }
 
+/**
+ * Name/email coherence gate.
+ *
+ * A row reading "John Johnstone <patrickwhite@acme.com>" is two people stapled
+ * together by a bad vendor export. Importing it burns sending reputation — the
+ * greeting will not match the recipient — and corrupts every downstream metric.
+ *
+ * Downgrades the row action rather than replacing it: a row that was already
+ * headed for review stays there. Rows with no name or no email are untouched,
+ * since missing data is a gap in the vendor's file, not evidence of a bad lead.
+ */
+function applyLeadQualityGate(
+  rowAction: { status: string; action: string | null; reviewRequired: boolean; outcome: RowOutcome },
+  normalized: Record<string, unknown>,
+  policy: LeadQualityPolicy,
+): { rowAction: typeof rowAction; assessment: EmailNameAssessment; decision: string } {
+  const assessment = assessEmailNameMatch({
+    firstName: (normalized.first_name as string) ?? null,
+    lastName: (normalized.last_name as string) ?? null,
+    fullName: (normalized.full_name as string) ?? null,
+    email: (normalized.email as string) ?? null,
+  });
+  const decision = decideLeadQuality(assessment, policy);
+
+  // Never upgrade a row: an existing error or review outcome stands.
+  if (decision === "accept" || rowAction.status === "error") {
+    return { rowAction, assessment, decision };
+  }
+
+  if (decision === "reject") {
+    return {
+      rowAction: {
+        status: "skipped",
+        action: "rejected_low_quality",
+        reviewRequired: false,
+        outcome: rowAction.outcome,
+      },
+      assessment,
+      decision,
+    };
+  }
+
+  return {
+    rowAction: {
+      status: "review",
+      action: rowAction.action === "review_pending" ? "review_pending" : "review_low_quality",
+      reviewRequired: true,
+      outcome: "review_required",
+    },
+    assessment,
+    decision,
+  };
+}
+
 const CONTACT_FIELDS = new Set([
   "first_name","last_name","email","secondary_email","tertiary_email","personal_email",
   "job_title","seniority_level","department","headline","bio","persona","linkedin_url",
@@ -374,7 +591,7 @@ const COMPANY_FIELDS = new Set([
 
 /** Update import_job_rows status in bulk using individual updates grouped by status */
 async function updateRowStatuses(
-  supabase: ReturnType<typeof createClient>,
+  supabase: ImportDbClient,
   rowUpdates: any[],
   jobId: string,
 ): Promise<number> {
@@ -413,7 +630,7 @@ async function updateRowStatuses(
 
 /** Insert contacts with automatic sub-batch retry on failure */
 async function insertContactsWithRetry(
-  supabase: ReturnType<typeof createClient>,
+  supabase: ImportDbClient,
   contacts: Array<{ rowId: string; rowUpdate: any; contact: Record<string, unknown> }>,
   contactIndex: ReturnType<typeof buildContactIndex>,
   accessibleWorkspaceIds: string[],
@@ -628,6 +845,24 @@ Deno.serve(async (req: Request) => {
     ]));
 
     const settings = (job.settings ?? {}) as ImportSettings;
+    // Name/email coherence policy. Enabled unless explicitly switched off, so
+    // existing jobs get the check without needing their settings rewritten.
+    const qualityConfig = settings.lead_quality ?? {};
+    // Opt-IN, deliberately. The thresholds below have not been calibrated
+    // against real vendor files, and an uncalibrated gate rejects real leads.
+    // Run an import with `lead_quality: { enabled: true }` on a sample first,
+    // read error_summary.lead_quality.tally, tune, then enable by default.
+    const qualityEnabled = qualityConfig.enabled === true;
+    const qualityPolicy: LeadQualityPolicy = {
+      rejectBelow: qualityConfig.rejectBelow ?? DEFAULT_LEAD_QUALITY_POLICY.rejectBelow,
+      reviewBelow: qualityConfig.reviewBelow ?? DEFAULT_LEAD_QUALITY_POLICY.reviewBelow,
+      reviewRoleAccounts:
+        qualityConfig.reviewRoleAccounts ?? DEFAULT_LEAD_QUALITY_POLICY.reviewRoleAccounts,
+    };
+    const qualityTally: Record<string, number> = {
+      accepted: 0, reviewed: 0, rejected: 0,
+      match: 0, partial: 0, role_based: 0, mismatch: 0, unknown: 0,
+    };
     const mapping = (job.column_mapping ?? {}) as Record<string, string>;
     if (settings.list_id) {
       const { data: targetList, error: listErr } = await supabase
@@ -671,57 +906,32 @@ Deno.serve(async (req: Request) => {
 
     console.log(`[import] Staged rows in DB: ${totalStagedRows}, declared total: ${job.total_rows}`);
 
-    // Preload existing data for account-wide dedupe. Prospect Search is account-wide,
-    // so imports must also detect duplicates across every workspace the actor can access.
-    const preloadStart = performance.now();
-    async function fetchPaged<T>(builder: () => any, pageSize = 5000, maxRows = 500000): Promise<T[]> {
-      const out: T[] = [];
-      for (let from = 0; from < maxRows; from += pageSize) {
-        const { data, error } = await builder().range(from, from + pageSize - 1);
-        if (error) throw error;
-        const batch = (data ?? []) as T[];
-        out.push(...batch);
-        if (batch.length < pageSize) break;
-      }
-      return out;
-    }
+    // Duplicate detection is per batch: each batch fetches only the contacts and
+    // companies its own rows could match (see loadCandidateContacts). Nothing is
+    // preloaded, so cost is proportional to batch size rather than table size.
     const workspaceScope = accessibleWorkspaceIds.length > 0
       ? accessibleWorkspaceIds
       : (job.workspace_id ? [job.workspace_id] : []);
-    const existingContacts = await fetchPaged<ExistingContact>(() => {
-      let q = supabase
-        .from("contacts")
-        .select("id, email, secondary_email, tertiary_email, linkedin_url, external_contact_id, first_name, last_name, company_name_raw, phone")
-        .is("merged_into", null)
-        .order("id");
-      if (workspaceScope.length > 0) q = q.in("workspace_id", workspaceScope) as any;
-      return q;
-    });
-    const existingCompanies = await fetchPaged<ExistingCompany>(() => {
-      let q = supabase
-        .from("companies")
-        .select("id, name, normalized_name, domain, normalized_domain, external_account_id, website, company_linkedin_url")
-        .is("merged_into", null)
-        .order("id");
-      if (workspaceScope.length > 0) q = q.in("workspace_id", workspaceScope) as any;
-      return q;
-    });
 
-    const contactIndex = buildContactIndex((existingContacts ?? []) as ExistingContact[]);
-    const companyIndex = buildCompanyIndex((existingCompanies ?? []) as ExistingCompany[]);
-    // Domain-first cache so importer never duplicates a company that shares a normalized domain.
+    // Company identity survives across batches so two batches never create the
+    // same company twice. Seeded per batch from that batch's candidates, and
+    // added to whenever a company is created.
     const companyDomainCache = new Map<string, string>(); // normalized_domain -> company.id
     const companyNameCache = new Map<string, string>();   // normalized_name    -> company.id
-    for (const c of (existingCompanies ?? []) as ExistingCompany[]) {
-      const nd = (c.normalized_domain && c.normalized_domain.trim())
-        ? c.normalized_domain.trim().toLowerCase()
-        : (c.domain ? normalizeDomain(c.domain) : (c.website ? normalizeDomain(c.website) : ""));
-      if (nd) companyDomainCache.set(nd, c.id);
-      companyNameCache.set(c.normalized_name || normalizeCompanyName(c.name), c.id);
+
+    /** Fold a batch's candidate companies into the cross-batch identity cache. */
+    function rememberCompanies(companies: ExistingCompany[]) {
+      for (const c of companies) {
+        const nd = companyDomainKey(c);
+        if (nd) companyDomainCache.set(nd, c.id);
+        // Same normalisation as the lookup — see buildCompanyIndex.
+        const nameKey = companyNameKey(c);
+        if (nameKey) companyNameCache.set(nameKey, c.id);
+      }
     }
 
-    updateDiag({ timings: { preload_existing_ms: Math.round(performance.now() - preloadStart) } });
-    console.log(`[import] Preloaded ${(existingContacts ?? []).length} contacts, ${(existingCompanies ?? []).length} companies across ${workspaceScope.length} workspace(s) in ${Math.round(performance.now() - preloadStart)}ms`);
+    let candidateLookupMs = 0;
+    console.log(`[import] Candidate-based dedupe across ${workspaceScope.length} workspace(s); no preload`);
 
     // Field mapping report tracker
     const fieldReport: Record<string, { inserted: number; blank: number; target: string }> = {};
@@ -821,6 +1031,20 @@ Deno.serve(async (req: Request) => {
       const normalizeStart = performance.now();
       const excludedSet = new Set<string>(Array.isArray(settings.excluded_columns) ? settings.excluded_columns : []);
       const normalizedRows = pendingRows.map((row: any) => normalizeRow(row.raw_data ?? {}, mapping, excludedSet));
+
+      // Fetch only the existing records these rows could match, then key them with
+      // the same index builders as before — matching behaviour is unchanged, only
+      // the working set is.
+      const candidateStart = performance.now();
+      const [candidateContacts, candidateCompanies] = await Promise.all([
+        loadCandidateContacts(supabase, normalizedRows as Record<string, unknown>[], workspaceScope),
+        loadCandidateCompanies(supabase, normalizedRows as Record<string, unknown>[], workspaceScope),
+      ]);
+      candidateLookupMs += Math.round(performance.now() - candidateStart);
+      const contactIndex = buildContactIndex(candidateContacts);
+      const companyIndex = buildCompanyIndex(candidateCompanies);
+      rememberCompanies(candidateCompanies);
+
       const duplicateDetails = checkDuplicatesAdvanced(normalizedRows, contactIndex, companyIndex);
       const normalizeMs = Math.round(performance.now() - normalizeStart);
 
@@ -845,14 +1069,31 @@ Deno.serve(async (req: Request) => {
         const row = pendingRows[i] as any;
         const normalized = normalizedRows[i];
         const dupDetail = duplicateDetails[i];
-        const rowAction = classifyRowAction(dupDetail.classification, settings);
+        let rowAction = classifyRowAction(dupDetail.classification, settings);
+
+        // Name/email coherence: reject or flag rows where the address does not
+        // plausibly belong to the named person.
+        let qualityReason: string | null = null;
+        if (qualityEnabled) {
+          const gated = applyLeadQualityGate(rowAction, normalized as Record<string, unknown>, qualityPolicy);
+          rowAction = gated.rowAction;
+          qualityTally[gated.assessment.verdict] = (qualityTally[gated.assessment.verdict] ?? 0) + 1;
+          qualityTally[gated.decision === "accept" ? "accepted" : gated.decision === "review" ? "reviewed" : "rejected"]++;
+          if (gated.decision !== "accept") qualityReason = gated.assessment.reason;
+          (normalized as Record<string, unknown>)._lead_quality = {
+            verdict: gated.assessment.verdict,
+            score: gated.assessment.score,
+            reason: gated.assessment.reason,
+            pattern: gated.assessment.pattern ?? null,
+          };
+        }
 
         const rowUpdate: any = {
           id: row.id,
           status: rowAction.status,
           normalized_data: normalized,
           error_message: dupDetail.classification === "invalid" ? dupDetail.reason : null,
-          duplicate_match_reason: dupDetail.reason,
+          duplicate_match_reason: qualityReason ?? dupDetail.reason,
           action_taken: rowAction.action,
           review_required: rowAction.reviewRequired,
           company_id: dupDetail.matchedCompanyId,
@@ -1027,12 +1268,13 @@ Deno.serve(async (req: Request) => {
             .insert(toCreate).select("id, name, normalized_name, domain, normalized_domain, external_account_id, website, company_linkedin_url");
           if (!compErr && created) {
             for (const c of created as ExistingCompany[]) {
-              const nameK = c.normalized_name || normalizeCompanyName(c.name);
-              companyNameCache.set(nameK, c.id);
-              companyIndex.nameMap.set(nameK, c);
-              const nd = (c.normalized_domain && c.normalized_domain.trim())
-                ? c.normalized_domain.trim().toLowerCase()
-                : (c.domain ? normalizeDomain(c.domain) : (c.website ? normalizeDomain(c.website) : ""));
+              // Same normalisation as the lookup — see buildCompanyIndex.
+              const nameK = companyNameKey(c);
+              if (nameK) {
+                companyNameCache.set(nameK, c.id);
+                companyIndex.nameMap.set(nameK, c);
+              }
+              const nd = companyDomainKey(c);
               if (nd) {
                 companyDomainCache.set(nd, c.id);
                 companyIndex.domainMap.set(nd, c);
@@ -1177,7 +1419,7 @@ Deno.serve(async (req: Request) => {
 
       updateDiag({
         phase: "processing_batch", last_progress_at: nowIso(),
-        timings: { normalize_ms: normalizeMs, company_match_ms: companyMs, contact_insert_ms: insertMs, list_assign_ms: listMs, row_update_ms: rowUpdateMs },
+        timings: { normalize_ms: normalizeMs, candidate_lookup_ms: candidateLookupMs, company_match_ms: companyMs, contact_insert_ms: insertMs, list_assign_ms: listMs, row_update_ms: rowUpdateMs },
         recent_batches: [{
           batch: batchIndex, rows: rowUpdates.length,
           range: `${firstRow}-${lastRow}`,
@@ -1363,6 +1605,9 @@ Deno.serve(async (req: Request) => {
         ...(mismatchWarning ? { verification_warning: mismatchWarning } : {}),
         reconciliation,
         field_report: fieldReport,
+        // Name/email coherence breakdown, so a run can be judged before its
+        // results are trusted — and the thresholds tuned if it rejected too much.
+        ...(qualityEnabled ? { lead_quality: { policy: qualityPolicy, tally: qualityTally } } : {}),
       },
     }).eq("id", job_id);
 
@@ -1410,6 +1655,16 @@ Deno.serve(async (req: Request) => {
 
   } catch (err: any) {
     console.error(`[import] Fatal error: ${err?.message}`, err?.stack);
+    await recordErrorEvent(supabase, {
+      source: "edge_function",
+      component: "run-import-job",
+      operation: "process_job",
+      severity: "critical",
+      workspaceId: (job as { workspace_id?: string })?.workspace_id ?? null,
+      jobId: jobIdForCatch ?? null,
+      error: err,
+      metadata: { phase: (diag as { phase?: string })?.phase ?? null },
+    });
     if (job?.id && jobIdForCatch) {
       updateDiag({ phase: "failed", last_progress_at: nowIso() });
       await supabase.from("import_jobs").update({

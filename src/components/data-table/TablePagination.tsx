@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { formatResultCount } from "@/lib/format-count";
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -6,6 +7,8 @@ interface TablePaginationProps {
   page: number;
   totalPages: number;
   totalRows: number;
+  /** True when totalRows is a planner estimate — rendered with a ~ prefix. */
+  isEstimatedTotal?: boolean;
   pageSize: number;
   onPageChange: (page: number) => void;
   onPageSizeChange?: (size: number) => void;
@@ -13,7 +16,7 @@ interface TablePaginationProps {
 }
 
 export function TablePagination({
-  page, totalPages, totalRows, pageSize, onPageChange, onPageSizeChange, selectedCount,
+  page, totalPages, totalRows, pageSize, onPageChange, onPageSizeChange, selectedCount, isEstimatedTotal,
 }: TablePaginationProps) {
   const from = page * pageSize + 1;
   const to = Math.min((page + 1) * pageSize, totalRows);
@@ -25,7 +28,7 @@ export function TablePagination({
           <span className="font-medium text-foreground">{selectedCount} selected</span>
         ) : null}
         <span>
-          {totalRows > 0 ? `${from.toLocaleString()}–${to.toLocaleString()} of ${totalRows.toLocaleString()}` : "0 results"}
+          {totalRows > 0 ? `${from.toLocaleString()}–${to.toLocaleString()} of ${isEstimatedTotal ? formatResultCount(totalRows, true) : totalRows.toLocaleString()}` : "0 results"}
         </span>
         {onPageSizeChange && (
           <div className="flex items-center gap-1.5">

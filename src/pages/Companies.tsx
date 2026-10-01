@@ -1,4 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
+import { formatResultCount } from "@/lib/format-count";
+import { ESTIMATED_COUNT_THRESHOLD } from "@/hooks/use-prospect-search";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -22,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { CompanyBulkActionsBar } from "@/components/companies/BulkActionsBar";
 import { PushToCrmButton } from "@/components/crm/PushToCrmButton";
 import { format } from "date-fns";
+import { buildOrSearch } from "@/lib/postgrest-filter";
 
 const COLUMNS: ColumnDef[] = [
   { key: "name", label: "Company", defaultVisible: true },
@@ -102,6 +105,7 @@ export default function CompaniesPage() {
 
   const [companies, setCompanies] = useState<Company[]>([]);
   const [count, setCount] = useState(0);
+  const isEstimated = count >= ESTIMATED_COUNT_THRESHOLD;
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(25);
   const [search, setSearch] = useState("");
@@ -143,12 +147,19 @@ export default function CompaniesPage() {
     setLoading(true);
     let query = supabase
       .from("companies")
-      .select(SELECT_FIELDS, { count: "exact" })
+      // Estimated: an exact COUNT(*) over 1.2M rows ran on every page and every
+      // keystroke. Narrow results still come back exact; broad ones stop paying
+      // for a full scan. See docs/PERFORMANCE_BASELINE.md.
+      .select(SELECT_FIELDS, { count: "estimated" })
       .order(sortBy, { ascending: sortDir === "asc" })
       .range(page * pageSize, (page + 1) * pageSize - 1);
 
     if (debouncedSearch.trim()) {
-      query = query.or(`name.ilike.%${debouncedSearch}%,domain.ilike.%${debouncedSearch}%,industry.ilike.%${debouncedSearch}%,country.ilike.%${debouncedSearch}%`);
+      const searchClause = buildOrSearch(
+        ["name", "domain", "industry", "country"],
+        debouncedSearch,
+      );
+      if (searchClause) query = query.or(searchClause);
     }
 
     query = applyFilters(query, filterValues, FILTER_CONFIGS);
@@ -301,7 +312,7 @@ export default function CompaniesPage() {
         </Table>
       </div>
 
-      <TablePagination page={page} totalPages={totalPages} totalRows={count} pageSize={pageSize}
+      <TablePagination page={page} totalPages={totalPages} totalRows={count} isEstimatedTotal={isEstimated} pageSize={pageSize}
         onPageChange={setPage} onPageSizeChange={(s) => { setPageSize(s); setPage(0); }} selectedCount={selected.size} />
     </div>
   );

@@ -62,7 +62,7 @@ export default function CrmReviewQueue() {
       });
       if (error) throw error;
       const r = data as any;
-      if (r?.skipped) toast.info("Auto-detection is disabled in CRM Settings.");
+      if (r?.auto_detect_disabled) toast.info("Auto-detection is disabled in CRM Settings.");
       else toast.success(`Scanned ${r.scanned}, queued ${r.queued}, auto-pushed ${r.auto_pushed}`);
       load();
     } catch (e: any) { toast.error(e.message ?? "Detection failed"); }

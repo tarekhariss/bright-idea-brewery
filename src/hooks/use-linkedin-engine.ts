@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { buildOrSearch } from "@/lib/postgrest-filter";
 
 const rpc = (fn: string, args: any) => (supabase as any).rpc(fn, args);
 const from = (t: string) => (supabase as any).from(t);
@@ -166,7 +167,8 @@ export function useLinkedinContacts(filter: LinkedinContactsFilter = {}) {
         .eq("workspace_id", workspaceId)
         .limit(200)
         .order("updated_at", { ascending: false });
-      if (filter.search) q = q.or(`first_name.ilike.%${filter.search}%,last_name.ilike.%${filter.search}%,email.ilike.%${filter.search}%`);
+      const searchClause = buildOrSearch(["first_name", "last_name", "email"], filter.search ?? "");
+      if (searchClause) q = q.or(searchClause);
       if (filter.hasLinkedinUrl) q = q.not("linkedin_url", "is", null);
       const { data: contacts, error } = await q;
       if (error) throw error;

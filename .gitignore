@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Dedup fixture output — contains data derived from a production clone
+fixtures/
+
+# Read-only DB connection string for inspection runs — never commit
+.env.readonly
